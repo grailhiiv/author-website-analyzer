@@ -1,0 +1,277 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ReportStatus {
+  QUEUED
+  RUNNING
+  COMPLETE
+  FAILED
+}
+
+enum AnalysisJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETE
+  FAILED
+}
+
+enum FindingSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ReportCategory {
+  BRAND_CLARITY
+  BOOK_PROMOTION
+  READER_CONVERSION
+  SEO_DISCOVERABILITY
+  MOBILE_ACCESSIBILITY
+  PERFORMANCE_HEALTH
+  TRUST_CREDIBILITY
+  MAINTENANCE_RISK
+}
+
+enum PageType {
+  HOME
+  ABOUT
+  BOOKS
+  CONTACT
+  NEWSLETTER
+  BLOG
+  MEDIA_KIT
+  EVENTS
+  UNKNOWN
+}
+
+enum SalesLeadStatus {
+  NEW
+  REVIEWED
+  CONTACTED
+  INTERESTED
+  NOT_A_FIT
+  CONVERTED
+}
+
+model Report {
+  id             String            @id @default(cuid())
+  url            String
+  normalizedUrl  String
+  domain         String
+  authorType     String
+  websiteGoal    String
+  status         ReportStatus      @default(QUEUED)
+  overallScore   Int?
+  summary        String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  completedAt    DateTime?
+  errorMessage   String?
+  lead           Lead?
+  pagesScanned   PageScanned[]
+  scores         ReportScore[]
+  findings       ReportFinding[]
+  technicalAudit TechnicalAudit?
+  salesNote      ReportSalesNote?
+  analysisJob    AnalysisJob?
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([domain])
+}
+
+model AnalysisJob {
+  id          String            @id @default(cuid())
+  reportId    String            @unique
+  report      Report            @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  status      AnalysisJobStatus @default(QUEUED)
+  attempts    Int               @default(0)
+  maxAttempts Int               @default(3)
+  lastError   String?
+  lockedAt    DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  nextRunAt   DateTime          @default(now())
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([status, nextRunAt])
+  @@index([lockedAt])
+}
+
+model Lead {
+  id          String   @id @default(cuid())
+  reportId    String   @unique
+  report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  name        String
+  email       String
+  websiteUrl  String
+  authorType  String
+  websiteGoal String
+  consent     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
+}
+
+model PageScanned {
+  id              String   @id @default(cuid())
+  reportId        String
+  report          Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  url             String
+  pageType        PageType @default(UNKNOWN)
+  statusCode      Int?
+  title           String?
+  metaDescription String?
+  h1              String?
+  headingsJson    Json?
+  linksJson       Json?
+  imagesJson      Json?
+  formsJson       Json?
+  wordCount       Int?
+  screenshotUrl   String?
+  createdAt       DateTime @default(now())
+
+  @@index([reportId])
+  @@index([pageType])
+}
+
+model ReportScore {
+  id        String         @id @default(cuid())
+  reportId  String
+  report    Report         @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  category  ReportCategory
+  score     Int
+  maxScore  Int            @default(100)
+  summary   String?
+  createdAt DateTime       @default(now())
+
+  @@unique([reportId, category])
+  @@index([category])
+}
+
+model ReportFinding {
+  id             String          @id @default(cuid())
+  reportId       String
+  report         Report          @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  category       ReportCategory
+  severity       FindingSeverity
+  title          String
+  finding        String
+  recommendation String
+  priority       Int
+  createdAt      DateTime        @default(now())
+
+  @@index([reportId])
+  @@index([category])
+  @@index([severity])
+  @@index([priority])
+}
+
+model TechnicalAudit {
+  id                   String   @id @default(cuid())
+  reportId             String   @unique
+  report               Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  mobilePerformance    Int?
+  desktopPerformance   Int?
+  mobileAccessibility  Int?
+  desktopAccessibility Int?
+  mobileSeo            Int?
+  desktopSeo           Int?
+  mobileBestPractices  Int?
+  desktopBestPractices Int?
+  lighthouseJson       Json?
+  createdAt            DateTime @default(now())
+}
+
+model ReportSalesNote {
+  id                  String          @id @default(cuid())
+  reportId            String          @unique
+  report              Report          @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  manualNote          String          @default("")
+  leadStatus          SalesLeadStatus @default(NEW)
+  serviceFit          String?
+  priority            Int             @default(3)
+  outreachMessage     String?
+  outreachSource      String?
+  outreachGeneratedAt DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([leadStatus])
+  @@index([priority])
+  @@index([updatedAt])
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verification")
+}

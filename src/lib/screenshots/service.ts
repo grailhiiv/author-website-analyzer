@@ -1,0 +1,160 @@
+import "server-only";
+
+import {
+  FindingSeverity,
+  PageType,
+  ReportCategory,
+} from "@/generated/prisma/client";
+import { prisma } from "@/lib/db/prisma.core";
+import {
+  captureHomepageScreenshots,
+  type HomepageScreenshotResult,
+} from "@/lib/screenshots/capture.core";
+import type { ScreenshotStorage } from "@/lib/screenshots/storage";
+
+const SCREENSHOT_FAILURE_FINDING_TITLE = "Screenshot capture failed";
+
+type SaveReportScreenshotsOptions = {
+  homepageUrl?: string;
+  storage?: ScreenshotStorage;
+  timeoutMs?: number;
+  redirectLimit?: number;
+  waitAfterLoadMs?: number;
+};
+
+function primaryScreenshotUrl(result: HomepageScreenshotResult) {
+  return result.screenshots.desktop?.url ?? result.screenshots.mobile?.url ?? null;
+}
+
+async function saveScreenshotFailureFinding(
+  reportId: string,
+  result: HomepageScreenshotResult
+) {
+  await prisma.reportFinding.deleteMany({
+    where: {
+      reportId,
+      title: SCREENSHOT_FAILURE_FINDING_TITLE,
+    },
+  });
+
+  if (result.errors.length === 0) {
+    return;
+  }
+
+  await prisma.reportFinding.create({
+    data: {
+      reportId,
+      category: ReportCategory.PERFORMANCE_HEALTH,
+      severity: result.screenshots.desktop || result.screenshots.mobile
+        ? FindingSeverity.LOW
+        : FindingSeverity.MEDIUM,
+      title: SCREENSHOT_FAILURE_FINDING_TITLE,
+      finding:
+        "The analyzer could not capture every website screenshot during this run.",
+      recommendation:
+        "Try running the analysis again later. This does not necessarily mean the website is broken.",
+      priority: 9,
+    },
+  });
+}
+
+async function savePrimaryScreenshotUrl(
+  reportId: string,
+  homepageUrl: string,
+  screenshotUrl: string | null
+) {
+  if (!screenshotUrl) {
+    return null;
+  }
+
+  const homepage = await prisma.pageScanned.findFirst({
+    where: {
+      reportId,
+      pageType: PageType.HOME,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (homepage) {
+    return prisma.pageScanned.update({
+      where: {
+        id: homepage.id,
+      },
+      data: {
+        screenshotUrl,
+      },
+    });
+  }
+
+  return prisma.pageScanned.create({
+    data: {
+      reportId,
+      url: homepageUrl,
+      pageType: PageType.HOME,
+      screenshotUrl,
+    },
+  });
+}
+
+export async function saveReportHomepageScreenshots(
+  reportId: string,
+  options: SaveReportScreenshotsOptions = {}
+) {
+  const report = await prisma.report.findUnique({
+    where: {
+      id: reportId,
+    },
+    select: {
+      id: true,
+      normalizedUrl: true,
+      url: true,
+      pagesScanned: {
+        where: {
+          pageType: PageType.HOME,
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+        take: 1,
+        select: {
+          url: true,
+        },
+      },
+    },
+  });
+
+  if (!report) {
+    throw new Error("Report not found.");
+  }
+
+  const homepageUrl =
+    options.homepageUrl ??
+    report.pagesScanned[0]?.url ??
+    report.normalizedUrl ??
+    report.url;
+  const result = await captureHomepageScreenshots(homepageUrl, {
+    reportId,
+    redirectLimit: options.redirectLimit,
+    storage: options.storage,
+    timeoutMs: options.timeoutMs,
+    waitAfterLoadMs: options.waitAfterLoadMs,
+  });
+  const screenshotUrl = primaryScreenshotUrl(result);
+  const pageScanned = await savePrimaryScreenshotUrl(
+    reportId,
+    result.homepageUrl,
+    screenshotUrl
+  );
+
+  await saveScreenshotFailureFinding(reportId, result);
+
+  return {
+    result,
+    pageScanned,
+  };
+}
