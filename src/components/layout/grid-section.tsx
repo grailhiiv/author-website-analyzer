@@ -34,7 +34,7 @@ export function GridSection({
           {children}
         </div>
       </div>
-      {!hideBottomLine ? <div className="border-t border-dashed" /> : null}
+      {!hideBottomLine ? <div className="border-t" /> : null}
     </section>
   );
 }
@@ -43,7 +43,7 @@ export function DashedLine({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "w-full border-t border-dashed",
+        "w-full border-t",
         className
       )}
     />

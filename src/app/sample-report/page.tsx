@@ -65,15 +65,15 @@ export default function SampleReportPage() {
           description="A realistic preview of what a completed author website report can look like. This sample uses fictional scan data."
           actions={
             <Link href="/analyze" className={buttonVariants()}>
-              Analyze My Website
+              Analyze website
               <ArrowRightIcon data-icon="inline-end" />
             </Link>
           }
         />
 
         <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-          <Card className="rounded-lg border-dashed shadow-none">
-            <CardHeader className="border-b border-dashed">
+          <Card className="rounded-lg border-[color:var(--brand)] bg-[var(--brand-soft)] shadow-sm shadow-foreground/5">
+            <CardHeader className="border-b">
               <div className="flex items-center justify-between gap-3">
                 <CardTitle>Overall score</CardTitle>
                 <Badge variant="secondary">{sampleReport.status}</Badge>
@@ -105,8 +105,8 @@ export default function SampleReportPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-lg border-dashed shadow-none">
-            <CardHeader className="border-b border-dashed">
+          <Card className="rounded-lg shadow-sm shadow-foreground/5">
+            <CardHeader className="border-b">
               <CardTitle>Report overview</CardTitle>
               <CardDescription>
                 {sampleReport.authorName} - {sampleReport.authorType} - Goal:{" "}
@@ -130,9 +130,9 @@ export default function SampleReportPage() {
           </Card>
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <Card className="rounded-lg border-dashed shadow-none">
-            <CardHeader className="border-b border-dashed">
+        <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+          <Card className="rounded-lg shadow-sm shadow-foreground/5">
+            <CardHeader className="border-b">
               <CardTitle>Score breakdown</CardTitle>
               <CardDescription>
                 The report separates author-site quality into practical
@@ -141,7 +141,7 @@ export default function SampleReportPage() {
             </CardHeader>
             <CardContent className="grid gap-3">
               {sampleReport.categories.map((category) => (
-                <div key={category.id} className="rounded-lg border border-dashed p-4">
+                <div key={category.id} className="rounded-lg border p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-medium">{category.label}</p>
@@ -164,9 +164,9 @@ export default function SampleReportPage() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-6">
-            <Card className="rounded-lg border-dashed shadow-none">
-              <CardHeader className="border-b border-dashed">
+          <div className="grid content-start gap-6">
+            <Card className="rounded-lg shadow-sm shadow-foreground/5">
+              <CardHeader className="border-b">
                 <CardTitle>Top priority fixes</CardTitle>
                 <CardDescription>
                   The sample highlights the highest-impact reader journey
@@ -175,7 +175,7 @@ export default function SampleReportPage() {
               </CardHeader>
               <CardContent className="grid gap-3">
                 {sampleReport.findings.map((finding) => (
-                  <div key={finding} className="flex gap-3 rounded-lg border border-dashed p-4">
+                  <div key={finding} className="flex gap-3 rounded-lg border bg-muted/20 p-4">
                     <SparklesIcon
                       className="mt-0.5 size-4 shrink-0 text-primary"
                       aria-hidden="true"
@@ -188,8 +188,8 @@ export default function SampleReportPage() {
               </CardContent>
             </Card>
 
-            <Card className="rounded-lg border-dashed shadow-none">
-              <CardHeader className="border-b border-dashed">
+            <Card className="rounded-lg shadow-sm shadow-foreground/5">
+              <CardHeader className="border-b">
                 <CardTitle>Quick wins</CardTitle>
                 <CardDescription>
                   These are practical changes an author or web team can review
@@ -198,7 +198,7 @@ export default function SampleReportPage() {
               </CardHeader>
               <CardContent className="grid gap-3">
                 {sampleReport.quickWins.map((quickWin) => (
-                  <div key={quickWin} className="flex gap-3 rounded-lg border border-dashed p-4">
+                  <div key={quickWin} className="flex gap-3 rounded-lg border bg-muted/20 p-4">
                     <CheckCircle2Icon
                       className="mt-0.5 size-4 shrink-0 text-primary"
                       aria-hidden="true"
@@ -213,8 +213,8 @@ export default function SampleReportPage() {
           </div>
         </div>
 
-        <Card className="mt-6 rounded-lg border-dashed shadow-none">
-          <CardHeader className="border-b border-dashed">
+        <Card className="mt-6 rounded-lg shadow-sm shadow-foreground/5">
+          <CardHeader className="border-b">
             <CardTitle>Category critique</CardTitle>
             <CardDescription>
               Detailed findings stay tied to what the scan detected.
@@ -252,8 +252,8 @@ export default function SampleReportPage() {
         </Card>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <Card className="rounded-lg border-dashed shadow-none">
-            <CardHeader className="border-b border-dashed">
+          <Card className="rounded-lg shadow-sm shadow-foreground/5">
+            <CardHeader className="border-b">
               <CardTitle>Suggested improvements</CardTitle>
               <CardDescription>
                 Example author-friendly recommendations from the completed
@@ -280,8 +280,8 @@ export default function SampleReportPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-lg border-dashed shadow-none">
-            <CardHeader className="border-b border-dashed">
+          <Card className="rounded-lg shadow-sm shadow-foreground/5">
+            <CardHeader className="border-b">
               <CardTitle>Technical snapshot</CardTitle>
               <CardDescription>
                 The real analyzer stores PageSpeed and crawl details when they
@@ -369,7 +369,7 @@ export default function SampleReportPage() {
                 className: "w-fit",
               })}
             >
-              Get your author website score
+              Analyze website
               <ExternalLinkIcon data-icon="inline-end" />
             </Link>
           </CardContent>
@@ -381,7 +381,7 @@ export default function SampleReportPage() {
 
 function OverviewItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-dashed p-4">
+    <div className="rounded-lg border p-4">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="mt-1 font-medium">{value}</p>
     </div>
@@ -390,7 +390,7 @@ function OverviewItem({ label, value }: { label: string; value: string }) {
 
 function Improvement({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-lg border border-dashed p-4">
+    <div className="rounded-lg border p-4">
       <p className="text-sm font-medium">{title}</p>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
     </div>
@@ -399,7 +399,7 @@ function Improvement({ title, body }: { title: string; body: string }) {
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-dashed p-4">
+    <div className="rounded-lg border p-4">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="mt-1 text-2xl font-semibold">{value}</p>
     </div>

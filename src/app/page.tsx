@@ -98,18 +98,18 @@ function DashedGrid() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:56px_56px] opacity-45 [mask-image:linear-gradient(to_bottom,black,transparent_88%)]"
+      className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-[size:56px_56px] opacity-45 [mask-image:linear-gradient(to_bottom,black,transparent_88%)]"
     />
   );
 }
 
 function ScorePreview() {
   return (
-    <div className="relative rounded-lg border border-dashed bg-background p-4 shadow-sm">
-      <div className="absolute -top-px left-6 h-px w-24 bg-background" />
-      <div className="flex items-start justify-between gap-4 border-b border-dashed pb-4">
+    <div className="relative rounded-lg border bg-background p-4 shadow-sm shadow-foreground/5">
+      <div className="absolute -top-px left-6 h-px w-24 bg-[var(--brand)]" />
+      <div className="flex items-start justify-between gap-4 border-b pb-4">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--brand)]">
             Live Scorecard
           </p>
           <h2 className="mt-2 text-3xl font-semibold tracking-tight">78</h2>
@@ -120,7 +120,7 @@ function ScorePreview() {
         {scoreCategories.slice(0, 5).map((category, index) => (
           <div
             key={category.id}
-            className="grid grid-cols-[1fr_auto] items-center gap-4 rounded-lg border border-dashed bg-muted/20 p-3 text-sm"
+            className="grid grid-cols-[1fr_auto] items-center gap-4 rounded-lg border bg-muted/20 p-3 text-sm"
           >
             <span className="min-w-0 truncate text-muted-foreground">
               {category.label}
@@ -131,12 +131,12 @@ function ScorePreview() {
           </div>
         ))}
       </div>
-      <div className="rounded-lg bg-foreground p-4 text-background">
+      <div className="rounded-lg bg-primary p-4 text-primary-foreground">
         <div className="flex items-center gap-2 text-sm font-medium">
           <SparklesIcon className="size-4" aria-hidden="true" />
           Author-friendly summary
         </div>
-        <p className="mt-3 text-sm leading-6 text-background/75">
+        <p className="mt-3 text-sm leading-6 text-primary-foreground/80">
           Strong author positioning, but the homepage needs a clearer book CTA
           and newsletter reason above the fold.
         </p>
@@ -148,11 +148,11 @@ function ScorePreview() {
 export default function Home() {
   return (
     <>
-      <Section className="relative overflow-hidden border-b border-dashed">
+      <Section className="relative overflow-hidden border-b">
         <DashedGrid />
         <Container className="grid gap-10 py-16 lg:grid-cols-[minmax(0,1fr)_430px] lg:items-center lg:py-20">
           <div className="max-w-3xl">
-            <Badge variant="outline" className="mb-5 border-dashed bg-background">
+            <Badge variant="outline" className="mb-5 border-[color:var(--brand)] bg-[var(--brand-soft)] text-foreground">
               Built for author websites, not generic SEO
             </Badge>
             <h1 className="max-w-4xl text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
@@ -173,34 +173,39 @@ export default function Home() {
                 href="/sample-report"
                 className={buttonVariants({ variant: "outline", size: "lg" })}
               >
-                View sample
+                View sample report
               </Link>
-            </div>
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
-              {workflow.map((step, index) => (
-                <div
-                  key={step.title}
-                  className="border-l border-dashed pl-4 text-sm"
-                >
-                  <p className="font-medium">
-                    {String(index + 1).padStart(2, "0")} {step.title}
-                  </p>
-                  <p className="mt-1 leading-6 text-muted-foreground">
-                    {step.description}
-                  </p>
-                </div>
-              ))}
             </div>
           </div>
           <ScorePreview />
+        </Container>
+        <Container className="pb-12">
+          <div className="grid gap-3 sm:grid-cols-3">
+            {workflow.map((step, index) => (
+              <div
+                key={step.title}
+                className="rounded-lg border bg-background/85 p-4 text-sm shadow-sm shadow-foreground/5"
+              >
+                <p className="font-medium">
+                  <span className="mr-2 text-[var(--brand)] tabular-nums">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  {step.title}
+                </p>
+                <p className="mt-2 leading-6 text-muted-foreground">
+                  {step.description}
+                </p>
+              </div>
+            ))}
+          </div>
         </Container>
       </Section>
 
       <Section>
         <Container className="py-14">
           <div className="grid gap-4 lg:grid-cols-12">
-            <div className="rounded-lg border border-dashed bg-muted/25 p-6 lg:col-span-5">
-              <FileSearchIcon className="size-5 text-muted-foreground" />
+            <div className="rounded-lg border bg-[var(--brand-soft)] p-6 lg:col-span-5">
+              <FileSearchIcon className="size-5 text-[var(--brand)]" />
               <h2 className="mt-5 max-w-md text-2xl font-semibold tracking-tight">
                 The score follows the job an author website needs to do.
               </h2>
@@ -217,9 +222,9 @@ export default function Home() {
                 return (
                   <div
                     key={item.title}
-                    className="rounded-lg border border-dashed p-5"
+                    className="rounded-lg border bg-background p-5"
                   >
-                    <Icon className="size-5 text-muted-foreground" />
+                    <Icon className="size-5 text-[var(--brand)]" />
                     <h3 className="mt-5 font-semibold">{item.title}</h3>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
                       {item.description}
@@ -232,10 +237,10 @@ export default function Home() {
         </Container>
       </Section>
 
-      <Section className="border-y border-dashed bg-muted/20">
+      <Section className="border-y bg-muted/20">
         <Container className="grid gap-8 py-14 lg:grid-cols-[300px_1fr]">
           <div>
-            <Badge variant="outline" className="border-dashed">
+            <Badge variant="outline">
               Eight score areas
             </Badge>
             <h2 className="mt-4 text-2xl font-semibold tracking-tight">
@@ -247,8 +252,9 @@ export default function Home() {
               <div
                 key={category.id}
                 className={cn(
-                  "rounded-lg border border-dashed bg-background p-4",
-                  index === 0 && "md:row-span-2 md:p-5"
+                  "rounded-lg border bg-background p-4 shadow-sm shadow-foreground/5",
+                  index === 0 &&
+                    "border-[color:var(--brand)] bg-[var(--brand-soft)] md:row-span-2 md:p-5"
                 )}
               >
                 <div className="flex items-center justify-between gap-4">
@@ -269,7 +275,7 @@ export default function Home() {
       <Section>
         <Container className="grid gap-8 py-14 lg:grid-cols-2 lg:items-center">
           <div>
-            <Badge variant="outline" className="border-dashed">
+            <Badge variant="outline">
               Scoring rule
             </Badge>
             <h2 className="mt-4 text-2xl font-semibold tracking-tight">
@@ -281,7 +287,7 @@ export default function Home() {
               language.
             </p>
           </div>
-          <div className="rounded-lg border border-dashed p-5">
+          <div className="rounded-lg border p-5">
             {[
               "Deterministic numeric scoring",
               "Reader-focused recommendations",
@@ -290,7 +296,7 @@ export default function Home() {
             ].map((item) => (
               <div
                 key={item}
-                className="flex items-center gap-3 border-b border-dashed py-3 last:border-b-0"
+                className="flex items-center gap-3 border-b py-3 last:border-b-0"
               >
                 <CheckCircle2Icon className="size-4 shrink-0" aria-hidden="true" />
                 <span className="text-sm">{item}</span>
@@ -300,10 +306,10 @@ export default function Home() {
         </Container>
       </Section>
 
-      <Section className="border-t border-dashed bg-muted/20">
+      <Section className="border-t bg-muted/20">
         <Container className="grid gap-8 py-14 lg:grid-cols-[320px_1fr]">
           <div>
-            <Badge variant="outline" className="border-dashed">
+            <Badge variant="outline">
               FAQ
             </Badge>
             <h2 className="mt-4 text-2xl font-semibold tracking-tight">
@@ -327,9 +333,9 @@ export default function Home() {
 
       <Section>
         <Container className="py-14">
-          <div className="rounded-lg border border-dashed bg-foreground p-6 text-background md:flex md:items-center md:justify-between">
+          <div className="rounded-lg bg-primary p-6 text-primary-foreground md:flex md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-medium text-background/70">
+              <p className="text-sm font-medium text-primary-foreground/75">
                 Ready for a reader-focused review?
               </p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight">
@@ -343,7 +349,7 @@ export default function Home() {
                 "mt-5 md:mt-0"
               )}
             >
-              Start analysis
+              Analyze website
               <ArrowRightIcon data-icon="inline-end" />
             </Link>
           </div>

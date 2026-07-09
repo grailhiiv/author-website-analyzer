@@ -36,14 +36,14 @@ const focusAreas = [
 export default function AnalyzePage() {
   return (
     <>
-      <Section className="relative overflow-hidden border-b border-dashed">
+      <Section className="relative overflow-hidden border-b">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:56px_56px] opacity-45 [mask-image:linear-gradient(to_bottom,black,transparent_88%)]"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] bg-[size:56px_56px] opacity-45 [mask-image:linear-gradient(to_bottom,black,transparent_88%)]"
         />
         <Container className="grid gap-8 py-12 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
           <div className="max-w-3xl">
-            <Badge variant="outline" className="mb-5 border-dashed bg-background">
+            <Badge variant="outline" className="mb-5 border-[color:var(--brand)] bg-[var(--brand-soft)]">
               Website analysis
             </Badge>
             <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
@@ -62,9 +62,9 @@ export default function AnalyzePage() {
               return (
                 <div
                   key={item.label}
-                  className="rounded-lg border border-dashed bg-background p-4"
+                  className="rounded-lg border bg-background p-4 shadow-sm shadow-foreground/5"
                 >
-                  <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+                  <Icon className="size-4 text-[var(--brand)]" aria-hidden="true" />
                   <p className="mt-4 text-sm font-medium">{item.label}</p>
                 </div>
               );
@@ -76,15 +76,18 @@ export default function AnalyzePage() {
       <Section>
         <Container className="grid gap-6 py-10 lg:grid-cols-[minmax(0,1fr)_340px]">
           <AnalyzeForm />
-          <aside className="flex h-fit flex-col gap-4 rounded-lg border border-dashed bg-muted/20 p-5">
-            <Badge variant="outline" className="w-fit border-dashed">
+          <aside className="flex h-fit flex-col gap-4 rounded-lg border bg-muted/20 p-5 shadow-sm shadow-foreground/5">
+            <Badge variant="outline" className="w-fit">
               What happens next
             </Badge>
             <div className="grid gap-4">
               {steps.map((step, index) => (
-                <div key={step.title} className="border-l border-dashed pl-4">
+                <div key={step.title} className="border-l pl-4">
                   <p className="text-sm font-medium">
-                    {String(index + 1).padStart(2, "0")} {step.title}
+                    <span className="mr-2 text-[var(--brand)] tabular-nums">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    {step.title}
                   </p>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">
                     {step.description}

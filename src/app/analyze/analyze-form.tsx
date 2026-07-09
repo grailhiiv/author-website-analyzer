@@ -44,6 +44,13 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-sm text-destructive">{message}</p>;
 }
 
+function optionLabel(
+  options: ReadonlyArray<{ value: string; label: string }>,
+  value: string
+) {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
 export function AnalyzeForm() {
   const router = useRouter();
   const [serverMessage, setServerMessage] = useState<string | null>(null);
@@ -88,8 +95,8 @@ export function AnalyzeForm() {
   }
 
   return (
-    <Card className="w-full border-dashed shadow-sm">
-      <CardHeader className="border-b border-dashed bg-muted/20">
+    <Card className="w-full shadow-sm shadow-foreground/5">
+      <CardHeader className="border-b bg-muted/20">
         <CardTitle>Author website details</CardTitle>
         <CardDescription>
           Start an author-focused website analysis. This can take a moment while
@@ -106,28 +113,28 @@ export function AnalyzeForm() {
             </Alert>
           ) : null}
 
-          <div className="rounded-lg border border-dashed bg-background p-4">
+          <div className="rounded-lg border border-[color:var(--brand)] bg-[var(--brand-soft)] p-4">
             <div className="flex flex-col gap-2">
-            <label htmlFor="websiteUrl" className="text-sm font-medium">
-              Website URL
-            </label>
-            <Input
-              id="websiteUrl"
-              type="text"
-              placeholder="authorname.com"
-              autoCapitalize="none"
-              autoComplete="url"
-              inputMode="url"
-              spellCheck={false}
-              aria-invalid={Boolean(errors.websiteUrl)}
-              aria-describedby={
-                errors.websiteUrl ? "websiteUrl-error" : undefined
-              }
-              {...register("websiteUrl")}
-            />
-            <div id="websiteUrl-error">
-              <FieldError message={errors.websiteUrl?.message} />
-            </div>
+              <label htmlFor="websiteUrl" className="text-sm font-medium">
+                Website URL
+              </label>
+              <Input
+                id="websiteUrl"
+                type="text"
+                placeholder="authorname.com"
+                autoCapitalize="none"
+                autoComplete="url"
+                inputMode="url"
+                spellCheck={false}
+                aria-invalid={Boolean(errors.websiteUrl)}
+                aria-describedby={
+                  errors.websiteUrl ? "websiteUrl-error" : undefined
+                }
+                {...register("websiteUrl")}
+              />
+              <div id="websiteUrl-error">
+                <FieldError message={errors.websiteUrl?.message} />
+              </div>
             </div>
           </div>
 
@@ -150,7 +157,9 @@ export function AnalyzeForm() {
                       className="w-full"
                       aria-invalid={Boolean(errors.authorType)}
                     >
-                      <SelectValue placeholder="Choose author type" />
+                      <SelectValue placeholder="Choose author type">
+                        {optionLabel(authorTypes, field.value)}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {authorTypes.map((type) => (
@@ -183,7 +192,9 @@ export function AnalyzeForm() {
                       className="w-full"
                       aria-invalid={Boolean(errors.websiteGoal)}
                     >
-                      <SelectValue placeholder="Choose website goal" />
+                      <SelectValue placeholder="Choose website goal">
+                        {optionLabel(websiteGoals, field.value)}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {websiteGoals.map((goal) => (
@@ -236,7 +247,7 @@ export function AnalyzeForm() {
             </div>
           </div>
 
-          <div className="flex items-start gap-3 rounded-lg border border-dashed bg-muted/20 p-4">
+          <div className="flex items-start gap-3 rounded-lg border bg-muted/20 p-4">
             <input
               id="consent"
               type="checkbox"
@@ -263,7 +274,7 @@ export function AnalyzeForm() {
             </div>
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col items-stretch gap-3 border-t border-dashed bg-muted/20 sm:flex-row sm:items-center sm:justify-between">
+        <CardFooter className="flex flex-col items-stretch gap-3 border-t bg-muted/20 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             No pressure, no automated sales promises, just a practical website
             critique.
@@ -273,7 +284,7 @@ export function AnalyzeForm() {
             disabled={isSubmitting}
             className="w-full sm:w-auto"
           >
-            {isSubmitting ? "Starting analysis..." : "Start Analysis"}
+            {isSubmitting ? "Analyzing website..." : "Analyze website"}
             <ArrowRightIcon data-icon="inline-end" />
           </Button>
         </CardFooter>

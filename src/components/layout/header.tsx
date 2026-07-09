@@ -5,14 +5,13 @@ import { LogoLink } from "@/components/layout/logo-link";
 import { buttonVariants } from "@/components/ui/button";
 
 const navItems = [
-  { href: "/analyze", label: "Analyze" },
   { href: "/sample-report", label: "Sample Report" },
   { href: "/admin", label: "Admin" },
 ];
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b border-dashed bg-background/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b bg-background/92 backdrop-blur-xl">
       <Container className="flex h-16 items-center justify-between gap-4">
         <LogoLink className="flex shrink-0 items-center" />
         <nav className="hidden items-center gap-1 md:flex">
@@ -26,9 +25,21 @@ export function Header() {
             </Link>
           ))}
         </nav>
-        <Link href="/analyze" className={buttonVariants({ size: "sm" })}>
-          Analyze
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/sample-report"
+            className={buttonVariants({
+              variant: "ghost",
+              size: "sm",
+              className: "md:hidden",
+            })}
+          >
+            Sample
+          </Link>
+          <Link href="/analyze" className={buttonVariants({ size: "sm" })}>
+            Analyze website
+          </Link>
+        </div>
       </Container>
     </header>
   );

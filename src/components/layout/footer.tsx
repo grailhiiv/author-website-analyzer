@@ -5,12 +5,12 @@ import { LogoLink } from "@/components/layout/logo-link";
 
 export function Footer() {
   return (
-    <footer className="border-t border-dashed bg-muted/20">
+    <footer className="border-t bg-muted/20">
       <Container className="flex flex-col gap-8 py-10 text-sm md:flex-row md:items-center md:justify-between">
         <LogoLink className="flex shrink-0 items-center" />
         <div className="flex flex-wrap gap-4 text-muted-foreground">
           {[
-            { href: "/analyze", label: "Analyze" },
+            { href: "/analyze", label: "Analyze website" },
             { href: "/sample-report", label: "Sample Report" },
             { href: "/admin", label: "Admin" },
           ].map((item) => (
