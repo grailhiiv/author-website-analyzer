@@ -6,38 +6,22 @@ import {
   WandSparklesIcon,
 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
-import { GridSection } from "@/components/layout/grid-section";
-import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Badge } from "@/components/catalyst/badge";
+import { Button } from "@/components/catalyst/button";
+import { Select } from "@/components/catalyst/select";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
+  TableHead as TableHeader,
+  TableHeader as TableHead,
   TableRow,
-} from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
+} from "@/components/catalyst/table";
+import { GridSection } from "@/components/layout/grid-section";
+import { PageHeader } from "@/components/layout/page-header";
 import {
   ReportCategory,
   SalesLeadStatus,
@@ -55,10 +39,11 @@ import {
   priorityOptions,
   reportStatusLabels,
   salesLeadStatusLabels,
-  severityBadgeVariant,
-  statusBadgeVariant,
+  severityBadgeColor,
+  statusBadgeColor,
 } from "@/lib/admin/display";
 import { prisma } from "@/lib/db/prisma";
+import { cn } from "@/lib/utils";
 
 import {
   generateOutreachMessageAction,
@@ -85,6 +70,88 @@ const serviceFitOptions = [
   "Website optimization",
   "Not sure",
 ];
+
+function Card({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={cn(
+        "rounded-lg border border-zinc-950/10 bg-white shadow-sm",
+        className
+      )}
+    >
+      {children}
+    </section>
+  );
+}
+
+function CardHeader({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("border-b border-zinc-950/10 p-5", className)}>
+      {children}
+    </div>
+  );
+}
+
+function CardContent({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <div className={cn("p-5", className)}>{children}</div>;
+}
+
+function CardTitle({ children }: { children: ReactNode }) {
+  return <h2 className="text-base/7 font-semibold text-zinc-950">{children}</h2>;
+}
+
+function CardDescription({ children }: { children: ReactNode }) {
+  return <p className="mt-1 text-sm/6 text-zinc-500">{children}</p>;
+}
+
+function Progress({
+  className,
+  value = 0,
+}: {
+  className?: string;
+  value?: number;
+}) {
+  const width = Math.min(100, Math.max(0, value));
+
+  return (
+    <div className={cn("h-2 overflow-hidden rounded-full bg-zinc-950/10", className)}>
+      <div className="h-full rounded-full bg-blue-600" style={{ width: `${width}%` }} />
+    </div>
+  );
+}
+
+function Textarea({
+  className,
+  ...props
+}: ComponentPropsWithoutRef<"textarea">) {
+  return (
+    <textarea
+      {...props}
+      className={cn(
+        "block w-full rounded-lg border border-zinc-950/10 bg-white px-3 py-2 text-sm/6 text-zinc-950 shadow-sm outline-hidden placeholder:text-zinc-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20",
+        className
+      )}
+    />
+  );
+}
 
 function scorePercent(score: number, maxScore: number) {
   if (maxScore <= 0) {
@@ -215,20 +282,14 @@ export default async function AdminReportDetailPage({
           description="Review the full author website audit, lead details, internal sales notes, and suggested outreach angle."
           actions={
             <>
-              <Link
-                href="/admin/reports"
-                className={buttonVariants({ variant: "outline" })}
-              >
-                <ArrowLeftIcon />
+              <Button outline href="/admin/reports">
+                <ArrowLeftIcon data-slot="icon" />
                 Reports
-              </Link>
-              <Link
-                href={`/report/${report.id}`}
-                className={buttonVariants({ variant: "secondary" })}
-              >
+              </Button>
+              <Button color="light" href={`/report/${report.id}`}>
                 Public report
-                <ExternalLinkIcon />
-              </Link>
+                <ExternalLinkIcon data-slot="icon" />
+              </Button>
             </>
           }
         />
@@ -244,25 +305,26 @@ export default async function AdminReportDetailPage({
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                     Website URL
                   </p>
-                  <Link
+                  <a
                     href={report.normalizedUrl}
-                    className="mt-1 inline-flex items-center gap-1 break-all text-sm font-medium text-primary hover:underline"
+                    className="mt-1 inline-flex items-center gap-1 break-all text-sm font-medium text-blue-600 hover:underline"
                     target="_blank"
+                    rel="noreferrer"
                   >
                     {report.normalizedUrl}
                     <ExternalLinkIcon className="size-3.5" />
-                  </Link>
+                  </a>
                 </div>
                 <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                     Status
                   </p>
                   <Badge
                     className="mt-1"
-                    variant={statusBadgeVariant(report.status)}
+                    color={statusBadgeColor(report.status)}
                   >
                     {reportStatusLabels[report.status]}
                   </Badge>
@@ -300,7 +362,7 @@ export default async function AdminReportDetailPage({
                   const score = scoresByCategory.get(category);
 
                   return (
-                    <div key={category} className="rounded-lg border border-dashed bg-muted/20 p-4">
+                    <div key={category} className="rounded-lg border border-zinc-950/10 bg-zinc-50 p-4">
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <p className="text-sm font-medium">
                           {categoryLabels[category]}
@@ -313,7 +375,7 @@ export default async function AdminReportDetailPage({
                         value={score ? scorePercent(score.score, score.maxScore) : 0}
                       />
                       {score?.summary ? (
-                        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                        <p className="mt-3 text-sm leading-6 text-zinc-500">
                           {score.summary}
                         </p>
                       ) : null}
@@ -348,9 +410,7 @@ export default async function AdminReportDetailPage({
                         <TableRow key={finding.id}>
                           <TableCell>{finding.priority}</TableCell>
                           <TableCell>
-                            <Badge
-                              variant={severityBadgeVariant(finding.severity)}
-                            >
+                            <Badge color={severityBadgeColor(finding.severity)}>
                               {findingSeverityLabels[finding.severity]}
                             </Badge>
                           </TableCell>
@@ -359,7 +419,7 @@ export default async function AdminReportDetailPage({
                           </TableCell>
                           <TableCell className="max-w-xs whitespace-normal">
                             <p className="font-medium">{finding.title}</p>
-                            <p className="mt-1 text-muted-foreground">
+                            <p className="mt-1 text-zinc-500">
                               {finding.finding}
                             </p>
                           </TableCell>
@@ -371,7 +431,7 @@ export default async function AdminReportDetailPage({
                     </TableBody>
                   </Table>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-zinc-500">
                     No findings have been saved for this report yet.
                   </p>
                 )}
@@ -394,8 +454,8 @@ export default async function AdminReportDetailPage({
                 <Metric label="Desktop SEO" value={metricLabel(report.technicalAudit?.desktopSeo ?? null)} />
                 <Metric label="Mobile best practices" value={metricLabel(report.technicalAudit?.mobileBestPractices ?? null)} />
                 <Metric label="Desktop best practices" value={metricLabel(report.technicalAudit?.desktopBestPractices ?? null)} />
-                <div className="rounded-lg border border-dashed bg-muted/20 p-4 sm:col-span-2 lg:col-span-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <div className="rounded-lg border border-zinc-950/10 bg-zinc-50 p-4 sm:col-span-2 lg:col-span-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                     Lighthouse source
                   </p>
                   <p className="mt-1 text-sm font-medium">
@@ -429,13 +489,14 @@ export default async function AdminReportDetailPage({
                       {report.pagesScanned.map((page) => (
                         <TableRow key={page.id}>
                           <TableCell className="max-w-xs whitespace-normal">
-                            <Link
+                            <a
                               href={page.url}
-                              className="break-all text-primary hover:underline"
+                              className="break-all text-blue-600 hover:underline"
                               target="_blank"
+                              rel="noreferrer"
                             >
                               {page.url}
-                            </Link>
+                            </a>
                           </TableCell>
                           <TableCell>{pageTypeLabel(page.pageType)}</TableCell>
                           <TableCell>{page.statusCode ?? "N/A"}</TableCell>
@@ -446,7 +507,7 @@ export default async function AdminReportDetailPage({
                             {page.h1 ?? "No H1 saved"}
                           </TableCell>
                           <TableCell>
-                            <div className="space-y-1 text-xs text-muted-foreground">
+                            <div className="space-y-1 text-xs text-zinc-500">
                               <p>{page.wordCount ?? 0} words</p>
                               <p>{countJsonArray(page.linksJson)} links</p>
                               <p>{countJsonArray(page.imagesJson)} images</p>
@@ -458,7 +519,7 @@ export default async function AdminReportDetailPage({
                     </TableBody>
                   </Table>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-zinc-500">
                     No pages have been scanned for this report yet.
                   </p>
                 )}
@@ -489,7 +550,7 @@ export default async function AdminReportDetailPage({
                     />
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-zinc-500">
                     No lead email has been captured for this report.
                   </p>
                 )}
@@ -511,23 +572,17 @@ export default async function AdminReportDetailPage({
                       Lead status
                     </label>
                     <Select
+                      id="leadStatus"
                       name="leadStatus"
                       defaultValue={
                         report.salesNote?.leadStatus ?? SalesLeadStatus.NEW
                       }
                     >
-                      <SelectTrigger id="leadStatus" className="w-full">
-                        <SelectValue placeholder="Choose status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          {Object.values(SalesLeadStatus).map((status) => (
-                            <SelectItem key={status} value={status}>
-                              {salesLeadStatusLabels[status]}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
+                      {Object.values(SalesLeadStatus).map((status) => (
+                        <option key={status} value={status}>
+                          {salesLeadStatusLabels[status]}
+                        </option>
+                      ))}
                     </Select>
                   </div>
 
@@ -535,19 +590,12 @@ export default async function AdminReportDetailPage({
                     <label className="text-sm font-medium" htmlFor="serviceFit">
                       Service fit
                     </label>
-                    <Select name="serviceFit" defaultValue={serviceFit}>
-                      <SelectTrigger id="serviceFit" className="w-full">
-                        <SelectValue placeholder="Choose service fit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          {serviceFitOptions.map((option) => (
-                            <SelectItem key={option} value={option}>
-                              {option}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
+                    <Select id="serviceFit" name="serviceFit" defaultValue={serviceFit}>
+                      {serviceFitOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
                     </Select>
                   </div>
 
@@ -556,24 +604,15 @@ export default async function AdminReportDetailPage({
                       Priority
                     </label>
                     <Select
+                      id="priority"
                       name="priority"
                       defaultValue={String(report.salesNote?.priority ?? 3)}
                     >
-                      <SelectTrigger id="priority" className="w-full">
-                        <SelectValue placeholder="Choose priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          {priorityOptions.map((option) => (
-                            <SelectItem
-                              key={option.value}
-                              value={String(option.value)}
-                            >
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
+                      {priorityOptions.map((option) => (
+                        <option key={option.value} value={String(option.value)}>
+                          {option.label}
+                        </option>
+                      ))}
                     </Select>
                   </div>
 
@@ -591,7 +630,7 @@ export default async function AdminReportDetailPage({
                   </div>
 
                   <Button type="submit" className="w-full">
-                    <SaveIcon />
+                    <SaveIcon data-slot="icon" />
                     Save sales notes
                   </Button>
                 </form>
@@ -606,7 +645,7 @@ export default async function AdminReportDetailPage({
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm leading-6 text-muted-foreground">
+                <p className="text-sm leading-6 text-zinc-500">
                   {outreachAngle}
                 </p>
               </CardContent>
@@ -624,7 +663,7 @@ export default async function AdminReportDetailPage({
                 <form action={generateOutreachMessageAction}>
                   <input type="hidden" name="reportId" value={report.id} />
                   <Button type="submit" className="w-full">
-                    <WandSparklesIcon />
+                    <WandSparklesIcon data-slot="icon" />
                     Generate Outreach Message
                   </Button>
                 </form>
@@ -632,12 +671,12 @@ export default async function AdminReportDetailPage({
                 {savedOutreach ? (
                   <div className="space-y-4">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary">
+                      <Badge color="blue">
                         {savedOutreach.source === "ai"
                           ? "AI draft"
-                          : "Fallback template"}
+                          : "Rule-based draft"}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-zinc-500">
                         Generated{" "}
                         {savedOutreach.generatedAt
                           ? formatDate(new Date(savedOutreach.generatedAt))
@@ -658,7 +697,7 @@ export default async function AdminReportDetailPage({
                     />
                   </div>
                 ) : (
-                  <p className="text-sm leading-6 text-muted-foreground">
+                  <p className="text-sm leading-6 text-zinc-500">
                     Generate a low-pressure outreach draft that mentions only
                     one or two of the strongest report findings.
                   </p>
@@ -681,10 +720,10 @@ export default async function AdminReportDetailPage({
                     width={800}
                     height={600}
                     unoptimized
-                    className="aspect-video w-full rounded-lg border border-dashed object-cover"
+                    className="aspect-video w-full rounded-lg border border-zinc-950/10 object-cover"
                   />
                 ) : (
-                  <div className="flex min-h-36 flex-col items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground">
+                  <div className="flex min-h-36 flex-col items-center justify-center rounded-lg border border-zinc-950/10 text-center text-sm text-zinc-500">
                     <ImageIcon className="mb-2 size-6" />
                     No screenshot captured yet.
                   </div>
@@ -701,7 +740,7 @@ export default async function AdminReportDetailPage({
 function DetailItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
         {label}
       </p>
       <p className="mt-1 text-sm font-medium">{value}</p>
@@ -711,8 +750,8 @@ function DetailItem({ label, value }: { label: string; value: string }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-dashed bg-muted/20 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="rounded-lg border border-zinc-950/10 bg-zinc-50 p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
         {label}
       </p>
       <p className="mt-1 text-lg font-semibold">{value}</p>
@@ -723,10 +762,10 @@ function Metric({ label, value }: { label: string; value: string }) {
 function OutreachDraft({ label, value }: { label: string; value: string }) {
   return (
     <div className="space-y-2">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
         {label}
       </p>
-      <div className="whitespace-pre-wrap rounded-lg border border-dashed bg-muted/30 p-3 text-sm leading-6">
+      <div className="whitespace-pre-wrap rounded-lg border border-zinc-950/10 bg-zinc-50 p-3 text-sm leading-6">
         {value}
       </div>
     </div>

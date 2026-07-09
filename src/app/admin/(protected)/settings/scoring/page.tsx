@@ -1,7 +1,7 @@
 import { BrainCircuitIcon, ListChecksIcon } from "lucide-react";
 
 import { AdminSettingsCard } from "@/components/admin/admin-settings-card";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/catalyst/badge";
 import { ReportCategory } from "@/generated/prisma/client";
 import { categoryLabels } from "@/lib/admin/display";
 
@@ -36,7 +36,7 @@ export default function AdminScoringSettingsPage() {
           {scoringRules.map((rule) => (
             <div
               key={rule}
-              className="rounded-lg border border-dashed bg-muted/25 p-3 text-sm leading-6 text-muted-foreground"
+              className="rounded-lg border border-zinc-950/10 bg-zinc-50 p-3 text-sm leading-6 text-zinc-500"
             >
               {rule}
             </div>
@@ -54,9 +54,9 @@ export default function AdminScoringSettingsPage() {
           {categoryOrder.map((category, index) => (
             <div
               key={category}
-              className="flex items-center gap-3 rounded-lg border border-dashed bg-background p-3"
+              className="flex items-center gap-3 rounded-lg border border-zinc-950/10 bg-white p-3"
             >
-              <Badge variant="outline">{String(index + 1).padStart(2, "0")}</Badge>
+              <Badge>{String(index + 1).padStart(2, "0")}</Badge>
               <span className="text-sm font-medium">
                 {categoryLabels[category]}
               </span>

@@ -65,11 +65,11 @@ export default function AdminSettingsLayout({
           </AdminPanel>
 
           <section className="min-w-0 space-y-6">
-            <div className="rounded-lg border border-dashed bg-muted/20 p-4">
+            <div className="rounded-lg border border-zinc-950/10 bg-zinc-50 p-4">
               <div className="flex items-start gap-3">
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-white">
                   <BrainCircuitIcon
-                    className="size-4 text-muted-foreground"
+                    className="size-4 text-zinc-500"
                     aria-hidden
                   />
                 </div>
@@ -77,7 +77,7 @@ export default function AdminSettingsLayout({
                   <h2 className="text-sm font-semibold">
                     Deterministic scores, AI explanations
                   </h2>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  <p className="mt-1 text-sm leading-6 text-zinc-500">
                     Numeric scores stay rule-based. AI is limited to explaining
                     saved findings in plain author-friendly language.
                   </p>

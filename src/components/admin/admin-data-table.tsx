@@ -11,7 +11,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/components/catalyst/table";
 import { cn } from "@/lib/utils";
 
 type AdminDataTableColumn = {
@@ -54,25 +54,23 @@ export function AdminDataTable({
       />
       <AdminPanelContent className="p-0">
         {rowCount > 0 ? (
-          <Table className={cn(minWidth, "text-[0.8rem]")}>
-            <TableHeader>
-              <TableRow className="bg-muted/40 hover:bg-muted/40">
+          <Table dense grid className={minWidth}>
+            <TableHead>
+              <TableRow className="bg-zinc-50">
                 {columns.map((column) => (
-                  <TableHead
+                  <TableHeader
                     key={column.label}
                     className={cn(
-                      "h-9 border-b border-dashed px-3 text-xs font-medium text-muted-foreground",
+                      "text-xs/6 font-semibold text-zinc-500",
                       column.className
                     )}
                   >
                     {column.label}
-                  </TableHead>
+                  </TableHeader>
                 ))}
               </TableRow>
-            </TableHeader>
-            <TableBody className="[&_td]:px-3 [&_td]:py-3">
-              {children}
-            </TableBody>
+            </TableHead>
+            <TableBody>{children}</TableBody>
           </Table>
         ) : (
           <div className="p-4">{emptyState}</div>

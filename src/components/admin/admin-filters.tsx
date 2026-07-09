@@ -5,17 +5,10 @@ import {
   AdminPanelContent,
   AdminPanelHeader,
 } from "@/components/admin/admin-panel";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Badge } from "@/components/catalyst/badge";
+import { Button } from "@/components/catalyst/button";
+import { Input } from "@/components/catalyst/input";
+import { Select } from "@/components/catalyst/select";
 import { ReportStatus } from "@/generated/prisma/client";
 import { authorTypes, websiteGoals } from "@/lib/analyzer/options";
 import {
@@ -71,13 +64,13 @@ export function AdminFiltersCard({ filters, resetHref }: AdminFiltersProps) {
         description="Narrow the admin view by status, author type, score, goal, or website."
         action={
           activeFilters.length > 0 ? (
-            <Badge variant="secondary">{activeFilters.length} active</Badge>
+            <Badge color="blue">{activeFilters.length} active</Badge>
           ) : (
-            <Badge variant="outline">All records</Badge>
+            <Badge>All records</Badge>
           )
         }
       />
-      <AdminPanelContent className="space-y-4 pt-4">
+      <AdminPanelContent className="space-y-4 p-5">
         <form className="grid gap-3 lg:grid-cols-6" method="get">
           <div className="flex flex-col gap-2 lg:col-span-2">
             <label className="text-sm font-medium" htmlFor="website">
@@ -98,103 +91,69 @@ export function AdminFiltersCard({ filters, resetHref }: AdminFiltersProps) {
             <label className="text-sm font-medium" htmlFor="status">
               Status
             </label>
-            <Select name="status" defaultValue={filters.status}>
-              <SelectTrigger id="status" className="w-full">
-                <SelectValue placeholder="Any status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value={allFilterValue}>Any status</SelectItem>
+            <Select id="status" name="status" defaultValue={filters.status}>
+                  <option value={allFilterValue}>Any status</option>
                   {Object.values(ReportStatus).map((status) => (
-                    <SelectItem key={status} value={status}>
+                    <option key={status} value={status}>
                       {reportStatusLabels[status]}
-                    </SelectItem>
+                    </option>
                   ))}
-                </SelectGroup>
-              </SelectContent>
             </Select>
           </div>
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium" htmlFor="authorType">
               Author type
             </label>
-            <Select name="authorType" defaultValue={filters.authorType}>
-              <SelectTrigger id="authorType" className="w-full">
-                <SelectValue placeholder="Any author type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value={allFilterValue}>
+            <Select id="authorType" name="authorType" defaultValue={filters.authorType}>
+                  <option value={allFilterValue}>
                     Any author type
-                  </SelectItem>
+                  </option>
                   {authorTypes.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <option key={option.value} value={option.value}>
                       {option.label}
-                    </SelectItem>
+                    </option>
                   ))}
-                </SelectGroup>
-              </SelectContent>
             </Select>
           </div>
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium" htmlFor="scoreRange">
               Score range
             </label>
-            <Select name="scoreRange" defaultValue={filters.scoreRange}>
-              <SelectTrigger id="scoreRange" className="w-full">
-                <SelectValue placeholder="Any score" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
+            <Select id="scoreRange" name="scoreRange" defaultValue={filters.scoreRange}>
                   {scoreRangeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <option key={option.value} value={option.value}>
                       {option.label}
-                    </SelectItem>
+                    </option>
                   ))}
-                </SelectGroup>
-              </SelectContent>
             </Select>
           </div>
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium" htmlFor="websiteGoal">
               Website goal
             </label>
-            <Select name="websiteGoal" defaultValue={filters.websiteGoal}>
-              <SelectTrigger id="websiteGoal" className="w-full">
-                <SelectValue placeholder="Any goal" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value={allFilterValue}>Any goal</SelectItem>
+            <Select id="websiteGoal" name="websiteGoal" defaultValue={filters.websiteGoal}>
+                  <option value={allFilterValue}>Any goal</option>
                   {websiteGoals.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <option key={option.value} value={option.value}>
                       {option.label}
-                    </SelectItem>
+                    </option>
                   ))}
-                </SelectGroup>
-              </SelectContent>
             </Select>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end lg:col-span-6">
-            <Button type="submit" className="w-full sm:w-auto">
-              <SearchIcon data-icon="inline-start" />
+            <Button type="submit" color="dark/zinc" className="w-full sm:w-auto">
+              <SearchIcon data-slot="icon" />
               Apply filters
             </Button>
-            <a
-              className={buttonVariants({
-                variant: "outline",
-                className: "w-full sm:w-auto",
-              })}
-              href={resetHref}
-            >
+            <Button outline href={resetHref} className="w-full sm:w-auto">
               Reset
-            </a>
+            </Button>
           </div>
         </form>
         {activeFilters.length > 0 ? (
-          <div className="flex flex-wrap gap-2 border-t border-dashed pt-4">
+          <div className="flex flex-wrap gap-2 border-t border-zinc-200 pt-4">
             {activeFilters.map((filter) => (
-              <Badge key={filter} variant="outline">
+              <Badge key={filter}>
                 {filter}
               </Badge>
             ))}

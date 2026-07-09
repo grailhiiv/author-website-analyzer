@@ -1,14 +1,13 @@
-import Link from "next/link";
 import { ClipboardListIcon, SearchIcon } from "lucide-react";
 
 import { AdminDataTable } from "@/components/admin/admin-data-table";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminFiltersCard } from "@/components/admin/admin-filters";
+import { Badge } from "@/components/catalyst/badge";
+import { Button } from "@/components/catalyst/button";
+import { TableCell, TableRow } from "@/components/catalyst/table";
 import { GridSection } from "@/components/layout/grid-section";
 import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
-import { TableCell, TableRow } from "@/components/ui/table";
 import {
   type AdminSearchParams,
   buildReportWhere,
@@ -21,7 +20,7 @@ import {
   formatScore,
   formatWebsiteGoal,
   reportStatusLabels,
-  statusBadgeVariant,
+  statusBadgeColor,
 } from "@/lib/admin/display";
 import { prisma } from "@/lib/db/prisma";
 
@@ -57,13 +56,10 @@ export default async function AdminReportsPage({
             title="Report queue"
             description="Newest scans, deterministic score totals, and drilldowns for each author website."
             actions={
-              <Link
-                href="/analyze"
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                <SearchIcon data-icon="inline-start" />
+              <Button outline href="/analyze">
+                <SearchIcon data-slot="icon" />
                 New scan
-              </Link>
+              </Button>
             }
             emptyState={
               <AdminEmptyState
@@ -71,12 +67,9 @@ export default async function AdminReportsPage({
                 title="No reports match these filters"
                 description="Clear the filters or submit an author website so the analyzer can create a new scorecard."
                 action={
-                  <Link
-                    href="/analyze"
-                    className={buttonVariants({ variant: "default", size: "sm" })}
-                  >
+                  <Button href="/analyze">
                     Start a scan
-                  </Link>
+                  </Button>
                 }
               />
             }
@@ -88,38 +81,32 @@ export default async function AdminReportsPage({
                     <span className="break-words font-medium">
                       {report.domain}
                     </span>
-                    <span className="break-all text-xs text-muted-foreground">
+                    <span className="break-all text-xs text-zinc-500">
                       {report.normalizedUrl}
                     </span>
                   </div>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="text-zinc-500">
                   {formatAuthorType(report.authorType)}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="text-zinc-500">
                   {formatWebsiteGoal(report.websiteGoal)}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={statusBadgeVariant(report.status)}>
+                  <Badge color={statusBadgeColor(report.status)}>
                     {reportStatusLabels[report.status]}
                   </Badge>
                 </TableCell>
                 <TableCell className="font-mono tabular-nums">
                   {formatScore(report.overallScore)}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="text-zinc-500">
                   {formatDate(report.createdAt)}
                 </TableCell>
                 <TableCell>
-                  <Link
-                    className={buttonVariants({
-                      variant: "outline",
-                      size: "sm",
-                    })}
-                    href={`/admin/reports/${report.id}`}
-                  >
+                  <Button outline href={`/admin/reports/${report.id}`}>
                     View report
-                  </Link>
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

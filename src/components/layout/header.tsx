@@ -11,15 +11,19 @@ const navItems = [
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/92 backdrop-blur-xl">
-      <Container className="flex h-16 items-center justify-between gap-4">
+    <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-xl">
+      <Container className="flex h-20 items-center justify-between gap-4">
         <LogoLink className="flex shrink-0 items-center" />
         <nav className="hidden items-center gap-1 md:flex">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={buttonVariants({ variant: "ghost", size: "sm" })}
+              className={buttonVariants({
+                variant: "ghost",
+                size: "sm",
+                className: "rounded-full px-3 text-slate-600 hover:text-slate-950",
+              })}
             >
               {item.label}
             </Link>
@@ -31,12 +35,18 @@ export function Header() {
             className={buttonVariants({
               variant: "ghost",
               size: "sm",
-              className: "md:hidden",
+              className: "rounded-full md:hidden",
             })}
           >
             Sample
           </Link>
-          <Link href="/analyze" className={buttonVariants({ size: "sm" })}>
+          <Link
+            href="/analyze"
+            className={buttonVariants({
+              size: "sm",
+              className: "h-9 rounded-full px-4",
+            })}
+          >
             Analyze website
           </Link>
         </div>

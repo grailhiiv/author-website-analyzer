@@ -26,13 +26,15 @@ export function PageHeader({
     >
       <div className="flex max-w-3xl flex-col gap-2">
         {eyebrow ? (
-          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+          {title}
+        </h1>
         {description ? (
-          <p className="break-words text-base leading-7 text-muted-foreground">
+          <p className="break-words text-base leading-7 text-slate-600">
             {description}
           </p>
         ) : null}

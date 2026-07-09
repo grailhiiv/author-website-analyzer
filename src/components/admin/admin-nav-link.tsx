@@ -57,10 +57,10 @@ export function AdminNavLink({
         href={href}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "inline-flex h-8 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors",
+          "inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-medium transition-colors",
           active
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            ? "bg-zinc-950 text-white"
+            : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"
         )}
       >
         <Icon className="size-3.5" aria-hidden />
@@ -74,25 +74,28 @@ export function AdminNavLink({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "group flex items-center gap-3 rounded-lg border px-3 py-2 text-sm transition-colors",
+        "group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-colors",
         active
-          ? "border-border bg-muted/70 text-foreground shadow-xs"
-          : "border-transparent text-muted-foreground hover:border-dashed hover:border-border hover:bg-muted/50 hover:text-foreground"
+          ? "bg-zinc-950 text-white shadow-sm"
+          : "text-zinc-600 hover:bg-zinc-950/5 hover:text-zinc-950"
       )}
     >
       <Icon
         className={cn(
           "size-4 shrink-0 transition-colors",
-          active
-            ? "text-foreground"
-            : "text-muted-foreground group-hover:text-foreground"
+          active ? "text-white" : "text-zinc-500 group-hover:text-zinc-950"
         )}
         aria-hidden
       />
       <span className="min-w-0">
         <span className="block font-medium">{label}</span>
         {description ? (
-          <span className="block truncate text-xs text-muted-foreground">
+          <span
+            className={cn(
+              "block truncate text-xs",
+              active ? "text-white/65" : "text-zinc-500"
+            )}
+          >
             {description}
           </span>
         ) : null}

@@ -86,6 +86,22 @@ export function statusBadgeVariant(status: ReportStatus) {
   return "outline" as const;
 }
 
+export function statusBadgeColor(status: ReportStatus) {
+  if (status === ReportStatus.COMPLETE) {
+    return "green" as const;
+  }
+
+  if (status === ReportStatus.FAILED) {
+    return "red" as const;
+  }
+
+  if (status === ReportStatus.RUNNING) {
+    return "blue" as const;
+  }
+
+  return "zinc" as const;
+}
+
 export function severityBadgeVariant(severity: FindingSeverity) {
   if (
     severity === FindingSeverity.CRITICAL ||
@@ -99,6 +115,18 @@ export function severityBadgeVariant(severity: FindingSeverity) {
   }
 
   return "outline" as const;
+}
+
+export function severityBadgeColor(severity: FindingSeverity) {
+  if (severity === FindingSeverity.CRITICAL || severity === FindingSeverity.HIGH) {
+    return "red" as const;
+  }
+
+  if (severity === FindingSeverity.MEDIUM) {
+    return "amber" as const;
+  }
+
+  return "zinc" as const;
 }
 
 export function formatPriority(priority: number | null | undefined) {

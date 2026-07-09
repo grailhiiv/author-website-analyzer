@@ -3,9 +3,8 @@
 import { useActionState } from "react";
 import { AlertCircleIcon, LogInIcon } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/catalyst/button";
+import { Input } from "@/components/catalyst/input";
 
 import {
   signInAdminAction,
@@ -23,15 +22,19 @@ export function AdminLoginForm() {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       {state.error ? (
-        <Alert variant="destructive">
-          <AlertCircleIcon data-icon="inline-start" />
-          <AlertTitle>Sign in failed</AlertTitle>
-          <AlertDescription>{state.error}</AlertDescription>
-        </Alert>
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm/6 text-red-700">
+          <div className="flex gap-3">
+            <AlertCircleIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <div>
+              <p className="font-semibold">Sign in failed</p>
+              <p className="mt-1">{state.error}</p>
+            </div>
+          </div>
+        </div>
       ) : null}
 
-      <div className="flex flex-col gap-2 rounded-lg border border-dashed bg-muted/20 p-3">
-        <label className="text-sm font-medium" htmlFor="admin-email">
+      <div className="flex flex-col gap-2 rounded-lg border border-zinc-950/10 bg-zinc-50/60 p-3">
+        <label className="text-sm font-medium text-zinc-950" htmlFor="admin-email">
           Admin email
         </label>
         <Input
@@ -45,8 +48,8 @@ export function AdminLoginForm() {
         />
       </div>
 
-      <div className="flex flex-col gap-2 rounded-lg border border-dashed bg-muted/20 p-3">
-        <label className="text-sm font-medium" htmlFor="admin-password">
+      <div className="flex flex-col gap-2 rounded-lg border border-zinc-950/10 bg-zinc-50/60 p-3">
+        <label className="text-sm font-medium text-zinc-950" htmlFor="admin-password">
           Password
         </label>
         <Input
@@ -60,7 +63,7 @@ export function AdminLoginForm() {
       </div>
 
       <Button type="submit" disabled={isPending} className="w-full">
-        <LogInIcon data-icon="inline-start" />
+        <LogInIcon data-slot="icon" />
         {isPending ? "Signing in..." : "Sign in"}
       </Button>
     </form>

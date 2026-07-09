@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
+import { Geist_Mono, Inter, Lexend } from "next/font/google";
 import { SiteFrame } from "@/components/layout/site-frame";
+import { Footer } from "@/components/salient/Footer";
+import { Header } from "@/components/salient/Header";
 import "./globals.css";
 
-const geist = Geist({
-  variable: "--font-geist",
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const lexend = Lexend({
+  variable: "--font-lexend",
   subsets: ["latin"],
   display: "swap",
 });
@@ -31,9 +37,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geist.variable} ${geistMono.variable} h-full antialiased`}
+      data-scroll-behavior="smooth"
+      className={`${inter.variable} ${lexend.variable} ${geistMono.variable} h-full scroll-smooth bg-white antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-background text-foreground">
+      <body className="flex min-h-full flex-col bg-white text-slate-900">
         <SiteFrame header={<Header />} footer={<Footer />}>
           <main className="flex flex-1 flex-col">{children}</main>
         </SiteFrame>

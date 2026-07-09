@@ -1,13 +1,12 @@
-import Link from "next/link";
 import { MailIcon } from "lucide-react";
 
 import { AdminDataTable } from "@/components/admin/admin-data-table";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminFiltersCard } from "@/components/admin/admin-filters";
+import { Button } from "@/components/catalyst/button";
+import { TableCell, TableRow } from "@/components/catalyst/table";
 import { GridSection } from "@/components/layout/grid-section";
 import { PageHeader } from "@/components/layout/page-header";
-import { buttonVariants } from "@/components/ui/button";
-import { TableCell, TableRow } from "@/components/ui/table";
 import {
   type AdminSearchParams,
   buildLeadWhere,
@@ -68,34 +67,28 @@ export default async function AdminLeadsPage({
                 </TableCell>
                 <TableCell className="max-w-[260px] whitespace-normal">
                   <a
-                    className="break-all text-primary underline-offset-4 hover:underline"
+                    className="break-all text-blue-600 underline-offset-4 hover:underline"
                     href={`mailto:${lead.email}`}
                   >
                     {lead.email}
                   </a>
                 </TableCell>
-                <TableCell className="max-w-[320px] break-all whitespace-normal text-muted-foreground">
+                <TableCell className="max-w-[320px] break-all whitespace-normal text-zinc-500">
                   {lead.websiteUrl}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="text-zinc-500">
                   {formatAuthorType(lead.authorType)}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="text-zinc-500">
                   {formatWebsiteGoal(lead.websiteGoal)}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="text-zinc-500">
                   {formatDate(lead.createdAt)}
                 </TableCell>
                 <TableCell>
-                  <Link
-                    className={buttonVariants({
-                      variant: "outline",
-                      size: "sm",
-                    })}
-                    href={`/admin/reports/${lead.report.id}`}
-                  >
+                  <Button outline href={`/admin/reports/${lead.report.id}`}>
                     View report
-                  </Link>
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

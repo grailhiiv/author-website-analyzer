@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type AdminStatCardProps = {
@@ -21,26 +20,31 @@ export function AdminStatCard({
   value,
 }: AdminStatCardProps) {
   return (
-    <Card className={cn("rounded-lg border-dashed shadow-none", className)}>
-      <CardHeader className="space-y-3 border-b border-dashed pb-4">
+    <section
+      className={cn(
+        "overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/10",
+        className
+      )}
+    >
+      <header className="space-y-3 border-b border-zinc-950/10 p-5 pb-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex size-8 items-center justify-center rounded-md border bg-muted/40 text-foreground">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-zinc-950 text-white shadow-sm">
             {icon}
           </div>
-          {footer ? (
-            <div className="text-xs text-muted-foreground">{footer}</div>
-          ) : null}
+          {footer ? <div className="text-xs text-zinc-500">{footer}</div> : null}
         </div>
         <div>
-          <CardTitle className="text-sm">{title}</CardTitle>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          <h2 className="text-sm/6 font-semibold text-zinc-950">{title}</h2>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">
             {description}
           </p>
         </div>
-      </CardHeader>
-      <CardContent className="pt-4">
-        <p className="font-mono text-3xl font-semibold tabular-nums">{value}</p>
-      </CardContent>
-    </Card>
+      </header>
+      <div className="p-5 pt-4">
+        <p className="text-3xl font-semibold tabular-nums tracking-tight text-zinc-950">
+          {value}
+        </p>
+      </div>
+    </section>
   );
 }

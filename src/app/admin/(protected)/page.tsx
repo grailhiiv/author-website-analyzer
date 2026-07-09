@@ -1,6 +1,4 @@
-import Link from "next/link";
 import {
-  ArrowRightIcon,
   ClipboardCheckIcon,
   ClipboardListIcon,
   MailIcon,
@@ -16,17 +14,17 @@ import {
   AdminPanelHeader,
 } from "@/components/admin/admin-panel";
 import { AdminStatCard } from "@/components/admin/admin-stat-card";
+import { Badge } from "@/components/catalyst/badge";
+import { Button } from "@/components/catalyst/button";
+import { TableCell, TableRow } from "@/components/catalyst/table";
 import { GridSection } from "@/components/layout/grid-section";
 import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
-import { TableCell, TableRow } from "@/components/ui/table";
 import { ReportStatus } from "@/generated/prisma/client";
 import {
   formatDate,
   formatScore,
   reportStatusLabels,
-  statusBadgeVariant,
+  statusBadgeColor,
 } from "@/lib/admin/display";
 import { prisma } from "@/lib/db/prisma";
 
@@ -68,7 +66,7 @@ export default async function AdminPage() {
           eyebrow="Admin"
           title="Dashboard"
           description="Internal tools for reviewing submitted reports and author leads."
-          actions={<Badge variant="outline">Protected admin view</Badge>}
+          actions={<Badge color="zinc">Protected admin view</Badge>}
         />
 
         <div className="flex flex-col gap-6">
@@ -77,31 +75,31 @@ export default async function AdminPage() {
               title="Total reports"
               value={totalReports}
               description="All submitted author website reports."
-              icon={<ClipboardListIcon data-icon="inline-start" />}
+              icon={<ClipboardListIcon data-slot="icon" />}
             />
             <AdminStatCard
               title="Completed reports"
               value={completedReports}
               description="Reports with a completed scorecard."
-              icon={<ClipboardCheckIcon data-icon="inline-start" />}
+              icon={<ClipboardCheckIcon data-slot="icon" />}
             />
             <AdminStatCard
               title="Failed reports"
               value={failedReports}
               description="Reports that could not be analyzed."
-              icon={<TriangleAlertIcon data-icon="inline-start" />}
+              icon={<TriangleAlertIcon data-slot="icon" />}
             />
             <AdminStatCard
               title="Leads captured"
               value={leadsCaptured}
               description="Authors who shared contact details."
-              icon={<MailIcon data-icon="inline-start" />}
+              icon={<MailIcon data-slot="icon" />}
             />
             <AdminStatCard
               title="Average score"
               value={averageScore === null ? "Not scored" : Math.round(averageScore)}
               description="Average across scored reports."
-              icon={<StarIcon data-icon="inline-start" />}
+              icon={<StarIcon data-slot="icon" />}
             />
           </div>
 
@@ -119,13 +117,9 @@ export default async function AdminPage() {
               description="The latest submitted scorecards and scan statuses."
               minWidth="min-w-[720px]"
               actions={
-                <Link
-                  href="/admin/reports"
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                >
+                <Button outline href="/admin/reports">
                   All reports
-                  <ArrowRightIcon data-icon="inline-end" />
-                </Link>
+                </Button>
               }
               emptyState={
                 <AdminEmptyState
@@ -142,29 +136,26 @@ export default async function AdminPage() {
                       <span className="break-words font-medium">
                         {report.domain}
                       </span>
-                      <span className="break-all text-xs text-muted-foreground">
+                      <span className="break-all text-xs text-zinc-500">
                         {report.normalizedUrl}
                       </span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={statusBadgeVariant(report.status)}>
+                    <Badge color={statusBadgeColor(report.status)}>
                       {reportStatusLabels[report.status]}
                     </Badge>
                   </TableCell>
                   <TableCell className="font-mono tabular-nums">
                     {formatScore(report.overallScore)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-zinc-500">
                     {formatDate(report.createdAt)}
                   </TableCell>
                   <TableCell>
-                    <Link
-                      href={`/admin/reports/${report.id}`}
-                      className={buttonVariants({ variant: "outline", size: "sm" })}
-                    >
+                    <Button outline href={`/admin/reports/${report.id}`}>
                       View
-                    </Link>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -183,13 +174,9 @@ export default async function AdminPage() {
               description="New author contacts from report unlocks and submissions."
               minWidth="min-w-[760px]"
               actions={
-                <Link
-                  href="/admin/leads"
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                >
+                <Button outline href="/admin/leads">
                   All leads
-                  <ArrowRightIcon data-icon="inline-end" />
-                </Link>
+                </Button>
               }
               emptyState={
                 <AdminEmptyState
@@ -207,24 +194,21 @@ export default async function AdminPage() {
                   <TableCell className="max-w-[220px] whitespace-normal">
                     <a
                       href={`mailto:${lead.email}`}
-                      className="break-all text-primary underline-offset-4 hover:underline"
+                      className="break-all text-blue-600 underline-offset-4 hover:underline"
                     >
                       {lead.email}
                     </a>
                   </TableCell>
-                  <TableCell className="max-w-[220px] break-all whitespace-normal text-muted-foreground">
+                  <TableCell className="max-w-[220px] break-all whitespace-normal text-zinc-500">
                     {lead.websiteUrl}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-zinc-500">
                     {formatDate(lead.createdAt)}
                   </TableCell>
                   <TableCell>
-                    <Link
-                      href={`/admin/reports/${lead.report.id}`}
-                      className={buttonVariants({ variant: "outline", size: "sm" })}
-                    >
+                    <Button outline href={`/admin/reports/${lead.report.id}`}>
                       Report
-                    </Link>
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -239,16 +223,12 @@ export default async function AdminPage() {
                 description="Review submitted author website scorecards and scan status."
               />
               <AdminPanelContent className="flex items-center justify-between gap-4 pt-4">
-                <p className="text-sm leading-6 text-muted-foreground">
+                <p className="text-sm leading-6 text-zinc-500">
                   Newest scans, statuses, deterministic scores, and report drilldowns.
                 </p>
-                <Link
-                  href="/admin/reports"
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                >
+                <Button outline href="/admin/reports">
                   View reports
-                  <ArrowRightIcon data-icon="inline-end" />
-                </Link>
+                </Button>
               </AdminPanelContent>
             </AdminPanel>
             <AdminPanel>
@@ -258,16 +238,12 @@ export default async function AdminPage() {
                 description="Track author contacts captured from report requests."
               />
               <AdminPanelContent className="flex items-center justify-between gap-4 pt-4">
-                <p className="text-sm leading-6 text-muted-foreground">
+                <p className="text-sm leading-6 text-zinc-500">
                   Contact details, author goals, linked reports, and follow-up context.
                 </p>
-                <Link
-                  href="/admin/leads"
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                >
+                <Button outline href="/admin/leads">
                   View leads
-                  <ArrowRightIcon data-icon="inline-end" />
-                </Link>
+                </Button>
               </AdminPanelContent>
             </AdminPanel>
           </div>

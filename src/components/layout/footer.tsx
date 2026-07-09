@@ -5,10 +5,10 @@ import { LogoLink } from "@/components/layout/logo-link";
 
 export function Footer() {
   return (
-    <footer className="border-t bg-muted/20">
+    <footer className="border-t border-slate-200 bg-white">
       <Container className="flex flex-col gap-8 py-10 text-sm md:flex-row md:items-center md:justify-between">
         <LogoLink className="flex shrink-0 items-center" />
-        <div className="flex flex-wrap gap-4 text-muted-foreground">
+        <div className="flex flex-wrap gap-4 text-slate-500">
           {[
             { href: "/analyze", label: "Analyze website" },
             { href: "/sample-report", label: "Sample Report" },
@@ -17,7 +17,7 @@ export function Footer() {
             <Link
               key={item.href}
               href={item.href}
-              className="transition-colors hover:text-foreground"
+              className="transition-colors hover:text-slate-950"
             >
               {item.label}
             </Link>

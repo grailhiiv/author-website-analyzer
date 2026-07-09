@@ -1,17 +1,10 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LockKeyholeIcon, ShieldCheckIcon } from "lucide-react";
 
-import { GridSection } from "@/components/layout/grid-section";
-import { LogoLink } from "@/components/layout/logo-link";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Badge } from "@/components/catalyst/badge";
+import { Logo } from "@/components/salient/Logo";
 import { isAllowedAdminEmail } from "@/lib/auth/admin";
 import { auth } from "@/lib/auth/server";
 
@@ -27,28 +20,33 @@ export default async function AdminLoginPage() {
   }
 
   return (
-    <GridSection containerClassName="max-w-6xl" hideBottomLine>
-      <div className="grid min-h-[calc(100dvh-1px)] items-center gap-8 py-10 lg:grid-cols-[1fr_440px] lg:px-6">
+    <main className="min-h-dvh bg-white">
+      <div className="mx-auto grid min-h-dvh max-w-6xl items-center gap-8 px-6 py-10 lg:grid-cols-[1fr_440px] lg:px-8">
         <div className="hidden max-w-xl flex-col gap-8 lg:flex">
-          <LogoLink className="flex shrink-0 items-center" />
+          <Link href="/" className="flex shrink-0 items-center">
+            <Logo className="h-10 w-auto max-w-[242px]" />
+          </Link>
           <div>
-            <Badge variant="outline" className="mb-4 rounded-full">
-              <ShieldCheckIcon data-icon="inline-start" />
+            <Badge color="zinc" className="mb-4">
+              <ShieldCheckIcon data-slot="icon" />
               Protected dashboard
             </Badge>
-            <h1 className="font-heading text-4xl font-semibold tracking-tight">
+            <h1 className="font-display text-4xl font-medium tracking-tight text-slate-900">
               Review author website reports without leaving the analyzer.
             </h1>
-            <p className="mt-4 text-base leading-7 text-muted-foreground">
+            <p className="mt-4 text-base leading-7 text-slate-600">
               Sign in to review scorecards, captured leads, internal notes, and
               sales follow-up context.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             {["Reports", "Leads", "Outreach"].map((item) => (
-              <div key={item} className="rounded-lg border border-dashed p-4">
-                <p className="text-sm font-medium">{item}</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              <div
+                key={item}
+                className="rounded-lg border border-zinc-950/10 bg-white p-4 shadow-sm"
+              >
+                <p className="text-sm font-medium text-slate-900">{item}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
                   Admin-only workflow
                 </p>
               </div>
@@ -56,22 +54,24 @@ export default async function AdminLoginPage() {
           </div>
         </div>
 
-        <Card className="rounded-lg border-dashed shadow-none">
-          <CardHeader className="border-b border-dashed">
-            <div className="mb-2 flex size-9 items-center justify-center rounded-lg border bg-muted/40">
-              <LockKeyholeIcon className="size-4" aria-hidden="true" />
+        <section className="rounded-lg border border-zinc-950/10 bg-white shadow-sm">
+          <div className="border-b border-zinc-950/10 p-6">
+            <div className="mb-2 flex size-9 items-center justify-center rounded-lg border border-zinc-950/10 bg-zinc-50">
+              <LockKeyholeIcon className="size-4 text-zinc-600" aria-hidden="true" />
             </div>
-            <CardTitle>Admin access</CardTitle>
-            <CardDescription>
+            <h2 className="text-base/7 font-semibold text-zinc-950">
+              Admin access
+            </h2>
+            <p className="mt-1 text-sm/6 text-zinc-500">
               Use the email configured in ADMIN_EMAIL. The first successful
               login creates the admin account with the password you enter.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            </p>
+          </div>
+          <div className="p-6">
             <AdminLoginForm />
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
-    </GridSection>
+    </main>
   );
 }

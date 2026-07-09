@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 import { AdminSettingsCard } from "@/components/admin/admin-settings-card";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/catalyst/badge";
 
 function envStatus(name: string) {
   return process.env[name]?.trim() ? "configured" : "review";
@@ -21,7 +21,7 @@ export default function AdminSettingsPage() {
         description="The app creates a report record, runs inspection jobs, stores deterministic scores, and exposes a public report."
         status="configured"
       >
-        <ul className="space-y-2 text-sm leading-6 text-muted-foreground">
+        <ul className="space-y-2 text-sm leading-6 text-zinc-500">
           <li>Website URL normalization and security checks run before scanning.</li>
           <li>Playwright and crawler services collect page evidence.</li>
           <li>Score calculations are saved before AI narrative generation.</li>
@@ -35,11 +35,11 @@ export default function AdminSettingsPage() {
         status={envStatus("ADMIN_EMAIL")}
       >
         <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary">Better Auth</Badge>
-          <Badge variant={envStatus("ADMIN_EMAIL") === "configured" ? "secondary" : "outline"}>
+          <Badge color="green">Better Auth</Badge>
+          <Badge color={envStatus("ADMIN_EMAIL") === "configured" ? "green" : "zinc"}>
             ADMIN_EMAIL
           </Badge>
-          <Badge variant={envStatus("AUTH_SECRET") === "configured" ? "secondary" : "outline"}>
+          <Badge color={envStatus("AUTH_SECRET") === "configured" ? "green" : "zinc"}>
             AUTH_SECRET
           </Badge>
         </div>
@@ -51,7 +51,7 @@ export default function AdminSettingsPage() {
         description="Author contact details are connected to the report and kept available for backend follow-up."
         status="configured"
       >
-        <p className="text-sm leading-6 text-muted-foreground">
+        <p className="text-sm leading-6 text-zinc-500">
           Leads store name, email, website URL, author type, website goal, and
           consent status. Sales notes stay admin-only on each report detail page.
         </p>
@@ -63,7 +63,7 @@ export default function AdminSettingsPage() {
         description="Reports can be viewed publicly by report ID while internal notes remain behind admin authentication."
         status="configured"
       >
-        <p className="text-sm leading-6 text-muted-foreground">
+        <p className="text-sm leading-6 text-zinc-500">
           Public pages show the author-facing scorecard. The admin detail page
           adds lead data, technical evidence, scanned pages, and outreach drafts.
         </p>

@@ -30,7 +30,7 @@ export function UnlockReportForm({ reportId }: { reportId: string }) {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="flex flex-col gap-2 rounded-lg border border-dashed bg-muted/20 p-3">
+        <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-muted/20 p-3">
           <label className="text-sm font-medium" htmlFor="unlock-name">
             Name
           </label>
@@ -44,7 +44,7 @@ export function UnlockReportForm({ reportId }: { reportId: string }) {
           />
         </div>
 
-        <div className="flex flex-col gap-2 rounded-lg border border-dashed bg-muted/20 p-3">
+        <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-muted/20 p-3">
           <label className="text-sm font-medium" htmlFor="unlock-email">
             Email
           </label>
@@ -60,7 +60,7 @@ export function UnlockReportForm({ reportId }: { reportId: string }) {
         </div>
       </div>
 
-      <div className="flex items-start gap-3 rounded-lg border border-dashed bg-muted/20 p-4">
+      <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-muted/20 p-4">
         <input
           id="unlock-consent"
           name="consent"

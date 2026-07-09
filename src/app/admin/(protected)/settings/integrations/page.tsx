@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 import { AdminSettingsCard } from "@/components/admin/admin-settings-card";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/catalyst/badge";
 
 const integrations = [
   {
@@ -79,12 +79,12 @@ export default function AdminIntegrationsSettingsPage() {
           >
             <div className="flex flex-wrap gap-2">
               {integration.tags.map((tag) => (
-                <Badge key={tag} variant="outline">
+                <Badge key={tag}>
                   {tag}
                 </Badge>
               ))}
               {integration.env ? (
-                <Badge variant={isConfigured ? "secondary" : "outline"}>
+                <Badge color={isConfigured ? "green" : "zinc"}>
                   {integration.env}
                 </Badge>
               ) : null}

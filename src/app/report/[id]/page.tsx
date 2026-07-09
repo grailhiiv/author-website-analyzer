@@ -632,7 +632,7 @@ export default async function ReportPage({
                 <CardContent className="flex flex-col gap-3">
                   {previewQuickWins.length > 0 ? (
                     previewQuickWins.map((finding) => (
-                      <div key={finding.id} className="rounded-lg border border-dashed bg-muted/20 p-4">
+                      <div key={finding.id} className="rounded-lg border border-slate-200 bg-muted/20 p-4">
                         <p className="text-sm font-medium">{finding.title}</p>
                         <p className="mt-2 text-sm leading-6 text-muted-foreground">
                           {finding.recommendation}
@@ -797,7 +797,7 @@ export default async function ReportPage({
                     ))
                   ) : narrative?.topRecommendations.length ? (
                     narrative.topRecommendations.slice(0, 5).map((item) => (
-                      <div key={item} className="rounded-lg border border-dashed bg-muted/20 p-4">
+                      <div key={item} className="rounded-lg border border-slate-200 bg-muted/20 p-4">
                         <p className="text-sm leading-6 text-muted-foreground">
                           {item}
                         </p>
@@ -878,7 +878,7 @@ export default async function ReportPage({
                               {categoryFindings.map((finding) => (
                                 <div
                                   key={finding.id}
-                                  className="rounded-lg border border-dashed bg-muted/20 p-4"
+                                  className="rounded-lg border border-slate-200 bg-muted/20 p-4"
                                 >
                                   <div className="flex flex-wrap items-center gap-2">
                                     <Badge
@@ -925,7 +925,7 @@ export default async function ReportPage({
               <CardContent>
                 {narrative ? (
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-lg border border-dashed bg-muted/20 p-4">
+                    <div className="rounded-lg border border-slate-200 bg-muted/20 p-4">
                       <p className="text-sm font-medium">
                         Homepage improvement
                       </p>
@@ -933,19 +933,19 @@ export default async function ReportPage({
                         {narrative.suggestedHomepageImprovement}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-dashed bg-muted/20 p-4">
+                    <div className="rounded-lg border border-slate-200 bg-muted/20 p-4">
                       <p className="text-sm font-medium">CTA improvement</p>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">
                         {narrative.suggestedCTAImprovement}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-dashed bg-muted/20 p-4">
+                    <div className="rounded-lg border border-slate-200 bg-muted/20 p-4">
                       <p className="text-sm font-medium">Suggested SEO title</p>
                       <p className="mt-2 text-sm leading-6 text-muted-foreground">
                         {narrative.suggestedSeoTitle}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-dashed bg-muted/20 p-4">
+                    <div className="rounded-lg border border-slate-200 bg-muted/20 p-4">
                       <p className="text-sm font-medium">
                         Suggested meta description
                       </p>
@@ -1064,7 +1064,7 @@ export default async function ReportPage({
                     {report.pagesScanned.map((page) => (
                       <div
                         key={page.id}
-                        className="grid gap-2 rounded-lg border border-dashed bg-muted/20 p-4 md:grid-cols-[1fr_auto]"
+                        className="grid gap-2 rounded-lg border border-slate-200 bg-muted/20 p-4 md:grid-cols-[1fr_auto]"
                       >
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
@@ -1109,10 +1109,10 @@ export default async function ReportPage({
                     alt={`Screenshot preview for ${report.domain}`}
                     width={1200}
                     height={675}
-                    className="aspect-video w-full rounded-lg border border-dashed object-cover object-top"
+                    className="aspect-video w-full rounded-lg border border-slate-200 object-cover object-top"
                   />
                 ) : (
-                  <div className="flex aspect-video flex-col items-center justify-center gap-3 rounded-lg border border-dashed bg-muted/30 text-center">
+                  <div className="flex aspect-video flex-col items-center justify-center gap-3 rounded-lg border border-slate-200 bg-muted/30 text-center">
                     <ImageIcon className="size-8 text-muted-foreground" />
                     <div>
                       <p className="font-medium">No screenshot saved</p>
@@ -1265,7 +1265,7 @@ function AnalyzingReport({
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, index) => (
-            <div key={index} className="flex flex-col gap-3 rounded-lg border border-dashed bg-muted/20 p-4">
+            <div key={index} className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-muted/20 p-4">
               <Skeleton className="h-4 w-3/4" />
               <Skeleton className="h-8 w-1/2" />
               <Skeleton className="h-2 w-full" />
