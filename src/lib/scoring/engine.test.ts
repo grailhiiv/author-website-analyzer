@@ -6,6 +6,8 @@ import {
   ReportCategory,
 } from "@/generated/prisma/client";
 import {
+  DETERMINISTIC_SCORING_CATEGORIES,
+  DETERMINISTIC_SCORING_TOTAL,
   scoreAuthorWebsite,
   type ScoringInput,
   type ScoringPageInput,
@@ -195,8 +197,28 @@ test("scoreAuthorWebsite awards full deterministic scores for a complete author 
     (score) => score.category === ReportCategory.BOOK_PROMOTION
   );
 
-  assert.equal(bookScore?.score, 100);
+  assert.equal(bookScore?.score, 20);
+  assert.equal(bookScore?.maxScore, 20);
+  assert.equal(bookScore?.percentageScore, 100);
   assert.equal(bookScore?.weight, 20);
+});
+
+test("scoreAuthorWebsite uses the fixed 100-point category model", () => {
+  const result = scoreAuthorWebsite(scoreInput());
+
+  assert.deepEqual(
+    DETERMINISTIC_SCORING_CATEGORIES.map((category) => category.weight),
+    [15, 20, 15, 15, 10, 10, 10, 5]
+  );
+  assert.equal(DETERMINISTIC_SCORING_TOTAL, 100);
+  assert.deepEqual(
+    result.categoryScores.map((category) => category.maxScore),
+    [15, 20, 15, 15, 10, 10, 10, 5]
+  );
+  assert.equal(
+    result.categoryScores.reduce((total, category) => total + category.score, 0),
+    result.overallScore
+  );
 });
 
 test("scoreAuthorWebsite creates findings for every reduced category score", () => {
@@ -246,7 +268,7 @@ test("scoreAuthorWebsite creates findings for every reduced category score", () 
   );
 
   for (const categoryScore of result.categoryScores) {
-    if (categoryScore.score < 100) {
+    if (categoryScore.score < categoryScore.maxScore) {
       assert.ok(
         result.findings.some(
           (finding) => finding.category === categoryScore.category
@@ -286,11 +308,11 @@ test("scoreAuthorWebsite labels SEO improvement when design is acceptable and SE
   );
 
   assert.equal(result.serviceFitLabel, "SEO improvement");
-  assert.ok(
-    result.categoryScores.find(
-      (score) => score.category === ReportCategory.SEO_DISCOVERABILITY
-    )?.score ?? 100 < 60
+  const seoScore = result.categoryScores.find(
+    (score) => score.category === ReportCategory.SEO_DISCOVERABILITY
   );
+
+  assert.ok((seoScore?.percentageScore ?? 100) < 60);
 });
 
 test("scoreAuthorWebsite creates newsletter findings when newsletter signals are missing", () => {
@@ -323,7 +345,7 @@ test("scoreAuthorWebsite creates newsletter findings when newsletter signals are
   );
 
   assert.equal(result.serviceFitLabel, "Newsletter setup");
-  assert.ok((newsletterScore?.score ?? 100) < 60);
+  assert.ok((newsletterScore?.percentageScore ?? 100) < 60);
   assert.ok(
     result.findings.some(
       (finding) => finding.title === "Newsletter signup was not detected"
@@ -356,7 +378,7 @@ test("scoreAuthorWebsite creates book promotion findings when book links are mis
     (score) => score.category === ReportCategory.BOOK_PROMOTION
   );
 
-  assert.ok((bookScore?.score ?? 100) < 80);
+  assert.ok((bookScore?.percentageScore ?? 100) < 80);
   assert.ok(
     result.findings.some((finding) => finding.title === "Buy links were not detected")
   );
@@ -407,7 +429,7 @@ test("scoreAuthorWebsite creates poor SEO findings from missing metadata and noi
     (score) => score.category === ReportCategory.SEO_DISCOVERABILITY
   );
 
-  assert.ok((seoScore?.score ?? 100) < 50);
+  assert.ok((seoScore?.percentageScore ?? 100) < 50);
   assert.ok(
     result.findings.some(
       (finding) => finding.title === "Meta description is missing"

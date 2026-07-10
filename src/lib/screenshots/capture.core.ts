@@ -181,27 +181,44 @@ export async function captureHomepageScreenshots(
   const errors: string[] = [];
 
   try {
-    for (const variant of ["desktop", "mobile"] satisfies ScreenshotVariant[]) {
-      try {
-        screenshots[variant] = await captureVariant(
-          browser,
-          security.finalUrl,
-          variant,
-          {
-            reportId: options.reportId,
-            storage,
-            timeoutMs,
-            waitAfterLoadMs,
-          }
-        );
-      } catch (error) {
-        errors.push(
-          `${variant}: ${
-            error instanceof Error
-              ? error.message
-              : "Screenshot capture failed."
-          }`
-        );
+    const variants = [
+      "desktop",
+      "mobile",
+    ] satisfies ScreenshotVariant[];
+    const captures = await Promise.all(
+      variants.map(async (variant) => {
+        try {
+          const asset = await captureVariant(
+            browser,
+            security.finalUrl,
+            variant,
+            {
+              reportId: options.reportId,
+              storage,
+              timeoutMs,
+              waitAfterLoadMs,
+            }
+          );
+
+          return { asset, error: null, variant };
+        } catch (error) {
+          return {
+            asset: null,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Screenshot capture failed.",
+            variant,
+          };
+        }
+      })
+    );
+
+    for (const capture of captures) {
+      if (capture.asset) {
+        screenshots[capture.variant] = capture.asset;
+      } else if (capture.error) {
+        errors.push(`${capture.variant}: ${capture.error}`);
       }
     }
   } finally {

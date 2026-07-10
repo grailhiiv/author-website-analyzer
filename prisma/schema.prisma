@@ -97,6 +97,9 @@ model AnalysisJob {
   reportId    String            @unique
   report      Report            @relation(fields: [reportId], references: [id], onDelete: Cascade)
   status      AnalysisJobStatus @default(QUEUED)
+  stage       String            @default("QUEUED")
+  progress    Int               @default(0)
+  timingsJson Json?
   attempts    Int               @default(0)
   maxAttempts Int               @default(3)
   lastError   String?

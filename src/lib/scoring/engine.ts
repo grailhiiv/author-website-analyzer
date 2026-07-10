@@ -45,7 +45,8 @@ export type CategoryScoreResult = {
   label: string;
   weight: number;
   score: number;
-  maxScore: 100;
+  maxScore: number;
+  percentageScore: number;
   earnedPoints: number;
   availablePoints: number;
   summary: string;
@@ -77,13 +78,13 @@ type ScoreRule = {
   priority: number;
 };
 
-type CategoryConfig = {
+export type DeterministicScoringCategory = {
   category: ReportCategory;
   label: string;
   weight: number;
 };
 
-const CATEGORY_CONFIG: CategoryConfig[] = [
+export const DETERMINISTIC_SCORING_CATEGORIES = [
   {
     category: ReportCategory.BRAND_CLARITY,
     label: "First Impression and Author Brand Clarity",
@@ -124,7 +125,13 @@ const CATEGORY_CONFIG: CategoryConfig[] = [
     label: "Maintenance and Website Risk",
     weight: 5,
   },
-];
+] as const satisfies readonly DeterministicScoringCategory[];
+
+export const DETERMINISTIC_SCORING_TOTAL =
+  DETERMINISTIC_SCORING_CATEGORIES.reduce(
+    (total, category) => total + category.weight,
+    0
+  );
 
 function clampScore(score: number) {
   return Math.max(0, Math.min(100, Math.round(score)));
@@ -135,7 +142,9 @@ function has(signal: SignalDetection) {
 }
 
 function getConfig(category: ReportCategory) {
-  const config = CATEGORY_CONFIG.find((item) => item.category === category);
+  const config = DETERMINISTIC_SCORING_CATEGORIES.find(
+    (item) => item.category === category
+  );
 
   if (!config) {
     throw new Error(`Unknown scoring category: ${category}`);
@@ -161,7 +170,7 @@ function scoreSummary(score: number) {
 }
 
 function scoreCategory(
-  config: CategoryConfig,
+  config: DeterministicScoringCategory,
   rules: ScoreRule[]
 ): { score: CategoryScoreResult; findings: ScoringFinding[] } {
   const availablePoints = rules.reduce((sum, rule) => sum + rule.points, 0);
@@ -169,7 +178,18 @@ function scoreCategory(
     (sum, rule) => (rule.passed ? sum + rule.points : sum),
     0
   );
-  const score = availablePoints > 0 ? clampScore((earnedPoints / availablePoints) * 100) : 0;
+  const score =
+    availablePoints > 0
+      ? Math.max(
+          0,
+          Math.min(
+            config.weight,
+            Math.round((earnedPoints / availablePoints) * config.weight)
+          )
+        )
+      : 0;
+  const percentageScore =
+    config.weight > 0 ? clampScore((score / config.weight) * 100) : 0;
   const findings = rules
     .filter((rule) => !rule.passed)
     .map<ScoringFinding>((rule) => ({
@@ -187,10 +207,11 @@ function scoreCategory(
       label: config.label,
       weight: config.weight,
       score,
-      maxScore: 100,
+      maxScore: config.weight,
+      percentageScore,
       earnedPoints,
       availablePoints,
-      summary: scoreSummary(score),
+      summary: scoreSummary(percentageScore),
     },
     findings,
   };
@@ -968,7 +989,8 @@ function serviceFitLabel(
   pagesScanned: ScoringPageInput[]
 ): ServiceFitLabel {
   const scoreFor = (category: ReportCategory) =>
-    categoryScores.find((score) => score.category === category)?.score ?? 0;
+    categoryScores.find((score) => score.category === category)
+      ?.percentageScore ?? 0;
   const brand = scoreFor(ReportCategory.BRAND_CLARITY);
   const book = scoreFor(ReportCategory.BOOK_PROMOTION);
   const newsletter = scoreFor(ReportCategory.READER_CONVERSION);
@@ -977,7 +999,9 @@ function serviceFitLabel(
     scoreFor(ReportCategory.PERFORMANCE_HEALTH),
     scoreFor(ReportCategory.MAINTENANCE_RISK)
   );
-  const lowCategories = categoryScores.filter((score) => score.score < 60).length;
+  const lowCategories = categoryScores.filter(
+    (score) => score.percentageScore < 60
+  ).length;
 
   if (lowCategories >= 5) {
     return "New author website";
@@ -1030,11 +1054,7 @@ export function scoreAuthorWebsite(input: ScoringInput): ScoringResult {
     .flatMap((result) => result.findings)
     .sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title));
   const overallScore = clampScore(
-    categoryScores.reduce(
-      (sum, categoryScore) =>
-        sum + (categoryScore.score / 100) * categoryScore.weight,
-      0
-    )
+    categoryScores.reduce((sum, categoryScore) => sum + categoryScore.score, 0)
   );
 
   return {

@@ -48,6 +48,10 @@ import {
   getExecutiveSummaryFromReportSummary,
   parseSerializedReportNarrative,
 } from "@/lib/ai/report-narrative.core";
+import {
+  getAnalysisStageLabel,
+  normalizeAnalysisProgress,
+} from "@/lib/analysis/progress.core";
 import { prisma } from "@/lib/db/prisma";
 import { getReportPageState } from "@/lib/reports/report-page-state";
 import type { ReportNarrative } from "@/lib/ai/report-narrative.core";
@@ -258,18 +262,20 @@ function extractServiceFitFromNarrative(
 }
 
 function deriveServiceFitLabel(
-  scoresByCategory: Map<ReportCategory, { score: number }>
+  scoresByCategory: Map<ReportCategory, { score: number; maxScore: number }>
 ): ServiceFitLabel {
-  const brand = scoresByCategory.get(ReportCategory.BRAND_CLARITY)?.score ?? 0;
-  const book = scoresByCategory.get(ReportCategory.BOOK_PROMOTION)?.score ?? 0;
-  const newsletter =
-    scoresByCategory.get(ReportCategory.READER_CONVERSION)?.score ?? 0;
-  const seo =
-    scoresByCategory.get(ReportCategory.SEO_DISCOVERABILITY)?.score ?? 0;
-  const technical =
-    scoresByCategory.get(ReportCategory.PERFORMANCE_HEALTH)?.score ?? 0;
+  const scoreFor = (category: ReportCategory) => {
+    const score = scoresByCategory.get(category);
+
+    return score ? scorePercent(score.score, score.maxScore) : 0;
+  };
+  const brand = scoreFor(ReportCategory.BRAND_CLARITY);
+  const book = scoreFor(ReportCategory.BOOK_PROMOTION);
+  const newsletter = scoreFor(ReportCategory.READER_CONVERSION);
+  const seo = scoreFor(ReportCategory.SEO_DISCOVERABILITY);
+  const technical = scoreFor(ReportCategory.PERFORMANCE_HEALTH);
   const lowCategoryCount = [...scoresByCategory.values()].filter(
-    (score) => score.score < 60
+    (score) => scorePercent(score.score, score.maxScore) < 60
   ).length;
 
   if (lowCategoryCount >= 5) {
@@ -375,6 +381,12 @@ export default async function ReportPage({
       scores: true,
       technicalAudit: true,
       lead: true,
+      analysisJob: {
+        select: {
+          progress: true,
+          stage: true,
+        },
+      },
     },
   });
 
@@ -401,10 +413,14 @@ export default async function ReportPage({
     .filter((score) => score.score >= Math.round(score.maxScore * 0.8))
     .slice(0, 4);
   const strongestScore = [...orderedScores].sort(
-    (a, b) => b.score - a.score || a.category.localeCompare(b.category)
+    (a, b) =>
+      scorePercent(b.score, b.maxScore) - scorePercent(a.score, a.maxScore) ||
+      a.category.localeCompare(b.category)
   )[0];
   const weakestScore = [...orderedScores].sort(
-    (a, b) => a.score - b.score || a.category.localeCompare(b.category)
+    (a, b) =>
+      scorePercent(a.score, a.maxScore) - scorePercent(b.score, b.maxScore) ||
+      a.category.localeCompare(b.category)
   )[0];
   const priorityFindings = report.findings.slice(0, 5);
   const quickWins = selectQuickWins(report.findings);
@@ -469,7 +485,12 @@ export default async function ReportPage({
         />
 
         {pageState.showAnalyzingState ? (
-          <ReportStatusPoller reportId={report.id} status={report.status} />
+          <ReportStatusPoller
+            progress={report.analysisJob?.progress ?? 0}
+            reportId={report.id}
+            stage={report.analysisJob?.stage ?? "QUEUED"}
+            status={report.status}
+          />
         ) : null}
 
         <div className="mb-6 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -510,7 +531,12 @@ export default async function ReportPage({
         </div>
 
         {pageState.showAnalyzingState ? (
-          <AnalyzingReport url={report.normalizedUrl} status={report.status} />
+          <AnalyzingReport
+            progress={report.analysisJob?.progress ?? 0}
+            stage={report.analysisJob?.stage ?? "QUEUED"}
+            url={report.normalizedUrl}
+            status={report.status}
+          />
         ) : null}
 
         {pageState.showFailedState ? (
@@ -1238,12 +1264,19 @@ function TechnicalMetricGrid({
 }
 
 function AnalyzingReport({
+  progress,
+  stage,
   url,
   status,
 }: {
+  progress: number;
+  stage: string;
   url: string;
   status: ReportStatus;
 }) {
+  const normalizedProgress = normalizeAnalysisProgress(progress);
+  const stageLabel = getAnalysisStageLabel(stage);
+
   return (
     <div className="flex flex-col gap-6" aria-live="polite">
       <Alert>
@@ -1254,7 +1287,7 @@ function AnalyzingReport({
         )}
         <AlertTitle>We&apos;re analyzing your author website.</AlertTitle>
         <AlertDescription>
-          We&apos;re analyzing your author website. This may take a moment.
+          {stageLabel}. {normalizedProgress}% complete.
         </AlertDescription>
       </Alert>
 
@@ -1263,15 +1296,29 @@ function AnalyzingReport({
           <CardTitle>Analysis in progress</CardTitle>
           <CardDescription className="break-all">{url}</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <div key={index} className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-muted/20 p-4">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-8 w-1/2" />
-              <Skeleton className="h-2 w-full" />
-              <Skeleton className="h-12 w-full" />
+        <CardContent className="flex flex-col gap-6">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-4 text-sm">
+              <span className="font-medium text-foreground">{stageLabel}</span>
+              <span className="tabular-nums text-muted-foreground">
+                {normalizedProgress}%
+              </span>
             </div>
-          ))}
+            <Progress value={normalizedProgress} />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div
+                key={index}
+                className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-muted/20 p-4"
+              >
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-8 w-1/2" />
+                <Skeleton className="h-2 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </div>

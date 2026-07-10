@@ -44,6 +44,12 @@ export const reportNarrativeSchema = z
 
 export type ReportNarrative = z.infer<typeof reportNarrativeSchema>;
 
+const aiReportNarrativeSchema = reportNarrativeSchema.extend({
+  categoryCritiques: z.array(categoryCritiqueSchema.omit({ score: true })),
+});
+
+type AiReportNarrative = z.infer<typeof aiReportNarrativeSchema>;
+
 export type ReportNarrativeSource = "ai" | "fallback";
 
 export type ReportNarrativeResult = {
@@ -116,10 +122,9 @@ const jsonSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["category", "score", "critique"],
+        required: ["category", "critique"],
         properties: {
           category: { type: "string" },
-          score: { type: "integer", minimum: 0, maximum: 100 },
           critique: { type: "string" },
         },
       },
@@ -242,6 +247,7 @@ export function buildReportNarrativePrompt(input: ReportNarrativeInput) {
       label: score.label,
       score: score.score,
       maxScore: score.maxScore,
+      percentageScore: score.percentageScore,
       summary: score.summary,
     })),
     findings: topFindings(input.findings, 12).map((finding) => ({
@@ -262,8 +268,8 @@ export function buildReportNarrativePrompt(input: ReportNarrativeInput) {
   return [
     "Return only JSON that matches the requested schema.",
     "Use only the scan facts, deterministic scores, and saved findings below.",
-    "Do not create or change any numeric score.",
-    "For categoryCritiques, repeat the provided category label and score exactly.",
+    "Numeric scores are calculated by application code. Do not return, create, or change any score.",
+    "For categoryCritiques, repeat the provided category label exactly and explain that category only.",
     "Explain missing items only when a provided finding or detected signal supports that statement.",
     "Avoid guaranteed SEO, ranking, traffic, sales, or revenue claims.",
     safeJson(promptData),
@@ -334,6 +340,37 @@ export function parseReportNarrativeJson(json: string) {
   return parsed;
 }
 
+function parseAiReportNarrativeJson(json: string) {
+  const parsed = aiReportNarrativeSchema.parse(JSON.parse(json));
+
+  if (BANNED_CLAIM_PATTERN.test(JSON.stringify(parsed))) {
+    throw new Error("AI narrative contained an unsupported guarantee claim.");
+  }
+
+  return parsed;
+}
+
+function attachDeterministicCategoryScores(
+  narrative: AiReportNarrative,
+  categoryScores: CategoryScoreResult[]
+): ReportNarrative {
+  return {
+    ...narrative,
+    categoryCritiques: categoryScores.map((score, index) => {
+      const matchingCritique = narrative.categoryCritiques.find(
+        (item) => item.category === score.label
+      );
+      const critique = matchingCritique ?? narrative.categoryCritiques[index];
+
+      return {
+        category: score.label,
+        score: score.percentageScore,
+        critique: critique?.critique ?? score.summary,
+      };
+    }),
+  };
+}
+
 function findingText(finding: ScoringFinding) {
   return `${finding.title}: ${finding.finding}`;
 }
@@ -346,8 +383,12 @@ function recommendationText(finding: ScoringFinding) {
 
 function strongestScores(scores: CategoryScoreResult[]) {
   return [...scores]
-    .filter((score) => score.score >= 70)
-    .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label))
+    .filter((score) => score.percentageScore >= 70)
+    .sort(
+      (a, b) =>
+        b.percentageScore - a.percentageScore ||
+        a.label.localeCompare(b.label)
+    )
     .slice(0, 4);
 }
 
@@ -412,7 +453,7 @@ export function buildFallbackReportNarrative(
         : ["Keep the author website clear, current, and focused on the reader's next step."],
     categoryCritiques: input.categoryScores.map((score) => ({
       category: score.label,
-      score: score.score,
+      score: score.percentageScore,
       critique: categoryCritique(score, input.findings),
     })),
     suggestedHomepageImprovement: firstRecommendation(
@@ -438,7 +479,8 @@ export function buildFallbackReportNarrative(
 
 function buildBasicSummary(result: ScoringResult) {
   const sortedScores = [...result.categoryScores].sort(
-    (a, b) => b.score - a.score || a.label.localeCompare(b.label)
+    (a, b) =>
+      b.percentageScore - a.percentageScore || a.label.localeCompare(b.label)
   );
   const strongest = sortedScores[0];
   const weakest = sortedScores[sortedScores.length - 1];
@@ -451,7 +493,7 @@ function buildBasicSummary(result: ScoringResult) {
     parts.push(`Its strongest area is ${strongest.label.toLowerCase()}.`);
   }
 
-  if (weakest && weakest.score < 80) {
+  if (weakest && weakest.percentageScore < 80) {
     parts.push(`The area that needs the most attention is ${weakest.label.toLowerCase()}.`);
   }
 
@@ -517,7 +559,7 @@ async function fetchOpenAINarrative(
       throw new Error("OpenAI did not return narrative JSON.");
     }
 
-    return parseReportNarrativeJson(text);
+    return parseAiReportNarrativeJson(text);
   } finally {
     clearTimeout(timeout);
   }
@@ -537,7 +579,7 @@ export async function generateReportNarrative(
   }
 
   try {
-    const narrative = await fetchOpenAINarrative(input, {
+    const aiNarrative = await fetchOpenAINarrative(input, {
       apiKey,
       model: options.model?.trim() || DEFAULT_MODEL,
       timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
@@ -546,7 +588,10 @@ export async function generateReportNarrative(
 
     return {
       source: "ai",
-      narrative,
+      narrative: attachDeterministicCategoryScores(
+        aiNarrative,
+        input.categoryScores
+      ),
     };
   } catch {
     return {

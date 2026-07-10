@@ -22,6 +22,10 @@ type SaveReportScreenshotsOptions = {
   waitAfterLoadMs?: number;
 };
 
+export type CapturedReportHomepageScreenshots = {
+  result: HomepageScreenshotResult;
+};
+
 function primaryScreenshotUrl(result: HomepageScreenshotResult) {
   return result.screenshots.desktop?.url ?? result.screenshots.mobile?.url ?? null;
 }
@@ -101,10 +105,10 @@ async function savePrimaryScreenshotUrl(
   });
 }
 
-export async function saveReportHomepageScreenshots(
+export async function captureReportHomepageScreenshots(
   reportId: string,
   options: SaveReportScreenshotsOptions = {}
-) {
+): Promise<CapturedReportHomepageScreenshots> {
   const report = await prisma.report.findUnique({
     where: {
       id: reportId,
@@ -144,6 +148,15 @@ export async function saveReportHomepageScreenshots(
     timeoutMs: options.timeoutMs,
     waitAfterLoadMs: options.waitAfterLoadMs,
   });
+
+  return { result };
+}
+
+export async function persistReportHomepageScreenshots(
+  reportId: string,
+  capture: CapturedReportHomepageScreenshots
+) {
+  const { result } = capture;
   const screenshotUrl = primaryScreenshotUrl(result);
   const pageScanned = await savePrimaryScreenshotUrl(
     reportId,
@@ -157,4 +170,13 @@ export async function saveReportHomepageScreenshots(
     result,
     pageScanned,
   };
+}
+
+export async function saveReportHomepageScreenshots(
+  reportId: string,
+  options: SaveReportScreenshotsOptions = {}
+) {
+  const capture = await captureReportHomepageScreenshots(reportId, options);
+
+  return persistReportHomepageScreenshots(reportId, capture);
 }

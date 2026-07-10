@@ -1,5 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import { extractPageData, type ExtractedPageData } from "@/lib/crawler/extract";
+import { mapWithConcurrency } from "@/lib/analysis/concurrency";
 import {
   CRAWL_PAGE_LIMIT,
   prioritizeCrawlUrls,
@@ -17,6 +18,16 @@ type CrawlOptions = {
   pageLimit?: number;
   timeoutMs?: number;
   redirectLimit?: number;
+  concurrency?: number;
+  sitemapTimeoutMs?: number;
+};
+
+type ResolvedCrawlOptions = {
+  pageLimit: number;
+  timeoutMs: number;
+  redirectLimit: number;
+  concurrency: number;
+  sitemapTimeoutMs: number;
 };
 
 type FetchedPage =
@@ -78,7 +89,7 @@ async function fetchText(url: string, timeoutMs: number) {
 
 async function fetchPage(
   requestedUrl: string,
-  options: Required<CrawlOptions>
+  options: ResolvedCrawlOptions
 ): Promise<FetchedPage> {
   const security = await validateUrlForScan(requestedUrl, {
     redirectLimit: options.redirectLimit,
@@ -134,11 +145,14 @@ function sameHostname(url: string, hostname: string) {
   return new URL(url).hostname.toLowerCase() === hostname.toLowerCase();
 }
 
-async function fetchSitemapUrls(homepageUrl: string, options: Required<CrawlOptions>) {
+async function fetchSitemapUrls(
+  homepageUrl: string,
+  options: ResolvedCrawlOptions
+) {
   const sitemapUrl = new URL("/sitemap.xml", homepageUrl).toString();
   const security = await validateUrlForScan(sitemapUrl, {
     redirectLimit: options.redirectLimit,
-    timeoutMs: options.timeoutMs,
+    timeoutMs: options.sitemapTimeoutMs,
   });
 
   if (!security.ok) {
@@ -148,7 +162,7 @@ async function fetchSitemapUrls(homepageUrl: string, options: Required<CrawlOpti
   let response: Response;
 
   try {
-    response = await fetchText(security.finalUrl, options.timeoutMs);
+    response = await fetchText(security.finalUrl, options.sitemapTimeoutMs);
   } catch {
     return [];
   }
@@ -235,7 +249,9 @@ export async function crawlReportWebsite(
     pageLimit: Math.min(options.pageLimit ?? CRAWL_PAGE_LIMIT, CRAWL_PAGE_LIMIT),
     timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     redirectLimit: options.redirectLimit ?? DEFAULT_REDIRECT_LIMIT,
-  };
+    concurrency: Math.max(1, Math.min(options.concurrency ?? 4, 4)),
+    sitemapTimeoutMs: options.sitemapTimeoutMs ?? 3_000,
+  } satisfies ResolvedCrawlOptions;
   const report = await prisma.report.findUnique({
     where: {
       id: reportId,
@@ -280,26 +296,33 @@ export async function crawlReportWebsite(
     limit: crawlOptions.pageLimit,
   });
 
-  for (const targetUrl of crawlQueue.slice(1)) {
-    const page = await fetchPage(targetUrl, crawlOptions);
+  const homepageHostname = new URL(homepage.finalUrl).hostname;
+  const secondaryPages = await mapWithConcurrency(
+    crawlQueue.slice(1),
+    crawlOptions.concurrency,
+    async (targetUrl): Promise<CrawledPageResult | null> => {
+      const page = await fetchPage(targetUrl, crawlOptions);
 
-    if (!page.ok) {
-      continue;
+      if (!page.ok || !sameHostname(page.finalUrl, homepageHostname)) {
+        return null;
+      }
+
+      return {
+        requestedUrl: page.requestedUrl,
+        finalUrl: page.finalUrl,
+        statusCode: page.statusCode,
+        extracted: page.html
+          ? extractPageData(page.html, page.finalUrl, siteOrigin)
+          : null,
+      };
     }
+  );
 
-    if (!sameHostname(page.finalUrl, new URL(homepage.finalUrl).hostname)) {
-      continue;
-    }
-
-    crawledPages.push({
-      requestedUrl: page.requestedUrl,
-      finalUrl: page.finalUrl,
-      statusCode: page.statusCode,
-      extracted: page.html
-        ? extractPageData(page.html, page.finalUrl, siteOrigin)
-        : null,
-    });
-  }
+  crawledPages.push(
+    ...secondaryPages.filter(
+      (page): page is CrawledPageResult => page !== null
+    )
+  );
 
   await saveCrawledPages(reportId, crawledPages);
 

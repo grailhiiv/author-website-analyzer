@@ -8,12 +8,16 @@ type PollableReportStatus = "QUEUED" | "RUNNING" | "COMPLETE" | "FAILED";
 const pollingStatuses = new Set<PollableReportStatus>(["QUEUED", "RUNNING"]);
 
 export function ReportStatusPoller({
-  intervalMs = 5000,
+  intervalMs = 2000,
+  progress,
   reportId,
+  stage,
   status,
 }: {
   intervalMs?: number;
+  progress: number;
   reportId: string;
+  stage: string;
   status: PollableReportStatus;
 }) {
   const router = useRouter();
@@ -37,9 +41,18 @@ export function ReportStatusPoller({
 
         const data = (await response.json()) as {
           status?: PollableReportStatus;
+          job?: {
+            progress?: number;
+            stage?: string;
+          } | null;
         };
 
-        if (!cancelled && data.status && data.status !== status) {
+        if (
+          !cancelled &&
+          ((data.status && data.status !== status) ||
+            (data.job &&
+              (data.job.progress !== progress || data.job.stage !== stage)))
+        ) {
           router.refresh();
         }
       } catch {
@@ -57,7 +70,7 @@ export function ReportStatusPoller({
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [intervalMs, reportId, router, status]);
+  }, [intervalMs, progress, reportId, router, stage, status]);
 
   return null;
 }

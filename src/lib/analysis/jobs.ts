@@ -4,6 +4,7 @@ import { after } from "next/server";
 
 import {
   AnalysisJobStatus,
+  Prisma,
   ReportStatus,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma.core";
@@ -123,6 +124,8 @@ async function markJobComplete(reportId: string) {
       completedAt: new Date(),
       lastError: null,
       lockedAt: null,
+      stage: "COMPLETE",
+      progress: 100,
     },
   });
 }
@@ -152,6 +155,7 @@ async function markJobFailedOrRetry(reportId: string, message: string) {
           completedAt: new Date(),
           lastError: message,
           lockedAt: null,
+          stage: "FAILED",
         },
       }),
       prisma.report.update({
@@ -187,6 +191,9 @@ async function markJobFailedOrRetry(reportId: string, message: string) {
         lastError: message,
         lockedAt: null,
         nextRunAt,
+        stage: "QUEUED",
+        progress: 0,
+        timingsJson: Prisma.DbNull,
       },
     }),
     prisma.report.update({
@@ -247,6 +254,9 @@ async function claimAnalysisJob(reportId: string) {
       completedAt: null,
       lockedAt: now,
       lastError: null,
+      stage: "VALIDATING",
+      progress: 5,
+      timingsJson: Prisma.DbNull,
     },
   });
 

@@ -6,17 +6,37 @@ import {
   ReportCategory,
   ReportStatus,
 } from "@/generated/prisma/client";
-import { generateSerializedReportNarrativeForReport } from "@/lib/ai/report-narrative";
+import {
+  generateDeterministicSerializedReportNarrativeForReport,
+  generateReportNarrativeForReport,
+} from "@/lib/ai/report-narrative";
+import { serializeReportNarrative } from "@/lib/ai/report-narrative.core";
+import {
+  analysisStageMetadata,
+  recordAnalysisTiming,
+  type AnalysisStage,
+  type AnalysisTimings,
+} from "@/lib/analysis/progress.core";
+import { updateAnalysisProgress } from "@/lib/analysis/progress";
 import { crawlReportWebsite } from "@/lib/crawler/service.core";
 import { prisma } from "@/lib/db/prisma.core";
 import { saveReportPageSpeedAudit } from "@/lib/pagespeed/service";
-import { saveReportHomepageScreenshots } from "@/lib/screenshots/service";
+import {
+  captureReportHomepageScreenshots,
+  persistReportHomepageScreenshots,
+  type CapturedReportHomepageScreenshots,
+} from "@/lib/screenshots/service";
 import { scoreAndSaveReport } from "@/lib/scoring/service";
 import { validateUrlForScan } from "@/lib/urls/security";
 
 const PAGESPEED_PIPELINE_FAILURE_TITLE =
   "Technical audit data could not be retrieved";
 const SCREENSHOT_PIPELINE_FAILURE_TITLE = "Screenshot capture failed";
+const CRAWL_TIMEOUT_MS = 6_000;
+const SITEMAP_TIMEOUT_MS = 3_000;
+const SCREENSHOT_TIMEOUT_MS = 12_000;
+const PAGESPEED_TIMEOUT_MS = 12_000;
+const AI_ENRICHMENT_TIMEOUT_MS = 8_000;
 
 function errorMessage(error: unknown) {
   if (error instanceof Error && error.message.trim()) {
@@ -97,8 +117,10 @@ async function savePipelineFinding({
 
 async function safelyCaptureScreenshots(reportId: string, homepageUrl: string) {
   try {
-    await saveReportHomepageScreenshots(reportId, {
+    return await captureReportHomepageScreenshots(reportId, {
       homepageUrl,
+      timeoutMs: SCREENSHOT_TIMEOUT_MS,
+      waitAfterLoadMs: 750,
     });
   } catch {
     await savePipelineFinding({
@@ -111,6 +133,32 @@ async function safelyCaptureScreenshots(reportId: string, homepageUrl: string) {
       severity: FindingSeverity.LOW,
       priority: 9,
     });
+
+    return null;
+  }
+}
+
+async function safelyPersistScreenshots(
+  reportId: string,
+  capture: CapturedReportHomepageScreenshots | null
+) {
+  if (!capture) {
+    return;
+  }
+
+  try {
+    await persistReportHomepageScreenshots(reportId, capture);
+  } catch {
+    await savePipelineFinding({
+      reportId,
+      title: SCREENSHOT_PIPELINE_FAILURE_TITLE,
+      finding:
+        "The analyzer could not save the homepage screenshot during this run.",
+      recommendation:
+        "Try running the analysis again later. This does not necessarily mean the website is broken.",
+      severity: FindingSeverity.LOW,
+      priority: 9,
+    });
   }
 }
 
@@ -118,6 +166,7 @@ async function safelyRunPageSpeed(reportId: string, homepageUrl: string) {
   try {
     await saveReportPageSpeedAudit(reportId, {
       homepageUrl,
+      timeoutMs: PAGESPEED_TIMEOUT_MS,
     });
   } catch {
     await savePipelineFinding({
@@ -160,60 +209,199 @@ export async function runWebsiteAnalysis(reportId: string) {
     },
   });
 
-  try {
-    const validation = await validateUrlForScan(
-      report.normalizedUrl || report.url
-    );
+  const analysisStartedAt = Date.now();
+  let currentProgress: number = analysisStageMetadata.VALIDATING.progress;
+  let timings: AnalysisTimings = {};
 
-    if (!validation.ok) {
-      throw new Error(validation.message);
-    }
-
-    await prisma.report.update({
-      where: {
-        id: reportId,
-      },
-      data: {
-        normalizedUrl: validation.finalUrl,
-        domain: validation.domain,
-      },
+  async function runStage<T>(stage: AnalysisStage, operation: () => Promise<T>) {
+    currentProgress = analysisStageMetadata[stage].progress;
+    await updateAnalysisProgress({
+      reportId,
+      stage,
+      progress: currentProgress,
+      timings,
     });
 
-    let homepageUrl = validation.finalUrl;
+    const startedAt = Date.now();
 
     try {
-      const crawlResult = await crawlReportWebsite(reportId);
-      homepageUrl = crawlResult.homepageUrl;
-    } catch (error) {
-      if (!(await hasUsableHomepageData(reportId))) {
-        throw error;
+      return await operation();
+    } finally {
+      timings = recordAnalysisTiming(timings, stage, Date.now() - startedAt);
+      await updateAnalysisProgress({
+        reportId,
+        stage,
+        progress: currentProgress,
+        timings,
+      });
+    }
+  }
+
+  try {
+    const validation = await runStage("VALIDATING", async () => {
+      const result = await validateUrlForScan(
+        report.normalizedUrl || report.url
+      );
+
+      if (!result.ok) {
+        throw new Error(result.message);
       }
-    }
 
-    if (!(await hasUsableHomepageData(reportId))) {
-      throw new Error("The homepage could not be read well enough to analyze.");
-    }
+      await prisma.report.update({
+        where: {
+          id: reportId,
+        },
+        data: {
+          normalizedUrl: result.finalUrl,
+          domain: result.domain,
+        },
+      });
 
-    await safelyCaptureScreenshots(reportId, homepageUrl);
-    await safelyRunPageSpeed(reportId, homepageUrl);
-
-    const scoringResult = await scoreAndSaveReport(reportId);
-    const summary = await generateSerializedReportNarrativeForReport(
-      reportId,
-      scoringResult
-    );
-
-    await prisma.report.update({
-      where: {
-        id: reportId,
-      },
-      data: {
-        status: ReportStatus.COMPLETE,
-        summary,
-        completedAt: new Date(),
-        errorMessage: null,
-      },
+      return result;
     });
+
+    currentProgress = analysisStageMetadata.CRAWLING.progress;
+    await updateAnalysisProgress({
+      reportId,
+      stage: "CRAWLING",
+      progress: currentProgress,
+      timings,
+    });
+
+    const technicalStartedAt = Date.now();
+    const screenshotCapture = safelyCaptureScreenshots(
+      reportId,
+      validation.finalUrl
+    );
+    const pageSpeedAudit = safelyRunPageSpeed(reportId, validation.finalUrl);
+    const crawlStartedAt = Date.now();
+
+    try {
+      try {
+        await crawlReportWebsite(reportId, {
+          concurrency: 4,
+          sitemapTimeoutMs: SITEMAP_TIMEOUT_MS,
+          timeoutMs: CRAWL_TIMEOUT_MS,
+        });
+      } catch (error) {
+        if (!(await hasUsableHomepageData(reportId))) {
+          throw error;
+        }
+      }
+
+      if (!(await hasUsableHomepageData(reportId))) {
+        throw new Error("The homepage could not be read well enough to analyze.");
+      }
+    } catch (error) {
+      // Settle the independent work before the report is marked failed so no
+      // background database writes can race the terminal failure update.
+      await Promise.allSettled([screenshotCapture, pageSpeedAudit]);
+      throw error;
+    } finally {
+      timings = recordAnalysisTiming(
+        timings,
+        "CRAWLING",
+        Date.now() - crawlStartedAt
+      );
+    }
+
+    currentProgress = analysisStageMetadata.TECHNICAL_CHECKS.progress;
+    await updateAnalysisProgress({
+      reportId,
+      stage: "TECHNICAL_CHECKS",
+      progress: currentProgress,
+      timings,
+    });
+
+    const capturedScreenshots = await screenshotCapture;
+    await Promise.all([
+      pageSpeedAudit,
+      safelyPersistScreenshots(reportId, capturedScreenshots),
+    ]);
+    timings = recordAnalysisTiming(
+      timings,
+      "TECHNICAL_CHECKS",
+      Date.now() - technicalStartedAt
+    );
+    await updateAnalysisProgress({
+      reportId,
+      stage: "TECHNICAL_CHECKS",
+      progress: currentProgress,
+      timings,
+    });
+
+    const scoringResult = await runStage("SCORING", async () => {
+      const result = await scoreAndSaveReport(reportId);
+      const summary =
+        await generateDeterministicSerializedReportNarrativeForReport(
+          reportId,
+          result
+        );
+
+      await prisma.report.update({
+        where: {
+          id: reportId,
+        },
+        data: {
+          summary,
+        },
+      });
+
+      return result;
+    });
+
+    timings = recordAnalysisTiming(
+      timings,
+      "TOTAL",
+      Date.now() - analysisStartedAt
+    );
+    currentProgress = analysisStageMetadata.COMPLETE.progress;
+
+    await prisma.$transaction([
+      prisma.report.update({
+        where: {
+          id: reportId,
+        },
+        data: {
+          status: ReportStatus.COMPLETE,
+          completedAt: new Date(),
+          errorMessage: null,
+        },
+      }),
+      prisma.analysisJob.updateMany({
+        where: {
+          reportId,
+        },
+        data: {
+          stage: "COMPLETE",
+          progress: currentProgress,
+          timingsJson: timings,
+        },
+      }),
+    ]);
+
+    // The deterministic scorecard is already complete. AI may improve the
+    // wording, but a slow or unavailable model can no longer delay the result.
+    try {
+      const narrative = await generateReportNarrativeForReport(
+        reportId,
+        scoringResult,
+        { timeoutMs: AI_ENRICHMENT_TIMEOUT_MS }
+      );
+
+      if (narrative.source === "ai") {
+        await prisma.report.update({
+          where: {
+            id: reportId,
+          },
+          data: {
+            summary: serializeReportNarrative(narrative),
+          },
+        });
+      }
+    } catch {
+      // Keep the deterministic fallback narrative saved above.
+    }
 
     return {
       ok: true as const,
@@ -223,16 +411,34 @@ export async function runWebsiteAnalysis(reportId: string) {
   } catch (error) {
     const message = errorMessage(error);
 
-    await prisma.report.update({
-      where: {
-        id: reportId,
-      },
-      data: {
-        status: ReportStatus.FAILED,
-        errorMessage: message,
-        completedAt: new Date(),
-      },
-    });
+    timings = recordAnalysisTiming(
+      timings,
+      "TOTAL",
+      Date.now() - analysisStartedAt
+    );
+
+    await prisma.$transaction([
+      prisma.report.update({
+        where: {
+          id: reportId,
+        },
+        data: {
+          status: ReportStatus.FAILED,
+          errorMessage: message,
+          completedAt: new Date(),
+        },
+      }),
+      prisma.analysisJob.updateMany({
+        where: {
+          reportId,
+        },
+        data: {
+          stage: "FAILED",
+          progress: currentProgress,
+          timingsJson: timings,
+        },
+      }),
+    ]);
 
     return {
       ok: false as const,

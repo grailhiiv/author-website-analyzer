@@ -99,8 +99,9 @@ const categoryScores: CategoryScoreResult[] = [
     category: ReportCategory.BRAND_CLARITY,
     label: "First Impression and Author Brand Clarity",
     weight: 15,
-    score: 72,
-    maxScore: 100,
+    score: 11,
+    maxScore: 15,
+    percentageScore: 73,
     earnedPoints: 11,
     availablePoints: 15,
     summary: "The author brand is partly clear from the homepage.",
@@ -109,8 +110,9 @@ const categoryScores: CategoryScoreResult[] = [
     category: ReportCategory.READER_CONVERSION,
     label: "Reader Conversion and Newsletter Growth",
     weight: 15,
-    score: 20,
-    maxScore: 100,
+    score: 3,
+    maxScore: 15,
+    percentageScore: 20,
     earnedPoints: 3,
     availablePoints: 15,
     summary: "The scan did not detect a clear newsletter path.",
@@ -168,7 +170,7 @@ test("fallback narrative uses mocked findings and preserves category scores", ()
   assert.match(narrative.executiveSummary, /46\/100/);
   assert.match(narrative.topProblems[0], /Newsletter signup was not detected/);
   assert.match(narrative.topRecommendations[0], /newsletter signup section/);
-  assert.equal(narrative.categoryCritiques[0].score, 72);
+  assert.equal(narrative.categoryCritiques[0].score, 73);
   assert.equal(narrative.categoryCritiques[1].score, 20);
   assert.doesNotMatch(JSON.stringify(narrative), /guaranteed ranking/i);
 });
@@ -215,10 +217,14 @@ test("OpenAI response text extraction supports Responses API output items", () =
 });
 
 test("generateReportNarrative validates mocked OpenAI JSON output", async () => {
+  const deterministicNarrative = buildFallbackReportNarrative(input);
   const aiNarrative = {
-    ...buildFallbackReportNarrative(input),
+    ...deterministicNarrative,
     executiveSummary:
       "The website has a clear author name, but the saved findings show newsletter and book-buying paths need attention.",
+    categoryCritiques: deterministicNarrative.categoryCritiques.map(
+      ({ category, critique }) => ({ category, critique })
+    ),
   };
   let requestBody: Record<string, unknown> | null = null;
 
@@ -254,7 +260,8 @@ test("generateReportNarrative validates mocked OpenAI JSON output", async () => 
 
   assert.equal(result.source, "ai");
   assert.equal(result.narrative.executiveSummary, aiNarrative.executiveSummary);
-  assert.equal(result.narrative.categoryCritiques[0].score, 72);
+  assert.equal(result.narrative.categoryCritiques[0].score, 73);
+  assert.equal(result.narrative.categoryCritiques[1].score, 20);
   assert.ok(requestBody);
   const body = requestBody as Record<string, unknown>;
 
@@ -262,6 +269,22 @@ test("generateReportNarrative validates mocked OpenAI JSON output", async () => 
   assert.deepEqual(
     (body.text as { format?: { strict?: boolean } }).format?.strict,
     true
+  );
+  const schema = (body.text as {
+    format?: {
+      schema?: {
+        properties?: {
+          categoryCritiques?: {
+            items?: { properties?: Record<string, unknown> };
+          };
+        };
+      };
+    };
+  }).format?.schema;
+
+  assert.equal(
+    schema?.properties?.categoryCritiques?.items?.properties?.score,
+    undefined
   );
 });
 

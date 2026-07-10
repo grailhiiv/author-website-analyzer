@@ -1,5 +1,9 @@
 import type { ScoringResult } from "@/lib/scoring/engine";
 
+function formatCategoryScore(score: ScoringResult["categoryScores"][number]) {
+  return `${score.score}/${score.maxScore} (${score.percentageScore}%)`;
+}
+
 function scoreTone(score: number) {
   if (score >= 85) {
     return "strong";
@@ -18,7 +22,8 @@ function scoreTone(score: number) {
 
 export function buildBasicAnalysisSummary(result: ScoringResult) {
   const sortedScores = [...result.categoryScores].sort(
-    (a, b) => b.score - a.score || a.label.localeCompare(b.label)
+    (a, b) =>
+      b.percentageScore - a.percentageScore || a.label.localeCompare(b.label)
   );
   const strongest = sortedScores[0];
   const weakest = sortedScores[sortedScores.length - 1];
@@ -32,13 +37,13 @@ export function buildBasicAnalysisSummary(result: ScoringResult) {
 
   if (strongest) {
     parts.push(
-      `The strongest area is ${strongest.label.toLowerCase()} at ${strongest.score}/100.`
+      `The strongest area is ${strongest.label.toLowerCase()} at ${formatCategoryScore(strongest)}.`
     );
   }
 
-  if (weakest && weakest.score < 80) {
+  if (weakest && weakest.percentageScore < 80) {
     parts.push(
-      `The area that needs the most attention is ${weakest.label.toLowerCase()} at ${weakest.score}/100.`
+      `The area that needs the most attention is ${weakest.label.toLowerCase()} at ${formatCategoryScore(weakest)}.`
     );
   }
 
