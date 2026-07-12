@@ -3,6 +3,8 @@ import { extractPageData, type ExtractedPageData } from "@/lib/crawler/extract";
 import { mapWithConcurrency } from "@/lib/analysis/concurrency";
 import {
   CRAWL_PAGE_LIMIT,
+  getCrawlContentFingerprint,
+  normalizeCandidateUrl,
   prioritizeCrawlUrls,
 } from "@/lib/crawler/prioritize";
 import { prisma } from "@/lib/db/prisma.core";
@@ -78,7 +80,8 @@ async function fetchText(url: string, timeoutMs: number) {
       redirect: "manual",
       signal: timeout.signal,
       headers: {
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "User-Agent": USER_AGENT,
       },
     });
@@ -89,7 +92,7 @@ async function fetchText(url: string, timeoutMs: number) {
 
 async function fetchPage(
   requestedUrl: string,
-  options: ResolvedCrawlOptions
+  options: ResolvedCrawlOptions,
 ): Promise<FetchedPage> {
   const security = await validateUrlForScan(requestedUrl, {
     redirectLimit: options.redirectLimit,
@@ -147,7 +150,7 @@ function sameHostname(url: string, hostname: string) {
 
 async function fetchSitemapUrls(
   homepageUrl: string,
-  options: ResolvedCrawlOptions
+  options: ResolvedCrawlOptions,
 ) {
   const sitemapUrl = new URL("/sitemap.xml", homepageUrl).toString();
   const security = await validateUrlForScan(sitemapUrl, {
@@ -243,10 +246,13 @@ async function saveCrawledPages(reportId: string, pages: CrawledPageResult[]) {
 
 export async function crawlReportWebsite(
   reportId: string,
-  options: CrawlOptions = {}
+  options: CrawlOptions = {},
 ): Promise<CrawlReportResult> {
   const crawlOptions = {
-    pageLimit: Math.min(options.pageLimit ?? CRAWL_PAGE_LIMIT, CRAWL_PAGE_LIMIT),
+    pageLimit: Math.min(
+      options.pageLimit ?? CRAWL_PAGE_LIMIT,
+      CRAWL_PAGE_LIMIT,
+    ),
     timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     redirectLimit: options.redirectLimit ?? DEFAULT_REDIRECT_LIMIT,
     concurrency: Math.max(1, Math.min(options.concurrency ?? 4, 4)),
@@ -267,7 +273,10 @@ export async function crawlReportWebsite(
     throw new Error("Report not found.");
   }
 
-  const homepage = await fetchPage(report.normalizedUrl || report.url, crawlOptions);
+  const homepage = await fetchPage(
+    report.normalizedUrl || report.url,
+    crawlOptions,
+  );
 
   if (!homepage.ok) {
     throw new Error(homepage.message);
@@ -293,36 +302,105 @@ export async function crawlReportWebsite(
     homepageUrl: homepage.finalUrl,
     sitemapUrls,
     homepageInternalLinks: homepageLinks,
-    limit: crawlOptions.pageLimit,
+    limit: crawlOptions.pageLimit * 3,
   });
 
   const homepageHostname = new URL(homepage.finalUrl).hostname;
-  const secondaryPages = await mapWithConcurrency(
-    crawlQueue.slice(1),
-    crawlOptions.concurrency,
-    async (targetUrl): Promise<CrawledPageResult | null> => {
-      const page = await fetchPage(targetUrl, crawlOptions);
+  const seenUrls = new Set<string>();
+  const seenCanonicalUrls = new Set<string>();
+  const seenContent = new Set<string>();
+  const rememberPage = (page: CrawledPageResult) => {
+    const normalizedUrl = normalizeCandidateUrl(
+      page.finalUrl,
+      homepage.finalUrl,
+    );
+    const canonicalUrl = page.extracted?.seo.canonicalUrl
+      ? normalizeCandidateUrl(
+          page.extracted.seo.canonicalUrl,
+          homepage.finalUrl,
+        )
+      : null;
+    const fingerprint = page.extracted
+      ? getCrawlContentFingerprint(page.extracted)
+      : null;
 
-      if (!page.ok || !sameHostname(page.finalUrl, homepageHostname)) {
-        return null;
+    if (normalizedUrl) {
+      seenUrls.add(normalizedUrl);
+    }
+
+    if (canonicalUrl) {
+      seenCanonicalUrls.add(canonicalUrl);
+    }
+
+    if (fingerprint) {
+      seenContent.add(fingerprint);
+    }
+  };
+  const isDuplicatePage = (page: CrawledPageResult) => {
+    const normalizedUrl = normalizeCandidateUrl(
+      page.finalUrl,
+      homepage.finalUrl,
+    );
+    const canonicalUrl = page.extracted?.seo.canonicalUrl
+      ? normalizeCandidateUrl(
+          page.extracted.seo.canonicalUrl,
+          homepage.finalUrl,
+        )
+      : null;
+    const fingerprint = page.extracted
+      ? getCrawlContentFingerprint(page.extracted)
+      : null;
+
+    return Boolean(
+      (normalizedUrl && seenUrls.has(normalizedUrl)) ||
+      (canonicalUrl &&
+        (seenUrls.has(canonicalUrl) || seenCanonicalUrls.has(canonicalUrl))) ||
+      (fingerprint && seenContent.has(fingerprint)),
+    );
+  };
+
+  rememberPage(crawledPages[0]);
+
+  for (
+    let index = 1;
+    index < crawlQueue.length && crawledPages.length < crawlOptions.pageLimit;
+    index += crawlOptions.concurrency
+  ) {
+    const batch = crawlQueue.slice(index, index + crawlOptions.concurrency);
+    const secondaryPages = await mapWithConcurrency(
+      batch,
+      crawlOptions.concurrency,
+      async (targetUrl): Promise<CrawledPageResult | null> => {
+        const page = await fetchPage(targetUrl, crawlOptions);
+
+        if (!page.ok || !sameHostname(page.finalUrl, homepageHostname)) {
+          return null;
+        }
+
+        return {
+          requestedUrl: page.requestedUrl,
+          finalUrl: page.finalUrl,
+          statusCode: page.statusCode,
+          extracted: page.html
+            ? extractPageData(page.html, page.finalUrl, siteOrigin)
+            : null,
+        };
+      },
+    );
+
+    for (const page of secondaryPages) {
+      if (
+        !page ||
+        isDuplicatePage(page) ||
+        crawledPages.length >= crawlOptions.pageLimit
+      ) {
+        continue;
       }
 
-      return {
-        requestedUrl: page.requestedUrl,
-        finalUrl: page.finalUrl,
-        statusCode: page.statusCode,
-        extracted: page.html
-          ? extractPageData(page.html, page.finalUrl, siteOrigin)
-          : null,
-      };
+      crawledPages.push(page);
+      rememberPage(page);
     }
-  );
-
-  crawledPages.push(
-    ...secondaryPages.filter(
-      (page): page is CrawledPageResult => page !== null
-    )
-  );
+  }
 
   await saveCrawledPages(reportId, crawledPages);
 

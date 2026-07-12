@@ -100,60 +100,60 @@ async function main() {
               "The homepage introduces the author clearly and gives readers a quick sense of genre.",
           },
           {
-            category: ReportCategory.BOOK_PROMOTION,
+            category: ReportCategory.BOOK_VISIBILITY,
             score: 72,
             maxScore: 100,
             summary:
               "Books are present, but the buying path could be more visible from the homepage.",
           },
           {
-            category: ReportCategory.READER_CONVERSION,
+            category: ReportCategory.READER_ENGAGEMENT,
             score: 68,
             maxScore: 100,
             summary:
               "The newsletter form exists, but the value for readers needs stronger copy.",
           },
           {
-            category: ReportCategory.SEO_DISCOVERABILITY,
+            category: ReportCategory.SEARCH_VISIBILITY,
             score: 80,
             maxScore: 100,
             summary:
               "Core metadata is present on key pages and can be expanded later.",
           },
           {
-            category: ReportCategory.MOBILE_ACCESSIBILITY,
+            category: ReportCategory.MOBILE_PERFORMANCE,
             score: 82,
             maxScore: 100,
             summary:
               "The site appears usable on mobile with no major placeholder issues in this sample.",
           },
           {
-            category: ReportCategory.PERFORMANCE_HEALTH,
+            category: ReportCategory.TECHNICAL_HEALTH,
             score: 76,
             maxScore: 100,
             summary:
               "Performance is acceptable, with room to improve image handling.",
           },
           {
-            category: ReportCategory.TRUST_CREDIBILITY,
+            category: ReportCategory.AUTHOR_TRUST,
             score: 74,
             maxScore: 100,
             summary:
               "Basic trust signals are present, but reviews and press proof should be easier to find.",
           },
           {
-            category: ReportCategory.MAINTENANCE_RISK,
+            category: ReportCategory.SITE_USABILITY,
             score: 88,
             maxScore: 100,
             summary:
-              "The sample site shows low maintenance risk based on available placeholder evidence.",
+              "The sample site shows good site usability based on available placeholder evidence.",
           },
         ],
       },
       findings: {
         create: [
           {
-            category: ReportCategory.BOOK_PROMOTION,
+            category: ReportCategory.BOOK_VISIBILITY,
             severity: FindingSeverity.HIGH,
             title: "Featured book path is too quiet",
             finding:
@@ -163,7 +163,7 @@ async function main() {
             priority: 1,
           },
           {
-            category: ReportCategory.READER_CONVERSION,
+            category: ReportCategory.READER_ENGAGEMENT,
             severity: FindingSeverity.HIGH,
             title: "Newsletter value needs clearer reader benefit",
             finding:
@@ -173,7 +173,7 @@ async function main() {
             priority: 2,
           },
           {
-            category: ReportCategory.TRUST_CREDIBILITY,
+            category: ReportCategory.AUTHOR_TRUST,
             severity: FindingSeverity.MEDIUM,
             title: "Trust proof could be easier to find",
             finding:

@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
+import { deliverFullReportEmail } from "@/lib/email/report-delivery";
+import { getReportPath } from "@/lib/reports/domain";
 
 export type UnlockReportState = {
   email?: string;
@@ -20,14 +22,8 @@ const unlockReportSchema = z.object({
     .max(120, "Name must be 120 characters or less.")
     .optional()
     .default(""),
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .email("Enter a valid email address."),
-  consent: z.literal("on", {
-    error: "Please confirm consent before unlocking the full report.",
-  }),
+  email: z.string().trim().toLowerCase().email("Enter a valid email address."),
+  consent: z.enum(["on"]).optional(),
 });
 
 export async function unlockReportAction(
@@ -51,13 +47,15 @@ export async function unlockReportAction(
     };
   }
 
-  const { reportId, name, email } = parsed.data;
+  const { reportId, name, email, consent } = parsed.data;
+  let reportPath = "";
 
   try {
     const report = await prisma.report.findUnique({
       where: { id: reportId },
       select: {
         id: true,
+        domain: true,
         normalizedUrl: true,
         authorType: true,
         websiteGoal: true,
@@ -72,6 +70,8 @@ export async function unlockReportAction(
       };
     }
 
+    reportPath = getReportPath(report.domain);
+
     await prisma.lead.upsert({
       where: { reportId: report.id },
       create: {
@@ -81,7 +81,7 @@ export async function unlockReportAction(
         websiteUrl: report.normalizedUrl,
         authorType: report.authorType,
         websiteGoal: report.websiteGoal,
-        consent: true,
+        consent: consent === "on",
       },
       update: {
         name,
@@ -89,11 +89,17 @@ export async function unlockReportAction(
         websiteUrl: report.normalizedUrl,
         authorType: report.authorType,
         websiteGoal: report.websiteGoal,
-        consent: true,
+        consent: consent === "on",
       },
     });
 
-    revalidatePath(`/report/${report.id}`);
+    await deliverFullReportEmail({
+      reportId: report.id,
+      recipientEmail: email,
+      recipientName: name,
+    });
+
+    revalidatePath(reportPath);
   } catch (error) {
     console.error("Failed to unlock report", error);
 
@@ -101,9 +107,9 @@ export async function unlockReportAction(
       name,
       email,
       error:
-        "We could not unlock the full report yet. Please try again in a moment.",
+        "We saved your details, but could not email the report yet. Please try again in a moment.",
     };
   }
 
-  redirect(`/report/${reportId}`);
+  redirect(reportPath);
 }

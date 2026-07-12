@@ -1,7 +1,7 @@
 import { AlertCircleIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/report/report-ui";
 
 type ErrorStateProps = {
   title?: string;

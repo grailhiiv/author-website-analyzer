@@ -35,13 +35,13 @@ enum FindingSeverity {
 
 enum ReportCategory {
   BRAND_CLARITY
-  BOOK_PROMOTION
-  READER_CONVERSION
-  SEO_DISCOVERABILITY
-  MOBILE_ACCESSIBILITY
-  PERFORMANCE_HEALTH
-  TRUST_CREDIBILITY
-  MAINTENANCE_RISK
+  BOOK_VISIBILITY
+  READER_ENGAGEMENT
+  SEARCH_VISIBILITY
+  MOBILE_PERFORMANCE
+  TECHNICAL_HEALTH
+  AUTHOR_TRUST
+  SITE_USABILITY
 }
 
 enum PageType {
@@ -66,17 +66,17 @@ enum SalesLeadStatus {
 }
 
 model Report {
-  id             String            @id @default(cuid())
+  id             String           @id @default(cuid())
   url            String
   normalizedUrl  String
   domain         String
   authorType     String
   websiteGoal    String
-  status         ReportStatus      @default(QUEUED)
+  status         ReportStatus     @default(QUEUED)
   overallScore   Int?
   summary        String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
   completedAt    DateTime?
   errorMessage   String?
   lead           Lead?
@@ -131,22 +131,23 @@ model Lead {
 }
 
 model PageScanned {
-  id              String   @id @default(cuid())
-  reportId        String
-  report          Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  url             String
-  pageType        PageType @default(UNKNOWN)
-  statusCode      Int?
-  title           String?
-  metaDescription String?
-  h1              String?
-  headingsJson    Json?
-  linksJson       Json?
-  imagesJson      Json?
-  formsJson       Json?
-  wordCount       Int?
-  screenshotUrl   String?
-  createdAt       DateTime @default(now())
+  id                  String   @id @default(cuid())
+  reportId            String
+  report              Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  url                 String
+  pageType            PageType @default(UNKNOWN)
+  statusCode          Int?
+  title               String?
+  metaDescription     String?
+  h1                  String?
+  headingsJson        Json?
+  linksJson           Json?
+  imagesJson          Json?
+  formsJson           Json?
+  wordCount           Int?
+  screenshotUrl       String?
+  mobileScreenshotUrl String?
+  createdAt           DateTime @default(now())
 
   @@index([reportId])
   @@index([pageType])
@@ -175,6 +176,7 @@ model ReportFinding {
   title          String
   finding        String
   recommendation String
+  practicalActions Json?
   priority       Int
   createdAt      DateTime        @default(now())
 

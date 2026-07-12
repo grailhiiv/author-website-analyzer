@@ -1,6 +1,6 @@
 # Author Website Analyzer
 
-Author Website Analyzer is a GrailHiiv web app for reviewing existing author websites. It produces an author-focused scorecard for book promotion, reader conversion, newsletter growth, SEO, mobile experience, performance, trust, and maintenance risk.
+Author Website Analyzer is a GrailHiiv web app for reviewing existing author websites. It produces an author-focused scorecard for brand clarity, book visibility, reader engagement, search visibility, mobile performance, technical health, author trust, and site usability.
 
 Numeric scores should be calculated with deterministic rules. AI may be used later to explain supported findings in simple, author-friendly language, but it should not invent scores or unsupported claims.
 
@@ -45,6 +45,8 @@ PAGESPEED_API_KEY=
 APP_URL=
 ADMIN_EMAIL=
 AUTH_SECRET=
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=
 ```
 
 Environment variables are validated on the server in `src/lib/env/server.ts`.
@@ -56,12 +58,18 @@ Import the typed `env` object only from server-side code.
 - `APP_URL`: Public base URL for the app, used for links, callbacks, and future auth configuration.
 - `ADMIN_EMAIL`: Email address for the first admin or admin notifications.
 - `AUTH_SECRET`: Long random secret for signing authentication data. Use at least 32 characters.
+- `RESEND_API_KEY`: Server-side Resend API key used to deliver full reports.
+- `RESEND_FROM_EMAIL`: Sender address on a domain verified in Resend, such as `reports@example.com`.
 
-Keep `DATABASE_URL`, `OPENAI_API_KEY`, `PAGESPEED_API_KEY`, `ADMIN_EMAIL`, and `AUTH_SECRET` server-only in Vercel. Do not prefix them with `NEXT_PUBLIC_`.
+Keep `DATABASE_URL`, `OPENAI_API_KEY`, `PAGESPEED_API_KEY`, `ADMIN_EMAIL`, `AUTH_SECRET`, `RESEND_API_KEY`, and `RESEND_FROM_EMAIL` server-only in Vercel. Do not prefix them with `NEXT_PUBLIC_`.
 
 ## Admin Authentication
 
-Admin routes are protected with Better Auth email/password login at `/admin/login`.
+Internal routes are protected with Better Auth email/password login at `/login`.
+The analyzer dashboard is available at `/dashboard`, with reports at `/reports`
+and leads at `/leads`. The complete Ecme demo route library remains available for
+gradual reuse, including `/dashboards/*`, `/concepts/*`, `/ui-components/*`, and
+`/guide/*`.
 Set `ADMIN_EMAIL` to the only email address allowed to create or access the admin account.
 The first successful login with that email creates the admin user using the submitted password.
 
@@ -78,7 +86,7 @@ Use a long random `AUTH_SECRET`, keep it server-only, and make `APP_URL` match t
 
 - Prisma Client is generated during `postinstall` and again in `npm run vercel-build` because `src/generated/prisma` is ignored.
 - The initial migration lives in `prisma/migrations/20260709000000_init/migration.sql`. Commit future migration folders before deploying.
-- Admin pages under `/admin` are protected by `src/proxy.ts` and by the protected admin layout's server-side session and `ADMIN_EMAIL` checks.
+- Internal pages such as `/dashboard`, `/reports`, `/leads`, and the Ecme demo routes are protected by `src/proxy.ts` and by the protected layout's server-side session and `ADMIN_EMAIL` checks.
 - URL scanning uses server-side validation to block unsafe protocols, localhost, private IP ranges, and excessive redirects before crawler or screenshot work starts.
 - PageSpeed failures are non-fatal. The report stores null technical scores and adds a low-severity finding instead of failing the whole report.
 - AI failures are non-fatal. The report generator falls back to deterministic, non-AI narrative copy based on saved scores and findings.
@@ -96,6 +104,6 @@ Use a long random `AUTH_SECRET`, keep it server-only, and make `APP_URL` match t
 8. Deploy to Vercel using `npm run vercel-build` as the build command.
 9. Test `/analyze`.
 10. Test `/report/[id]`.
-11. Test `/admin`.
+11. Test `/login`, `/dashboard`, `/reports`, and `/leads`.
 12. Test completed report.
 13. Test failed report.

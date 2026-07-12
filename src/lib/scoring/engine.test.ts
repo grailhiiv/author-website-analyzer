@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  FindingSeverity,
-  ReportCategory,
-} from "@/generated/prisma/client";
+import { FindingSeverity, ReportCategory } from "@/generated/prisma/client";
 import {
   DETERMINISTIC_SCORING_CATEGORIES,
   DETERMINISTIC_SCORING_TOTAL,
@@ -39,7 +36,9 @@ function signalSet(allDetected: boolean): AuthorWebsiteSignals {
     authorBrand: {
       authorNameVisible: signal(["Author name: Jane Doe"]),
       genreOrCategoryMentioned: signal(["Genre/category wording: fantasy"]),
-      clearHomepageHeadline: signal(["Homepage headline: Jane Doe Fantasy Author"]),
+      clearHomepageHeadline: signal([
+        "Homepage headline: Jane Doe Fantasy Author",
+      ]),
       aboutSectionOrPage: signal(["About page: https://janedoe.test/about"]),
     },
     bookPromotion: {
@@ -53,7 +52,9 @@ function signalSet(allDetected: boolean): AuthorWebsiteSignals {
       reviewsOrPraise: signal(["Reviews/praise wording: praise"]),
     },
     newsletter: {
-      newsletterSignupForm: signal(["Newsletter form on https://janedoe.test/"]),
+      newsletterSignupForm: signal([
+        "Newsletter form on https://janedoe.test/",
+      ]),
       subscribeForm: signal(["Subscribe form on https://janedoe.test/"]),
       emailInput: signal(["Email input on https://janedoe.test/"]),
       readerMagnetPhrases: signal(["Reader magnet wording: free chapter"]),
@@ -93,7 +94,9 @@ function signalSet(allDetected: boolean): AuthorWebsiteSignals {
       appleBooks: signal(["Apple Books: Apple Books"]),
       barnesAndNoble: allDetected ? detected(["Barnes & Noble"]) : missing(),
       bookshop: allDetected ? detected(["Bookshop"]) : missing(),
-      googlePlayBooks: allDetected ? detected(["Google Play Books"]) : missing(),
+      googlePlayBooks: allDetected
+        ? detected(["Google Play Books"])
+        : missing(),
       goodreads: allDetected ? detected(["Goodreads"]) : missing(),
       publisherWebsites: allDetected ? detected(["Publisher"]) : missing(),
     },
@@ -160,7 +163,8 @@ function strongPages(): ScoringPageInput[] {
       title: "Books",
       h1: "The Star Library",
       wordCount: 300,
-      contentText: "Book description, praise, buy links, and series reading order.",
+      contentText:
+        "Book description, praise, buy links, and series reading order.",
     },
   ];
 }
@@ -194,7 +198,7 @@ test("scoreAuthorWebsite awards full deterministic scores for a complete author 
   assert.equal(result.quickWins.length, 0);
 
   const bookScore = result.categoryScores.find(
-    (score) => score.category === ReportCategory.BOOK_PROMOTION
+    (score) => score.category === ReportCategory.BOOK_VISIBILITY,
   );
 
   assert.equal(bookScore?.score, 20);
@@ -203,21 +207,78 @@ test("scoreAuthorWebsite awards full deterministic scores for a complete author 
   assert.equal(bookScore?.weight, 20);
 });
 
+test("scoreAuthorWebsite treats unavailable PageSpeed metrics as unknown", () => {
+  const result = scoreAuthorWebsite(
+    scoreInput({
+      technicalAudit: null,
+    }),
+  );
+  const mobileScore = result.categoryScores.find(
+    (score) => score.category === ReportCategory.MOBILE_PERFORMANCE,
+  );
+  const technicalScore = result.categoryScores.find(
+    (score) => score.category === ReportCategory.TECHNICAL_HEALTH,
+  );
+
+  assert.equal(mobileScore?.score, 7);
+  assert.equal(technicalScore?.score, 7);
+  assert.equal(
+    result.findings.some((finding) =>
+      /PageSpeed|performance score|best practices score|accessibility score|search audit score/i.test(
+        `${finding.title} ${finding.finding}`,
+      ),
+    ),
+    false,
+  );
+});
+
+test("scoreAuthorWebsite does not change numeric scores based on author type", () => {
+  const debut = scoreAuthorWebsite(
+    scoreInput({
+      authorType: "Debut Author",
+    }),
+  );
+  const series = scoreAuthorWebsite(
+    scoreInput({
+      authorType: "Series Author",
+    }),
+  );
+
+  assert.equal(debut.overallScore, series.overallScore);
+  assert.deepEqual(debut.categoryScores, series.categoryScores);
+});
+
 test("scoreAuthorWebsite uses the fixed 100-point category model", () => {
   const result = scoreAuthorWebsite(scoreInput());
 
   assert.deepEqual(
+    DETERMINISTIC_SCORING_CATEGORIES.map((category) => category.label),
+    [
+      "Brand Clarity",
+      "Book Visibility",
+      "Reader Engagement",
+      "Search Visibility",
+      "Mobile Performance",
+      "Technical Health",
+      "Author Trust",
+      "Site Usability",
+    ],
+  );
+  assert.deepEqual(
     DETERMINISTIC_SCORING_CATEGORIES.map((category) => category.weight),
-    [15, 20, 15, 15, 10, 10, 10, 5]
+    [15, 20, 15, 15, 10, 10, 10, 5],
   );
   assert.equal(DETERMINISTIC_SCORING_TOTAL, 100);
   assert.deepEqual(
     result.categoryScores.map((category) => category.maxScore),
-    [15, 20, 15, 15, 10, 10, 10, 5]
+    [15, 20, 15, 15, 10, 10, 10, 5],
   );
   assert.equal(
-    result.categoryScores.reduce((total, category) => total + category.score, 0),
-    result.overallScore
+    result.categoryScores.reduce(
+      (total, category) => total + category.score,
+      0,
+    ),
+    result.overallScore,
   );
 });
 
@@ -248,32 +309,44 @@ test("scoreAuthorWebsite creates findings for every reduced category score", () 
       ],
       technicalAudit: null,
       authorType: "Fiction Author",
-    })
+    }),
   );
 
   assert.equal(result.serviceFitLabel, "New author website");
   assert.ok(result.overallScore < 40);
   assert.ok(
-    result.findings.some((finding) => finding.title === "Buy links were not detected")
+    result.findings.some(
+      (finding) => finding.title === "Buy links were not detected",
+    ),
   );
   assert.ok(
     result.findings.some(
-      (finding) => finding.title === "Newsletter signup was not detected"
-    )
+      (finding) => finding.title === "Newsletter signup was not detected",
+    ),
   );
   assert.ok(
     result.findings.some(
-      (finding) => finding.severity === FindingSeverity.CRITICAL
-    )
+      (finding) => finding.severity === FindingSeverity.CRITICAL,
+    ),
+  );
+  assert.ok(result.findings.length > 0);
+  assert.ok(
+    result.findings.every((finding) => finding.practicalActions.length >= 3),
+    "Every deterministic finding should include several practical actions",
+  );
+  assert.deepEqual(
+    new Set(result.findings.map((finding) => finding.category)),
+    new Set(DETERMINISTIC_SCORING_CATEGORIES.map(({ category }) => category)),
+    "The sparse scan should exercise recommendations across all eight modules",
   );
 
   for (const categoryScore of result.categoryScores) {
     if (categoryScore.score < categoryScore.maxScore) {
       assert.ok(
         result.findings.some(
-          (finding) => finding.category === categoryScore.category
+          (finding) => finding.category === categoryScore.category,
         ),
-        `${categoryScore.label} should have at least one finding`
+        `${categoryScore.label} should have at least one finding`,
       );
     }
   }
@@ -304,12 +377,12 @@ test("scoreAuthorWebsite labels SEO improvement when design is acceptable and SE
       signals,
       pagesScanned: pages,
       authorType: "Fiction Author",
-    })
+    }),
   );
 
   assert.equal(result.serviceFitLabel, "SEO improvement");
   const seoScore = result.categoryScores.find(
-    (score) => score.category === ReportCategory.SEO_DISCOVERABILITY
+    (score) => score.category === ReportCategory.SEARCH_VISIBILITY,
   );
 
   assert.ok((seoScore?.percentageScore ?? 100) < 60);
@@ -338,22 +411,22 @@ test("scoreAuthorWebsite creates newsletter findings when newsletter signals are
       signals,
       pagesScanned: pages,
       authorType: "Fiction Author",
-    })
+    }),
   );
   const newsletterScore = result.categoryScores.find(
-    (score) => score.category === ReportCategory.READER_CONVERSION
+    (score) => score.category === ReportCategory.READER_ENGAGEMENT,
   );
 
   assert.equal(result.serviceFitLabel, "Newsletter setup");
   assert.ok((newsletterScore?.percentageScore ?? 100) < 60);
   assert.ok(
     result.findings.some(
-      (finding) => finding.title === "Newsletter signup was not detected"
-    )
+      (finding) => finding.title === "Newsletter signup was not detected",
+    ),
   );
 });
 
-test("scoreAuthorWebsite creates book promotion findings when book links are missing", () => {
+test("scoreAuthorWebsite creates book visibility findings when book links are missing", () => {
   const signals = cloneSignals(signalSet(true));
 
   signals.bookPromotion.buyLinks = missing();
@@ -372,21 +445,23 @@ test("scoreAuthorWebsite creates book promotion findings when book links are mis
     scoreInput({
       signals,
       authorType: "Fiction Author",
-    })
+    }),
   );
   const bookScore = result.categoryScores.find(
-    (score) => score.category === ReportCategory.BOOK_PROMOTION
+    (score) => score.category === ReportCategory.BOOK_VISIBILITY,
   );
 
   assert.ok((bookScore?.percentageScore ?? 100) < 80);
   assert.ok(
-    result.findings.some((finding) => finding.title === "Buy links were not detected")
+    result.findings.some(
+      (finding) => finding.title === "Buy links were not detected",
+    ),
   );
   assert.ok(
     result.findings.some(
       (finding) =>
-        finding.title === "Multiple retailer options were not detected"
-    )
+        finding.title === "Multiple retailer options were not detected",
+    ),
   );
 });
 
@@ -423,22 +498,22 @@ test("scoreAuthorWebsite creates poor SEO findings from missing metadata and noi
         },
       ],
       authorType: "Fiction Author",
-    })
+    }),
   );
   const seoScore = result.categoryScores.find(
-    (score) => score.category === ReportCategory.SEO_DISCOVERABILITY
+    (score) => score.category === ReportCategory.SEARCH_VISIBILITY,
   );
 
   assert.ok((seoScore?.percentageScore ?? 100) < 50);
   assert.ok(
     result.findings.some(
-      (finding) => finding.title === "Meta description is missing"
-    )
+      (finding) => finding.title === "Meta description is missing",
+    ),
   );
   assert.ok(
     result.findings.some(
-      (finding) => finding.title === "Indexability may be blocked"
-    )
+      (finding) => finding.title === "Indexability may be blocked",
+    ),
   );
 });
 
@@ -464,13 +539,13 @@ test("scoreAuthorWebsite labels website management for low technical scores on a
         desktopBestPractices: 50,
       },
       authorType: "Fiction Author",
-    })
+    }),
   );
 
   assert.equal(result.serviceFitLabel, "Website management");
   assert.ok(
     result.findings.some(
-      (finding) => finding.category === ReportCategory.PERFORMANCE_HEALTH
-    )
+      (finding) => finding.category === ReportCategory.TECHNICAL_HEALTH,
+    ),
   );
 });

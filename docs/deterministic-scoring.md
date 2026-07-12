@@ -7,23 +7,23 @@ The Author Website Analyzer assigns every numeric score from saved scan data. AI
 For each category `c`:
 
 ```text
-applicable ratio(c) = earned check points(c) / available applicable check points(c)
-category score(c)   = round(applicable ratio(c) * category maximum(c))
-overall score       = sum(category score(c))
+earned check points(c) = full points for pass + half points for unknown
+category score(c)      = round(earned check points(c) / available points(c) * category maximum(c))
+overall score          = sum(category score(c))
 ```
 
 Each category score is an integer. It is clamped between zero and the category maximum. The fixed category maxima sum to 100, so the overall score is the direct sum of the eight stored category scores.
 
 | Category | Maximum |
 | --- | ---: |
-| First Impression and Author Brand Clarity | 15 |
-| Book Promotion and Sales Readiness | 20 |
-| Reader Conversion and Newsletter Growth | 15 |
-| SEO Discoverability | 15 |
-| Mobile Experience and Accessibility | 10 |
-| Performance and Technical Health | 10 |
-| Trust and Credibility | 10 |
-| Maintenance and Website Risk | 5 |
+| Brand Clarity | 15 |
+| Book Visibility | 20 |
+| Reader Engagement | 15 |
+| Search Visibility | 15 |
+| Mobile Performance | 10 |
+| Technical Health | 10 |
+| Author Trust | 10 |
+| Site Usability | 5 |
 | **Overall** | **100** |
 
 The engine also derives a percentage from each stored category score for fair strongest/weakest comparisons:
@@ -36,14 +36,43 @@ For example, `12/15` and `16/20` both represent 80 percent even though the categ
 
 ## Scored evidence
 
+Every check has one of three states:
+
+- **Pass:** awards all check points.
+- **Fail:** awards no points and creates a fixed finding, primary recommendation, and practical-action list.
+- **Unknown:** awards half the check points and does not create a site-problem finding. This is used when an external audit such as PageSpeed is temporarily unavailable.
+
 The category rules consume deterministic evidence saved by the scan, including:
 
 - crawled page status, headings, titles, descriptions, links, images, forms, word counts, and screenshot presence;
 - author-specific signals for brand clarity, books, retailer links, newsletter conversion, trust, and structured data;
 - PageSpeed/Lighthouse performance, accessibility, SEO, and best-practices scores;
-- technical and maintenance signals such as failed pages, indexability, canonical/schema evidence, HTTPS-related audit data, and stale copyright text.
+- technical and maintenance signals such as HTTPS, failed pages, indexability, canonical/schema evidence, and stale copyright text.
 
-Failed checks create findings with a fixed category, severity, priority, and recommendation. A conditional check is included only when it applies. For example, the series-page check is part of Book Promotion only for a series author; excluded checks do not reduce another author type's score.
+Failed checks create findings with a fixed category, severity, priority, primary recommendation, and several concrete practical actions. The primary recommendation states what to improve; its practical actions explain how to begin. Both are deterministic rule content and are saved with the report, so they do not depend on AI availability. Numeric scores are based only on observable website evidence. Author type and website goal do not change the score.
+
+AI receives these saved recommendations and actions as constrained source material. It may make the explanation more author-friendly or select the most relevant supplied action, but it cannot create a failed check, change its score, or replace the deterministic fallback.
+
+PageSpeed data is divided by module rather than scored twice:
+
+- **Mobile Performance** uses mobile performance, mobile accessibility, and mobile Lighthouse SEO, plus crawl-based mobile review evidence.
+- **Technical Health** uses desktop performance, mobile and desktop best practices, desktop accessibility, HTTPS, successful page loading, indexability, and canonical/schema structure.
+- **Site Usability** no longer loses points when PageSpeed is unavailable.
+
+When PageSpeed cannot run, the report can show a separate audit-availability notice, but it does not claim that the website failed those checks.
+
+## Crawl and detection safeguards
+
+The crawler saves up to ten unique pages. It prioritizes the homepage, books and book-detail paths, about/bio pages, newsletter paths, contact, and supporting content. Tracking parameters are removed before URLs are compared.
+
+A duplicate URL, canonical URL, or exact normalized content fingerprint does not consume a saved crawl slot. This keeps aliases such as `/home` from replacing a more useful Books or About page.
+
+Author-focused detection now combines multiple deterministic sources:
+
+- author names from Person schema, Unicode-aware title and heading candidates, and biography language;
+- book titles from Book schema and contextual headings on home, books, series, and book-detail pages;
+- cover images from explicit cover wording, detected book-title filenames or alt text, and portrait image dimensions on book-focused pages;
+- newsletter signup evidence from local forms, hosted provider links, and embedded providers such as Substack, Kit/ConvertKit, Mailchimp, MailerLite, beehiiv, Buttondown, Flodesk, and Campaign Monitor.
 
 ## Scan integration
 
@@ -53,7 +82,7 @@ The analysis pipeline runs in this order:
 2. Capture screenshots and technical audit data when available.
 3. Detect author-website signals from the saved scan.
 4. Run the deterministic scoring engine.
-5. Save each category's score and maximum, save findings, and save the overall score.
+5. Save each category's score and maximum, save findings with their primary recommendations and practical actions, and save the overall score.
 6. Generate an AI or fallback narrative from those locked scores and findings. The AI response schema has no numeric score field; application code attaches the already-calculated category percentages after the narrative returns.
 
 AI output can explain findings, but it cannot supply or change a numeric score.

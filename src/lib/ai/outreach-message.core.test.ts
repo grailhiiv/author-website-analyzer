@@ -27,7 +27,7 @@ const outreachInput = {
         "Add a clear newsletter signup section with a simple reader benefit.",
       priority: 1,
       severity: "HIGH",
-      category: "READER_CONVERSION",
+      category: "READER_ENGAGEMENT",
     },
     {
       title: "Buy links were not detected",
@@ -36,7 +36,7 @@ const outreachInput = {
         "Add a visible book section with retailer links for the featured book.",
       priority: 2,
       severity: "MEDIUM",
-      category: "BOOK_PROMOTION",
+      category: "BOOK_VISIBILITY",
     },
     {
       title: "Meta description was not detected",
@@ -44,7 +44,7 @@ const outreachInput = {
       recommendation: "Add a concise homepage meta description.",
       priority: 3,
       severity: "LOW",
-      category: "SEO_DISCOVERABILITY",
+      category: "SEARCH_VISIBILITY",
     },
   ],
 };

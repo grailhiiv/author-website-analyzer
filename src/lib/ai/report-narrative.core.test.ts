@@ -97,7 +97,7 @@ const mockSignals: AuthorWebsiteSignals = {
 const categoryScores: CategoryScoreResult[] = [
   {
     category: ReportCategory.BRAND_CLARITY,
-    label: "First Impression and Author Brand Clarity",
+    label: "Brand Clarity",
     weight: 15,
     score: 11,
     maxScore: 15,
@@ -107,8 +107,8 @@ const categoryScores: CategoryScoreResult[] = [
     summary: "The author brand is partly clear from the homepage.",
   },
   {
-    category: ReportCategory.READER_CONVERSION,
-    label: "Reader Conversion and Newsletter Growth",
+    category: ReportCategory.READER_ENGAGEMENT,
+    label: "Reader Engagement",
     weight: 15,
     score: 3,
     maxScore: 15,
@@ -121,22 +121,30 @@ const categoryScores: CategoryScoreResult[] = [
 
 const findings: ScoringFinding[] = [
   {
-    category: ReportCategory.READER_CONVERSION,
+    category: ReportCategory.READER_ENGAGEMENT,
     severity: FindingSeverity.HIGH,
     title: "Newsletter signup was not detected",
     finding:
       "The saved scan data did not detect a newsletter form, subscribe form, or email signup field.",
     recommendation:
       "Add a clear newsletter signup section with a simple reader benefit.",
+    practicalActions: [
+      "Add the signup form to the homepage.",
+      "Explain the subscriber benefit beside the form.",
+    ],
     priority: 1,
   },
   {
-    category: ReportCategory.BOOK_PROMOTION,
+    category: ReportCategory.BOOK_VISIBILITY,
     severity: FindingSeverity.MEDIUM,
     title: "Buy links were not detected",
     finding: "The saved scan data did not detect buy links or retailer links.",
     recommendation:
       "Add a visible book section with retailer links for the featured book.",
+    practicalActions: [
+      "Feature one book prominently.",
+      "Add its active retailer links.",
+    ],
     priority: 2,
   },
 ];

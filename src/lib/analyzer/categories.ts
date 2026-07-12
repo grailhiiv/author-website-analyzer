@@ -1,12 +1,12 @@
 export type ScoreCategoryId =
   | "brand_clarity"
-  | "book_promotion"
-  | "reader_conversion"
-  | "seo_discoverability"
-  | "mobile_accessibility"
-  | "performance_health"
-  | "trust_credibility"
-  | "maintenance_risk";
+  | "book_visibility"
+  | "reader_engagement"
+  | "search_visibility"
+  | "mobile_performance"
+  | "technical_health"
+  | "author_trust"
+  | "site_usability";
 
 export type ScoreCategory = {
   id: ScoreCategoryId;
@@ -18,58 +18,58 @@ export type ScoreCategory = {
 export const scoreCategories: ScoreCategory[] = [
   {
     id: "brand_clarity",
-    label: "First Impression and Author Brand Clarity",
+    label: "Brand Clarity",
     description:
-      "Whether the homepage quickly communicates who the author is, what they write, and why readers should care.",
+      "This section evaluates how quickly visitors understand your author identity, genre, homepage message, and overall brand positioning when they first land on your website.",
     sampleScore: 84,
   },
   {
-    id: "book_promotion",
-    label: "Book Promotion and Sales Readiness",
+    id: "book_visibility",
+    label: "Book Visibility",
     description:
-      "Whether books, series, buy links, and reader paths are easy to find and act on.",
+      "This section reviews how clearly your books are presented, including book pages, purchase links, cover visibility, descriptions, series order, and paths to buy or read.",
     sampleScore: 72,
   },
   {
-    id: "reader_conversion",
-    label: "Reader Conversion and Newsletter Growth",
+    id: "reader_engagement",
+    label: "Reader Engagement",
     description:
-      "Whether the site gives readers a clear reason and simple way to subscribe or stay connected.",
+      "This section measures how well your website encourages reader action through newsletter signups, reader magnets, contact options, social links, and meaningful calls to action.",
     sampleScore: 68,
   },
   {
-    id: "seo_discoverability",
-    label: "SEO Discoverability",
+    id: "search_visibility",
+    label: "Search Visibility",
     description:
-      "Whether key pages have the basics that help search engines understand the author and books.",
+      "This section evaluates basic SEO signals that help readers and search engines understand your site, including titles, descriptions, headings, metadata, content clarity, and indexing readiness.",
     sampleScore: 80,
   },
   {
-    id: "mobile_accessibility",
-    label: "Mobile Experience and Accessibility",
+    id: "mobile_performance",
+    label: "Mobile Performance",
     description:
-      "Whether the site remains readable, usable, and accessible on smaller screens.",
+      "This section analyzes how your website performs on mobile devices, reviewing responsive layout, loading behavior, visual stability, button accessibility, and usability across smaller screens.",
     sampleScore: 82,
   },
   {
-    id: "performance_health",
-    label: "Performance and Technical Health",
+    id: "technical_health",
+    label: "Technical Health",
     description:
-      "Whether the site loads reliably and avoids technical issues that can hurt visitor experience.",
+      "This section inspects technical issues that may affect access, security, speed, and reliability, including HTTPS, crawlability, page errors, redirects, missing assets, and site structure.",
     sampleScore: 76,
   },
   {
-    id: "trust_credibility",
-    label: "Trust and Credibility",
+    id: "author_trust",
+    label: "Author Trust",
     description:
-      "Whether the site includes signals such as author bio, contact paths, press proof, and current content.",
+      "This section reviews trust signals that make your author platform feel credible, including professional presentation, biography depth, testimonials, press mentions, policies, and contact transparency.",
     sampleScore: 74,
   },
   {
-    id: "maintenance_risk",
-    label: "Maintenance and Website Risk",
+    id: "site_usability",
+    label: "Site Usability",
     description:
-      "Whether the site shows avoidable risks like broken links, outdated platform signals, or missing essentials.",
+      "This section checks how easy your website is to browse, including menu structure, page organization, broken paths, readability, internal links, and overall visitor flow.",
     sampleScore: 88,
   },
 ];

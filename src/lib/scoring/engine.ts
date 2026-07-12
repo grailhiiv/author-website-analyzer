@@ -1,12 +1,10 @@
-import {
-  FindingSeverity,
-  ReportCategory,
-} from "@/generated/prisma/client";
+import { FindingSeverity, ReportCategory } from "@/generated/prisma/client";
 import type {
   AuthorWebsiteSignals,
   ScannedPageSignalInput,
   SignalDetection,
 } from "@/lib/signals/author-website-signals";
+import { getPracticalActions } from "@/lib/scoring/recommendation-actions";
 
 export type TechnicalAuditScoreInput = {
   mobilePerformance?: number | null;
@@ -37,6 +35,7 @@ export type ScoringFinding = {
   title: string;
   finding: string;
   recommendation: string;
+  practicalActions: string[];
   priority: number;
 };
 
@@ -70,7 +69,7 @@ export type ServiceFitLabel =
 
 type ScoreRule = {
   points: number;
-  passed: boolean;
+  passed: boolean | null;
   title: string;
   finding: string;
   recommendation: string;
@@ -87,42 +86,42 @@ export type DeterministicScoringCategory = {
 export const DETERMINISTIC_SCORING_CATEGORIES = [
   {
     category: ReportCategory.BRAND_CLARITY,
-    label: "First Impression and Author Brand Clarity",
+    label: "Brand Clarity",
     weight: 15,
   },
   {
-    category: ReportCategory.BOOK_PROMOTION,
-    label: "Book Promotion and Sales Readiness",
+    category: ReportCategory.BOOK_VISIBILITY,
+    label: "Book Visibility",
     weight: 20,
   },
   {
-    category: ReportCategory.READER_CONVERSION,
-    label: "Reader Conversion and Newsletter Growth",
+    category: ReportCategory.READER_ENGAGEMENT,
+    label: "Reader Engagement",
     weight: 15,
   },
   {
-    category: ReportCategory.SEO_DISCOVERABILITY,
-    label: "SEO Discoverability",
+    category: ReportCategory.SEARCH_VISIBILITY,
+    label: "Search Visibility",
     weight: 15,
   },
   {
-    category: ReportCategory.MOBILE_ACCESSIBILITY,
-    label: "Mobile Experience and Accessibility",
+    category: ReportCategory.MOBILE_PERFORMANCE,
+    label: "Mobile Performance",
     weight: 10,
   },
   {
-    category: ReportCategory.PERFORMANCE_HEALTH,
-    label: "Performance and Technical Health",
+    category: ReportCategory.TECHNICAL_HEALTH,
+    label: "Technical Health",
     weight: 10,
   },
   {
-    category: ReportCategory.TRUST_CREDIBILITY,
-    label: "Trust and Credibility",
+    category: ReportCategory.AUTHOR_TRUST,
+    label: "Author Trust",
     weight: 10,
   },
   {
-    category: ReportCategory.MAINTENANCE_RISK,
-    label: "Maintenance and Website Risk",
+    category: ReportCategory.SITE_USABILITY,
+    label: "Site Usability",
     weight: 5,
   },
 ] as const satisfies readonly DeterministicScoringCategory[];
@@ -130,7 +129,7 @@ export const DETERMINISTIC_SCORING_CATEGORIES = [
 export const DETERMINISTIC_SCORING_TOTAL =
   DETERMINISTIC_SCORING_CATEGORIES.reduce(
     (total, category) => total + category.weight,
-    0
+    0,
   );
 
 function clampScore(score: number) {
@@ -143,7 +142,7 @@ function has(signal: SignalDetection) {
 
 function getConfig(category: ReportCategory) {
   const config = DETERMINISTIC_SCORING_CATEGORIES.find(
-    (item) => item.category === category
+    (item) => item.category === category,
   );
 
   if (!config) {
@@ -171,12 +170,21 @@ function scoreSummary(score: number) {
 
 function scoreCategory(
   config: DeterministicScoringCategory,
-  rules: ScoreRule[]
+  rules: ScoreRule[],
 ): { score: CategoryScoreResult; findings: ScoringFinding[] } {
+  // Validate every rule, including passing rules, so a new scoring check cannot
+  // ship without its deterministic recommendation actions.
+  rules.forEach((rule) => getPracticalActions(rule.recommendation));
+
   const availablePoints = rules.reduce((sum, rule) => sum + rule.points, 0);
   const earnedPoints = rules.reduce(
-    (sum, rule) => (rule.passed ? sum + rule.points : sum),
-    0
+    (sum, rule) =>
+      rule.passed === true
+        ? sum + rule.points
+        : rule.passed === null
+          ? sum + rule.points / 2
+          : sum,
+    0,
   );
   const score =
     availablePoints > 0
@@ -184,20 +192,21 @@ function scoreCategory(
           0,
           Math.min(
             config.weight,
-            Math.round((earnedPoints / availablePoints) * config.weight)
-          )
+            Math.round((earnedPoints / availablePoints) * config.weight),
+          ),
         )
       : 0;
   const percentageScore =
     config.weight > 0 ? clampScore((score / config.weight) * 100) : 0;
   const findings = rules
-    .filter((rule) => !rule.passed)
+    .filter((rule) => rule.passed === false)
     .map<ScoringFinding>((rule) => ({
       category: config.category,
       severity: rule.severity,
       title: rule.title,
       finding: rule.finding,
       recommendation: rule.recommendation,
+      practicalActions: getPracticalActions(rule.recommendation),
       priority: rule.priority,
     }));
 
@@ -228,7 +237,9 @@ function homepage(pages: ScoringPageInput[]) {
 
 function detectAuthorName(signals: AuthorWebsiteSignals) {
   const evidence = signals.authorBrand.authorNameVisible.evidence.join(" ");
-  const match = evidence.match(/(?:Author name|Likely author name):\s*([^|]+)/i);
+  const match = evidence.match(
+    /(?:Author name|Likely author name(?: from biography)?):\s*([^|(]+)/i,
+  );
 
   return match?.[1]?.trim() ?? null;
 }
@@ -287,7 +298,7 @@ function hasFailedPages(pages: ScoringPageInput[]) {
 function hasScreenshot(pages: ScoringPageInput[]) {
   return pages.some(
     (page) =>
-      typeof page.screenshotUrl === "string" && page.screenshotUrl.length > 0
+      typeof page.screenshotUrl === "string" && page.screenshotUrl.length > 0,
   );
 }
 
@@ -300,13 +311,13 @@ function hasUsefulInternalLinks(pages: ScoringPageInput[]) {
   const linksText = textFromUnknown(home?.linksJson);
 
   return /href["']?\s*:\s*["']?\/|\/about|\/books?|\/contact|\/newsletter|\/blog/i.test(
-    linksText
+    linksText,
   );
 }
 
 function homepageNewsletterDetected(
   signals: AuthorWebsiteSignals,
-  pages: ScoringPageInput[]
+  pages: ScoringPageInput[],
 ) {
   const homeUrl = homepage(pages)?.url;
 
@@ -324,33 +335,19 @@ function homepageNewsletterDetected(
 }
 
 function multipleRetailers(signals: AuthorWebsiteSignals) {
-  return Object.values(signals.retailers).filter((retailer) => retailer.detected)
-    .length >= 2;
-}
-
-function pageSpeedAvailable(audit?: TechnicalAuditScoreInput | null) {
-  return Boolean(
-    audit &&
-      [
-        audit.mobilePerformance,
-        audit.desktopPerformance,
-        audit.mobileAccessibility,
-        audit.desktopAccessibility,
-        audit.mobileSeo,
-        audit.desktopSeo,
-        audit.mobileBestPractices,
-        audit.desktopBestPractices,
-      ].some((score) => typeof score === "number")
+  return (
+    Object.values(signals.retailers).filter((retailer) => retailer.detected)
+      .length >= 2
   );
 }
 
 function scoreAtLeast(score: number | null | undefined, target: number) {
-  return typeof score === "number" && score >= target;
+  return typeof score === "number" ? score >= target : null;
 }
 
 function titleIncludesAuthorOrBrand(
   signals: AuthorWebsiteSignals,
-  pages: ScoringPageInput[]
+  pages: ScoringPageInput[],
 ) {
   const title = homepage(pages)?.title ?? "";
   const authorName = detectAuthorName(signals);
@@ -360,13 +357,13 @@ function titleIncludesAuthorOrBrand(
   }
 
   return /\b(author|writer|novelist|poet|memoirist|books?|fiction|nonfiction|series)\b/i.test(
-    title
+    title,
   );
 }
 
 function h1GivesAuthorClarity(
   signals: AuthorWebsiteSignals,
-  pages: ScoringPageInput[]
+  pages: ScoringPageInput[],
 ) {
   const h1 = homepage(pages)?.h1 ?? "";
 
@@ -386,12 +383,16 @@ function pageAppearsIndexable(signals: AuthorWebsiteSignals) {
 }
 
 function siteLooksWordPress(pages: ScoringPageInput[]) {
-  return /\bwp-content\b|\bwp-includes\b|\bwordpress\b/i.test(allPageText(pages));
+  return /\bwp-content\b|\bwp-includes\b|\bwordpress\b/i.test(
+    allPageText(pages),
+  );
 }
 
 function oldCopyrightYear(pages: ScoringPageInput[]) {
   const currentYear = new Date().getFullYear();
-  const years = [...allPageText(pages).matchAll(/copyright[^0-9]*(20[0-9]{2})/gi)]
+  const years = [
+    ...allPageText(pages).matchAll(/copyright[^0-9]*(20[0-9]{2})/gi),
+  ]
     .map((match) => Number(match[1]))
     .filter((year) => Number.isInteger(year));
 
@@ -449,7 +450,9 @@ function buildBrandRules(input: ScoringInput): ScoreRule[] {
     },
     {
       points: 1,
-      passed: Boolean(home && successfulPage(home) && (home.wordCount ?? 0) >= 50),
+      passed: Boolean(
+        home && successfulPage(home) && (home.wordCount ?? 0) >= 50,
+      ),
       title: "Homepage content looks thin",
       finding:
         "The homepage scan found limited readable content to explain the author brand.",
@@ -462,14 +465,14 @@ function buildBrandRules(input: ScoringInput): ScoreRule[] {
 }
 
 function buildBookRules(input: ScoringInput): ScoreRule[] {
-  const { signals, authorType } = input;
-  const rules: ScoreRule[] = [
+  const { signals } = input;
+
+  return [
     {
       points: 4,
       passed: has(signals.bookPromotion.bookCoverImages),
       title: "Book cover was not detected",
-      finding:
-        "The scan did not find an image that looked like a book cover.",
+      finding: "The scan did not find an image that looked like a book cover.",
       recommendation:
         "Show the primary book cover clearly on the homepage or Books page.",
       severity: FindingSeverity.HIGH,
@@ -530,23 +533,18 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       severity: FindingSeverity.MEDIUM,
       priority: 5,
     },
-  ];
-
-  if (/series/i.test(authorType)) {
-    rules.push({
+    {
       points: 1,
-      passed: has(signals.bookPromotion.seriesPage),
-      title: "Series page was not detected",
+      passed: has(signals.bookPromotion.featuredBookSection),
+      title: "Featured book section was not detected",
       finding:
-        "The author type is Series Author, but the scan did not find a clear series page or series signal.",
+        "The scan did not find a clear featured book, latest release, or available-now section.",
       recommendation:
-        "Add a series page that explains reading order and links to each book.",
-      severity: FindingSeverity.MEDIUM,
-      priority: 3,
-    });
-  }
-
-  return rules;
+        "Feature at least one current book prominently with its title, cover, description, and buying action.",
+      severity: FindingSeverity.LOW,
+      priority: 6,
+    },
+  ];
 }
 
 function buildNewsletterRules(input: ScoringInput): ScoreRule[] {
@@ -578,8 +576,7 @@ function buildNewsletterRules(input: ScoringInput): ScoreRule[] {
       points: 3,
       passed: homepageNewsletterDetected(signals, pagesScanned),
       title: "Newsletter is not visible on the homepage",
-      finding:
-        "The scan did not find the newsletter signup on the homepage.",
+      finding: "The scan did not find the newsletter signup on the homepage.",
       recommendation:
         "Place a newsletter signup or clear subscribe link on the homepage.",
       severity: FindingSeverity.MEDIUM,
@@ -612,8 +609,7 @@ function buildNewsletterRules(input: ScoringInput): ScoreRule[] {
 
 function buildSeoRules(input: ScoringInput): ScoreRule[] {
   const { signals, pagesScanned } = input;
-  const oneH1 =
-    has(signals.seo.h1Exists) && !has(signals.seo.multipleH1Issue);
+  const oneH1 = has(signals.seo.h1Exists) && !has(signals.seo.multipleH1Issue);
 
   return [
     {
@@ -702,33 +698,43 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
 
   return [
     {
-      points: 3,
+      points: 4,
+      passed: scoreAtLeast(technicalAudit?.mobilePerformance, 70),
+      title: "Mobile performance score is below target",
+      finding:
+        "PageSpeed measured a mobile performance score below the target.",
+      recommendation:
+        "Review image sizes, scripts, hosting, and caching so mobile visitors get a faster experience.",
+      severity: FindingSeverity.HIGH,
+      priority: 3,
+    },
+    {
+      points: 2,
       passed: scoreAtLeast(technicalAudit?.mobileAccessibility, 90),
       title: "Mobile accessibility score needs attention",
       finding:
-        "PageSpeed data did not confirm a strong mobile accessibility score.",
+        "PageSpeed measured a mobile accessibility score below the target.",
       recommendation:
         "Review mobile accessibility basics such as contrast, labels, alt text, and tap targets.",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
     },
     {
-      points: 2,
-      passed: scoreAtLeast(technicalAudit?.desktopAccessibility, 90),
-      title: "Desktop accessibility score needs attention",
+      points: 1,
+      passed: scoreAtLeast(technicalAudit?.mobileSeo, 90),
+      title: "Mobile search audit score needs attention",
       finding:
-        "PageSpeed data did not confirm a strong desktop accessibility score.",
+        "PageSpeed measured a mobile search audit score below the target.",
       recommendation:
-        "Fix accessibility issues that make the site harder to read or navigate.",
-      severity: FindingSeverity.MEDIUM,
-      priority: 5,
+        "Review the mobile Lighthouse search checks for crawlability and page metadata issues.",
+      severity: FindingSeverity.LOW,
+      priority: 6,
     },
     {
-      points: 3,
+      points: 1,
       passed: !has(signals.seo.missingAltText),
       title: "Images are missing alt text",
-      finding:
-        "The scan found images without alt text.",
+      finding: "The scan found images without alt text.",
       recommendation:
         "Add useful alt text to important images, especially book covers and author photos.",
       severity: FindingSeverity.MEDIUM,
@@ -736,7 +742,9 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
     },
     {
       points: 1,
-      passed: Boolean(home && successfulPage(home) && has(signals.seo.h1Exists)),
+      passed: Boolean(
+        home && successfulPage(home) && has(signals.seo.h1Exists),
+      ),
       title: "Homepage structure was not fully confirmed",
       finding:
         "The scan could not confirm a successful homepage load with a clear main heading.",
@@ -749,8 +757,7 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: hasScreenshot(pagesScanned),
       title: "Mobile visual check is limited",
-      finding:
-        "The scan did not include a saved screenshot for visual review.",
+      finding: "The scan did not include a saved screenshot for visual review.",
       recommendation:
         "Capture screenshots during analysis so mobile layout issues can be reviewed more confidently.",
       severity: FindingSeverity.LOW,
@@ -759,41 +766,30 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
   ];
 }
 
-function buildPerformanceRules(input: ScoringInput): ScoreRule[] {
-  const { pagesScanned, technicalAudit } = input;
+function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
+  const { signals, pagesScanned, technicalAudit } = input;
   const home = homepage(pagesScanned);
 
   return [
     {
-      points: 4,
-      passed: scoreAtLeast(technicalAudit?.mobilePerformance, 90),
-      title: "Mobile performance score is below target or unavailable",
-      finding:
-        "PageSpeed did not confirm strong mobile performance for the homepage.",
-      recommendation:
-        "Review image sizes, scripts, hosting, and caching so mobile visitors get a faster experience.",
-      severity: FindingSeverity.HIGH,
-      priority: 3,
-    },
-    {
       points: 2,
-      passed: scoreAtLeast(technicalAudit?.desktopPerformance, 90),
-      title: "Desktop performance score is below target or unavailable",
+      passed: scoreAtLeast(technicalAudit?.desktopPerformance, 70),
+      title: "Desktop performance score is below target",
       finding:
-        "PageSpeed did not confirm strong desktop performance for the homepage.",
+        "PageSpeed measured a desktop performance score below the target.",
       recommendation:
-        "Improve the technical setup so the site loads reliably on desktop browsers.",
+        "Review image delivery, scripts, hosting, and caching so desktop pages load more quickly.",
       severity: FindingSeverity.MEDIUM,
-      priority: 5,
+      priority: 4,
     },
     {
       points: 2,
       passed: scoreAtLeast(technicalAudit?.mobileBestPractices, 90),
       title: "Mobile best practices score needs attention",
       finding:
-        "PageSpeed did not confirm a strong mobile best practices score.",
+        "PageSpeed measured a mobile best practices score below the target.",
       recommendation:
-        "Review browser console errors, security settings, and modern web best practices.",
+        "Review browser errors, security settings, and modern web best practices.",
       severity: FindingSeverity.MEDIUM,
       priority: 5,
     },
@@ -802,7 +798,7 @@ function buildPerformanceRules(input: ScoringInput): ScoreRule[] {
       passed: scoreAtLeast(technicalAudit?.desktopBestPractices, 90),
       title: "Desktop best practices score needs attention",
       finding:
-        "PageSpeed did not confirm a strong desktop best practices score.",
+        "PageSpeed measured a desktop best practices score below the target.",
       recommendation:
         "Clean up technical issues reported by Lighthouse best practices.",
       severity: FindingSeverity.LOW,
@@ -810,7 +806,30 @@ function buildPerformanceRules(input: ScoringInput): ScoreRule[] {
     },
     {
       points: 1,
-      passed: Boolean(home && successfulPage(home) && !hasFailedPages(pagesScanned)),
+      passed: scoreAtLeast(technicalAudit?.desktopAccessibility, 90),
+      title: "Desktop accessibility score needs attention",
+      finding:
+        "PageSpeed measured a desktop accessibility score below the target.",
+      recommendation:
+        "Fix accessibility issues that make the site harder to read or navigate.",
+      severity: FindingSeverity.LOW,
+      priority: 6,
+    },
+    {
+      points: 1,
+      passed: /^https:\/\//i.test(home?.url ?? ""),
+      title: "Secure HTTPS was not confirmed",
+      finding: "The scanned homepage did not use a secure HTTPS address.",
+      recommendation:
+        "Serve the full website over HTTPS and redirect old HTTP addresses.",
+      severity: FindingSeverity.HIGH,
+      priority: 2,
+    },
+    {
+      points: 1,
+      passed: Boolean(
+        home && successfulPage(home) && !hasFailedPages(pagesScanned),
+      ),
       title: "Some scanned pages did not load cleanly",
       finding:
         "The crawl data did not confirm that all scanned pages returned successful responses.",
@@ -819,20 +838,45 @@ function buildPerformanceRules(input: ScoringInput): ScoreRule[] {
       severity: FindingSeverity.MEDIUM,
       priority: 5,
     },
+    {
+      points: 1,
+      passed: pageAppearsIndexable(signals),
+      title: "Search engine access may be blocked",
+      finding:
+        "The scan found a noindex signal or could not confirm that the homepage is indexable.",
+      recommendation:
+        "Review robots settings and remove accidental noindex directives from public pages.",
+      severity: FindingSeverity.HIGH,
+      priority: 2,
+    },
+    {
+      points: 1,
+      passed:
+        has(signals.seo.canonicalUrl) ||
+        has(signals.schema.person) ||
+        has(signals.schema.organization),
+      title: "Technical structure signals are limited",
+      finding:
+        "The scan did not find a canonical URL or basic author/site structured data.",
+      recommendation:
+        "Add canonical URLs and appropriate Person or Organization schema.",
+      severity: FindingSeverity.LOW,
+      priority: 6,
+    },
   ];
 }
 
 function buildTrustRules(input: ScoringInput): ScoreRule[] {
   const { signals } = input;
-  const hasContact = has(signals.trust.contactForm) || has(signals.trust.contactEmail);
+  const hasContact =
+    has(signals.trust.contactForm) || has(signals.trust.contactEmail);
 
   return [
     {
       points: 2,
       passed: has(signals.trust.authorBio),
       title: "Author bio was not detected",
-      finding:
-        "The scan did not find a clear author bio or biography page.",
+      finding: "The scan did not find a clear author bio or biography page.",
       recommendation:
         "Add a concise author bio that helps readers, press, and event hosts understand the author.",
       severity: FindingSeverity.MEDIUM,
@@ -853,8 +897,7 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       points: 2,
       passed: hasContact,
       title: "Contact path was not detected",
-      finding:
-        "The scan did not find a contact form or contact email.",
+      finding: "The scan did not find a contact form or contact email.",
       recommendation:
         "Add a simple contact page or email path for readers, press, and opportunities.",
       severity: FindingSeverity.MEDIUM,
@@ -864,8 +907,7 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: has(signals.trust.socialLinks),
       title: "Social profile links were not detected",
-      finding:
-        "The scan did not find links to author social profiles.",
+      finding: "The scan did not find links to author social profiles.",
       recommendation:
         "Link only to active author profiles that help build trust with readers.",
       severity: FindingSeverity.LOW,
@@ -875,8 +917,7 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: has(signals.trust.mediaKit),
       title: "Media kit was not detected",
-      finding:
-        "The scan did not find a media kit, press kit, or press page.",
+      finding: "The scan did not find a media kit, press kit, or press page.",
       recommendation:
         "Add a media kit if the author wants interviews, speaking, events, or press opportunities.",
       severity: FindingSeverity.LOW,
@@ -886,8 +927,7 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: has(signals.trust.privacyPolicy),
       title: "Privacy policy was not detected",
-      finding:
-        "The scan did not find a visible privacy policy link.",
+      finding: "The scan did not find a visible privacy policy link.",
       recommendation:
         "Add a privacy policy, especially if the site collects email subscribers or contact form messages.",
       severity: FindingSeverity.MEDIUM,
@@ -911,8 +951,7 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
 }
 
 function buildMaintenanceRules(input: ScoringInput): ScoreRule[] {
-  const { signals, pagesScanned, technicalAudit } = input;
-  const hasTechnicalData = pageSpeedAvailable(technicalAudit);
+  const { signals, pagesScanned } = input;
   const outdated = oldCopyrightYear(pagesScanned);
 
   return [
@@ -921,7 +960,7 @@ function buildMaintenanceRules(input: ScoringInput): ScoreRule[] {
       passed: pagesScanned.length >= 2,
       title: "Only limited crawl data is available",
       finding:
-        "The analyzer did not scan multiple pages, so maintenance risk is harder to judge.",
+        "The analyzer did not scan multiple pages, so site usability is harder to judge.",
       recommendation:
         "Make sure important pages are linked clearly from the homepage so they can be reviewed.",
       severity: FindingSeverity.LOW,
@@ -965,12 +1004,12 @@ function buildMaintenanceRules(input: ScoringInput): ScoreRule[] {
     },
     {
       points: 1,
-      passed: hasTechnicalData && !outdated,
-      title: "Maintenance confidence is limited",
+      passed: !outdated,
+      title: "Site content may be out of date",
       finding:
-        "The scan did not confirm complete technical audit data, or it found content that appears several years out of date.",
+        "The scan found a footer copyright year that appears several years out of date.",
       recommendation:
-        "Review the site for outdated footer dates, stale content, and missing technical audit data.",
+        "Refresh the footer date and review the site for other stale content.",
       severity: FindingSeverity.LOW,
       priority: 7,
     },
@@ -986,21 +1025,21 @@ function buildQuickWins(findings: ScoringFinding[]) {
 
 function serviceFitLabel(
   categoryScores: CategoryScoreResult[],
-  pagesScanned: ScoringPageInput[]
+  pagesScanned: ScoringPageInput[],
 ): ServiceFitLabel {
   const scoreFor = (category: ReportCategory) =>
     categoryScores.find((score) => score.category === category)
       ?.percentageScore ?? 0;
   const brand = scoreFor(ReportCategory.BRAND_CLARITY);
-  const book = scoreFor(ReportCategory.BOOK_PROMOTION);
-  const newsletter = scoreFor(ReportCategory.READER_CONVERSION);
-  const seo = scoreFor(ReportCategory.SEO_DISCOVERABILITY);
+  const book = scoreFor(ReportCategory.BOOK_VISIBILITY);
+  const newsletter = scoreFor(ReportCategory.READER_ENGAGEMENT);
+  const seo = scoreFor(ReportCategory.SEARCH_VISIBILITY);
   const technical = Math.min(
-    scoreFor(ReportCategory.PERFORMANCE_HEALTH),
-    scoreFor(ReportCategory.MAINTENANCE_RISK)
+    scoreFor(ReportCategory.TECHNICAL_HEALTH),
+    scoreFor(ReportCategory.SITE_USABILITY),
   );
   const lowCategories = categoryScores.filter(
-    (score) => score.percentageScore < 60
+    (score) => score.percentageScore < 60,
   ).length;
 
   if (lowCategories >= 5) {
@@ -1011,7 +1050,10 @@ function serviceFitLabel(
     return "Website redesign";
   }
 
-  if (technical < 60 && (siteLooksWordPress(pagesScanned) || oldCopyrightYear(pagesScanned))) {
+  if (
+    technical < 60 &&
+    (siteLooksWordPress(pagesScanned) || oldCopyrightYear(pagesScanned))
+  ) {
     return "Website management";
   }
 
@@ -1028,25 +1070,37 @@ function serviceFitLabel(
 
 export function scoreAuthorWebsite(input: ScoringInput): ScoringResult {
   const categoryResults = [
-    scoreCategory(getConfig(ReportCategory.BRAND_CLARITY), buildBrandRules(input)),
-    scoreCategory(getConfig(ReportCategory.BOOK_PROMOTION), buildBookRules(input)),
     scoreCategory(
-      getConfig(ReportCategory.READER_CONVERSION),
-      buildNewsletterRules(input)
-    ),
-    scoreCategory(getConfig(ReportCategory.SEO_DISCOVERABILITY), buildSeoRules(input)),
-    scoreCategory(
-      getConfig(ReportCategory.MOBILE_ACCESSIBILITY),
-      buildMobileRules(input)
+      getConfig(ReportCategory.BRAND_CLARITY),
+      buildBrandRules(input),
     ),
     scoreCategory(
-      getConfig(ReportCategory.PERFORMANCE_HEALTH),
-      buildPerformanceRules(input)
+      getConfig(ReportCategory.BOOK_VISIBILITY),
+      buildBookRules(input),
     ),
-    scoreCategory(getConfig(ReportCategory.TRUST_CREDIBILITY), buildTrustRules(input)),
     scoreCategory(
-      getConfig(ReportCategory.MAINTENANCE_RISK),
-      buildMaintenanceRules(input)
+      getConfig(ReportCategory.READER_ENGAGEMENT),
+      buildNewsletterRules(input),
+    ),
+    scoreCategory(
+      getConfig(ReportCategory.SEARCH_VISIBILITY),
+      buildSeoRules(input),
+    ),
+    scoreCategory(
+      getConfig(ReportCategory.MOBILE_PERFORMANCE),
+      buildMobileRules(input),
+    ),
+    scoreCategory(
+      getConfig(ReportCategory.TECHNICAL_HEALTH),
+      buildTechnicalRules(input),
+    ),
+    scoreCategory(
+      getConfig(ReportCategory.AUTHOR_TRUST),
+      buildTrustRules(input),
+    ),
+    scoreCategory(
+      getConfig(ReportCategory.SITE_USABILITY),
+      buildMaintenanceRules(input),
     ),
   ];
   const categoryScores = categoryResults.map((result) => result.score);
@@ -1054,7 +1108,7 @@ export function scoreAuthorWebsite(input: ScoringInput): ScoringResult {
     .flatMap((result) => result.findings)
     .sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title));
   const overallScore = clampScore(
-    categoryScores.reduce((sum, categoryScore) => sum + categoryScore.score, 0)
+    categoryScores.reduce((sum, categoryScore) => sum + categoryScore.score, 0),
   );
 
   return {

@@ -9,7 +9,7 @@ export function LogoLink({ className }: { className?: string }) {
       aria-label="Go to the Author Website Analyzer home page"
     >
       <Image
-        src="/grailhiiv-logo.svg"
+        src="/grailhiiv-logo-dark.svg"
         alt=""
         width={46}
         height={46}

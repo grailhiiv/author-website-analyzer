@@ -22,6 +22,6 @@ export function getAdminRouteAccess({
 
   return {
     allowed,
-    redirectTo: allowed ? null : "/admin/login",
+    redirectTo: allowed ? null : "/login",
   };
 }

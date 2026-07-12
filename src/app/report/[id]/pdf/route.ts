@@ -6,7 +6,11 @@ import {
   parseSerializedReportNarrative,
 } from "@/lib/ai/report-narrative.core";
 import { prisma } from "@/lib/db/prisma";
-import { renderAuthorReportPdf } from "@/lib/reports/pdf";
+import { normalizeReportDomain } from "@/lib/reports/domain";
+import {
+  getAuthorReportPdfFileName,
+  renderAuthorReportPdf,
+} from "@/lib/reports/pdf";
 
 export const runtime = "nodejs";
 
@@ -32,24 +36,20 @@ function fallbackSummary({
   return parts.join(" ");
 }
 
-function pdfFileName(domain: string) {
-  const safeDomain =
-    domain
-      .toLowerCase()
-      .replace(/[^a-z0-9.-]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 80) || "author-website-report";
-
-  return `${safeDomain}-author-website-report.pdf`;
-}
-
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const report = await prisma.report.findUnique({
-    where: { id },
+  const domain = normalizeReportDomain(id);
+
+  if (!domain) {
+    return NextResponse.json({ error: "Report not found." }, { status: 404 });
+  }
+
+  const report = await prisma.report.findFirst({
+    where: { domain },
+    orderBy: { createdAt: "desc" },
     include: {
       scores: true,
       findings: {
@@ -70,14 +70,14 @@ export async function GET(
   if (report.status !== ReportStatus.COMPLETE) {
     return NextResponse.json(
       { error: "PDF export is available after the report is complete." },
-      { status: 409 }
+      { status: 409 },
     );
   }
 
   if (!report.lead?.email) {
     return NextResponse.json(
       { error: "Unlock the full report before downloading the PDF." },
-      { status: 403 }
+      { status: 403 },
     );
   }
 
@@ -102,7 +102,7 @@ export async function GET(
   return new Response(new Uint8Array(pdf), {
     headers: {
       "Cache-Control": "private, no-store",
-      "Content-Disposition": `attachment; filename="${pdfFileName(report.domain)}"`,
+      "Content-Disposition": `attachment; filename="${getAuthorReportPdfFileName(report.domain)}"`,
       "Content-Type": "application/pdf",
     },
   });

@@ -16,7 +16,7 @@ export const AUTHOR_REPORT_SYSTEM_INSTRUCTION = `You are an author website strat
 Your job is to explain structured audit findings in simple, helpful, non-technical language for an author.
 Do not invent facts that were not found in the scan.
 Do not claim something is missing unless the scan result says it was not detected.
-Focus on book promotion, reader trust, newsletter growth, website clarity, SEO, mobile experience, and technical health.
+Focus on brand clarity, book visibility, reader engagement, search visibility, mobile performance, technical health, author trust, and site usability.
 Use a calm, professional, helpful, author-first tone.`;
 
 const categoryCritiqueSchema = z
@@ -256,11 +256,13 @@ export function buildReportNarrativePrompt(input: ReportNarrativeInput) {
       title: finding.title,
       finding: finding.finding,
       recommendation: finding.recommendation,
+      practicalActions: finding.practicalActions,
       priority: finding.priority,
     })),
     quickWins: input.quickWins.slice(0, 6).map((finding) => ({
       title: finding.title,
       recommendation: finding.recommendation,
+      practicalActions: finding.practicalActions,
     })),
     technicalAudit: input.technicalAudit ?? null,
   };
@@ -269,6 +271,7 @@ export function buildReportNarrativePrompt(input: ReportNarrativeInput) {
     "Return only JSON that matches the requested schema.",
     "Use only the scan facts, deterministic scores, and saved findings below.",
     "Numeric scores are calculated by application code. Do not return, create, or change any score.",
+    "Use the supplied primary recommendations and practical actions. You may clarify their wording for the author, but do not invent unsupported fixes.",
     "For categoryCritiques, repeat the provided category label exactly and explain that category only.",
     "Explain missing items only when a provided finding or detected signal supports that statement.",
     "Avoid guaranteed SEO, ranking, traffic, sales, or revenue claims.",
@@ -460,14 +463,14 @@ export function buildFallbackReportNarrative(
       orderedFindings,
       (finding) =>
         finding.category === "BRAND_CLARITY" ||
-        finding.category === "BOOK_PROMOTION",
+        finding.category === "BOOK_VISIBILITY",
       "Make the homepage quickly explain who the author is, what they write, which book or series to explore first, and the best next action for readers."
     ),
     suggestedCTAImprovement: firstRecommendation(
       orderedFindings,
       (finding) =>
-        finding.category === "READER_CONVERSION" ||
-        finding.category === "BOOK_PROMOTION",
+        finding.category === "READER_ENGAGEMENT" ||
+        finding.category === "BOOK_VISIBILITY",
       "Use one clear primary call to action for readers, such as joining the newsletter or viewing the featured book."
     ),
     suggestedSeoTitle: `Author Name | ${authorTypeLabel(input.authorType) || "author website"}`,

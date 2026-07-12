@@ -105,7 +105,7 @@ async function savePipelineFinding({
   await prisma.reportFinding.create({
     data: {
       reportId,
-      category: ReportCategory.PERFORMANCE_HEALTH,
+      category: ReportCategory.TECHNICAL_HEALTH,
       severity,
       title,
       finding,

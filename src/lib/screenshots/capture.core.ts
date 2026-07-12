@@ -49,7 +49,7 @@ export type HomepageScreenshotResult = {
 };
 
 type CaptureHomepageScreenshotsOptions = {
-  reportId: string;
+  websiteDomain: string;
   browser?: Browser;
   storage?: ScreenshotStorage;
   timeoutMs?: number;
@@ -61,8 +61,8 @@ function contextOptionsForVariant(variant: ScreenshotVariant) {
   return variant === "desktop" ? DESKTOP_CONTEXT : MOBILE_CONTEXT;
 }
 
-function screenshotKey(reportId: string, variant: ScreenshotVariant) {
-  return `${reportId}/homepage-${variant}.png`;
+function screenshotKey(websiteDomain: string, variant: ScreenshotVariant) {
+  return `${websiteDomain}/homepage-${variant}.png`;
 }
 
 function isAllowedRequestProtocol(url: string) {
@@ -93,7 +93,7 @@ async function captureVariant(
   options: Required<
     Pick<
       CaptureHomepageScreenshotsOptions,
-      "reportId" | "storage" | "timeoutMs" | "waitAfterLoadMs"
+      "websiteDomain" | "storage" | "timeoutMs" | "waitAfterLoadMs"
     >
   >
 ) {
@@ -122,14 +122,17 @@ async function captureVariant(
     assertPageStayedOnSafeProtocol(page);
 
     const buffer = await page.screenshot({
-      fullPage: true,
+      // Save only what is visible in the configured desktop or mobile viewport.
+      // Full-page captures become extremely tall and are not representative of
+      // the browser-sized preview shown in the report overview.
+      fullPage: false,
       timeout: options.timeoutMs,
       type: "png",
     });
 
     return await options.storage.save(
       buffer,
-      screenshotKey(options.reportId, variant)
+      screenshotKey(options.websiteDomain, variant)
     );
   } finally {
     await context.close().catch(() => undefined);
@@ -193,7 +196,7 @@ export async function captureHomepageScreenshots(
             security.finalUrl,
             variant,
             {
-              reportId: options.reportId,
+              websiteDomain: options.websiteDomain,
               storage,
               timeoutMs,
               waitAfterLoadMs,

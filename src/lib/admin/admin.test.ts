@@ -14,7 +14,7 @@ test("admin protected routes redirect unauthenticated visitors", () => {
   });
 
   assert.equal(access.allowed, false);
-  assert.equal(access.redirectTo, "/admin/login");
+  assert.equal(access.redirectTo, "/login");
 });
 
 test("admin protected routes allow the configured admin email", () => {
@@ -34,7 +34,7 @@ test("admin protected routes reject a non-admin email", () => {
   });
 
   assert.equal(access.allowed, false);
-  assert.equal(access.redirectTo, "/admin/login");
+  assert.equal(access.redirectTo, "/login");
 });
 
 test("admin report table includes the requested columns", () => {

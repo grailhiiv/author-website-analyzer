@@ -10,5 +10,5 @@ export async function signOutAdminAction() {
     headers: await headers(),
   });
 
-  redirect("/admin/login");
+  redirect("/login");
 }

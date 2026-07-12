@@ -88,7 +88,7 @@ test("detectAuthorWebsiteSignals finds author, book, newsletter, trust, retailer
         </body>
       </html>
     `,
-    "https://author.test/"
+    "https://author.test/",
   );
   const contact = extractPageData(
     `
@@ -105,7 +105,7 @@ test("detectAuthorWebsiteSignals finds author, book, newsletter, trust, retailer
         </body>
       </html>
     `,
-    "https://author.test/contact"
+    "https://author.test/contact",
   );
 
   const signals = detectAuthorWebsiteSignals([
@@ -172,12 +172,13 @@ test("detectAuthorWebsiteSignals reports only supported SEO issues from sparse s
         </body>
       </html>
     `,
-    "https://author.test/"
+    "https://author.test/",
   );
 
   const signals = detectAuthorWebsiteSignals([pageInput(sparsePage)]);
 
   assert.equal(signals.authorBrand.genreOrCategoryMentioned.detected, false);
+  assert.equal(signals.bookPromotion.bookCoverImages.detected, false);
   assert.equal(signals.bookPromotion.retailerLinks.detected, false);
   assert.equal(signals.newsletter.newsletterSignupForm.detected, false);
   assert.equal(signals.seo.titleTagExists.detected, false);
@@ -188,6 +189,66 @@ test("detectAuthorWebsiteSignals reports only supported SEO issues from sparse s
   assert.equal(signals.seo.indexabilitySignals.detected, true);
   assert.equal(signals.seo.indexabilitySignals.indexable, false);
   assert.equal(signals.trust.contactEmail.detected, false);
+});
+
+test("detectAuthorWebsiteSignals finds uppercase author names and homepage book titles", () => {
+  const homepage = extractPageData(
+    `
+      <!doctype html>
+      <html>
+        <head>
+          <title>BETH O'LEARY</title>
+          <meta name="description" content="The official website of bestselling author Beth O'Leary.">
+        </head>
+        <body>
+          <h1>Swept Away</h1>
+          <p>
+            I'm Beth, Sunday Times bestselling author of The Flatshare, The Switch,
+            The Road Trip, The No-Show, The Wake-Up Call and Swept Away.
+          </p>
+          <p>About the book: two strangers are stranded at sea in this new novel.</p>
+          <a href="https://bookshop.org/p/books/swept-away">Buy Swept Away</a>
+          <img src="/images/swept-away.jpg" alt="">
+        </body>
+      </html>
+    `,
+    "https://beth.test/",
+  );
+
+  const signals = detectAuthorWebsiteSignals([pageInput(homepage)]);
+
+  assert.equal(signals.authorBrand.authorNameVisible.detected, true);
+  assert.match(
+    signals.authorBrand.authorNameVisible.evidence.join(" "),
+    /BETH O'LEARY/i,
+  );
+  assert.equal(signals.bookPromotion.bookTitles.detected, true);
+  assert.match(
+    signals.bookPromotion.bookTitles.evidence.join(" "),
+    /Swept Away/i,
+  );
+  assert.equal(signals.bookPromotion.bookCoverImages.detected, true);
+});
+
+test("detectAuthorWebsiteSignals recognizes externally hosted newsletter signup links", () => {
+  const homepage = extractPageData(
+    `
+      <!doctype html>
+      <html>
+        <head><title>Jane Writer</title></head>
+        <body>
+          <h1>Jane Writer</h1>
+          <a href="https://janewriter.substack.com/subscribe">Join my reader list</a>
+        </body>
+      </html>
+    `,
+    "https://author.test/",
+  );
+
+  const signals = detectAuthorWebsiteSignals([pageInput(homepage)]);
+
+  assert.equal(signals.newsletter.newsletterSignupForm.detected, true);
+  assert.equal(signals.newsletter.subscribeForm.detected, true);
 });
 
 test("detectAuthorWebsiteSignals accepts legacy seed-style scanned page JSON", () => {

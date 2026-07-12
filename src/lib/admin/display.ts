@@ -14,14 +14,14 @@ export const reportStatusLabels: Record<ReportStatus, string> = {
 };
 
 export const categoryLabels: Record<ReportCategory, string> = {
-  BRAND_CLARITY: "First Impression and Author Brand Clarity",
-  BOOK_PROMOTION: "Book Promotion and Sales Readiness",
-  READER_CONVERSION: "Reader Conversion and Newsletter Growth",
-  SEO_DISCOVERABILITY: "SEO Discoverability",
-  MOBILE_ACCESSIBILITY: "Mobile Experience and Accessibility",
-  PERFORMANCE_HEALTH: "Performance and Technical Health",
-  TRUST_CREDIBILITY: "Trust and Credibility",
-  MAINTENANCE_RISK: "Maintenance and Website Risk",
+  BRAND_CLARITY: "Brand Clarity",
+  BOOK_VISIBILITY: "Book Visibility",
+  READER_ENGAGEMENT: "Reader Engagement",
+  SEARCH_VISIBILITY: "Search Visibility",
+  MOBILE_PERFORMANCE: "Mobile Performance",
+  TECHNICAL_HEALTH: "Technical Health",
+  AUTHOR_TRUST: "Author Trust",
+  SITE_USABILITY: "Site Usability",
 };
 
 export const findingSeverityLabels: Record<FindingSeverity, string> = {

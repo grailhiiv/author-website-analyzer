@@ -5,6 +5,7 @@ import {
   ReportCategory,
 } from "@/generated/prisma/client";
 import type { ReportNarrative } from "@/lib/ai/report-narrative.core";
+import { parsePracticalActions } from "@/lib/reports/practical-actions";
 
 export type PdfReport = {
   id: string;
@@ -30,6 +31,7 @@ export type PdfReportFinding = {
   title: string;
   finding: string;
   recommendation: string;
+  practicalActions?: unknown;
   priority: number;
 };
 
@@ -44,25 +46,36 @@ export type AuthorReportPdfInput = {
 
 const categoryOrder = [
   ReportCategory.BRAND_CLARITY,
-  ReportCategory.BOOK_PROMOTION,
-  ReportCategory.READER_CONVERSION,
-  ReportCategory.SEO_DISCOVERABILITY,
-  ReportCategory.MOBILE_ACCESSIBILITY,
-  ReportCategory.PERFORMANCE_HEALTH,
-  ReportCategory.TRUST_CREDIBILITY,
-  ReportCategory.MAINTENANCE_RISK,
+  ReportCategory.BOOK_VISIBILITY,
+  ReportCategory.READER_ENGAGEMENT,
+  ReportCategory.SEARCH_VISIBILITY,
+  ReportCategory.MOBILE_PERFORMANCE,
+  ReportCategory.TECHNICAL_HEALTH,
+  ReportCategory.AUTHOR_TRUST,
+  ReportCategory.SITE_USABILITY,
 ];
 
 const categoryLabels: Record<ReportCategory, string> = {
-  BRAND_CLARITY: "First Impression and Author Brand Clarity",
-  BOOK_PROMOTION: "Book Promotion and Sales Readiness",
-  READER_CONVERSION: "Reader Conversion and Newsletter Growth",
-  SEO_DISCOVERABILITY: "SEO Discoverability",
-  MOBILE_ACCESSIBILITY: "Mobile Experience and Accessibility",
-  PERFORMANCE_HEALTH: "Performance and Technical Health",
-  TRUST_CREDIBILITY: "Trust and Credibility",
-  MAINTENANCE_RISK: "Maintenance and Website Risk",
+  BRAND_CLARITY: "Brand Clarity",
+  BOOK_VISIBILITY: "Book Visibility",
+  READER_ENGAGEMENT: "Reader Engagement",
+  SEARCH_VISIBILITY: "Search Visibility",
+  MOBILE_PERFORMANCE: "Mobile Performance",
+  TECHNICAL_HEALTH: "Technical Health",
+  AUTHOR_TRUST: "Author Trust",
+  SITE_USABILITY: "Site Usability",
 };
+
+export function getAuthorReportPdfFileName(domain: string) {
+  const safeDomain =
+    domain
+      .toLowerCase()
+      .replace(/[^a-z0-9.-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "author-website-report";
+
+  return `${safeDomain}-author-website-report.pdf`;
+}
 
 const severityLabels: Record<FindingSeverity, string> = {
   LOW: "Low",
@@ -272,6 +285,17 @@ function findingBlock(
     continued: false,
   });
   paragraph(doc, finding.recommendation);
+  const practicalActions = parsePracticalActions(finding.practicalActions);
+  if (practicalActions.length > 0) {
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(9)
+      .fillColor(BRAND)
+      .text("Practical actions", { continued: false });
+    for (const action of practicalActions) {
+      paragraph(doc, `• ${action}`);
+    }
+  }
   doc.moveDown(0.1);
 }
 

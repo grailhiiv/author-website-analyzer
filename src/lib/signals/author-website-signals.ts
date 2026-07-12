@@ -99,6 +99,8 @@ type LinkLike = {
 type ImageLike = {
   src: string;
   alt: string | null;
+  width: string | null;
+  height: string | null;
 };
 
 type FormFieldLike = {
@@ -154,16 +156,16 @@ const PRAISE_TERMS =
   /\b(review|reviews|praise|testimonials|what readers are saying|star review|award|bestseller|endorsement)\b/i;
 const NEWSLETTER_TERMS =
   /\b(newsletter|reader list|mailing list|subscribe|join my list|updates)\b/i;
+const NEWSLETTER_SERVICE_TERMS =
+  /\b(substack\.com|convertkit\.com|kit\.com|mailchi\.mp|list-manage\.com|mailerlite\.com|beehiiv\.com|buttondown\.email|flodesk\.com|campaignmonitor\.com)\b/i;
 const READER_MAGNET_TERMS =
   /\b(reader magnet|free chapter|bonus scene|free book|free novella|free short story|download a sample)\b/i;
-const BIO_TERMS = /\b(author bio|biography|about the author|meet the author)\b/i;
+const BIO_TERMS =
+  /\b(author bio|biography|about the author|meet the author)\b/i;
 const PHOTO_TERMS = /\b(author photo|author portrait|headshot|portrait)\b/i;
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 
-const RETAILERS: Record<
-  RetailerKey,
-  { label: string; patterns: RegExp[] }
-> = {
+const RETAILERS: Record<RetailerKey, { label: string; patterns: RegExp[] }> = {
   amazon: {
     label: "Amazon",
     patterns: [/\bamazon\./i, /\bamzn\.to\b/i],
@@ -182,7 +184,11 @@ const RETAILERS: Record<
   },
   barnesAndNoble: {
     label: "Barnes & Noble",
-    patterns: [/\bbarnesandnoble\.com\b/i, /\bbn\.com\b/i, /\bbarnes & noble\b/i],
+    patterns: [
+      /\bbarnesandnoble\.com\b/i,
+      /\bbn\.com\b/i,
+      /\bbarnes & noble\b/i,
+    ],
   },
   bookshop: {
     label: "Bookshop",
@@ -190,7 +196,10 @@ const RETAILERS: Record<
   },
   googlePlayBooks: {
     label: "Google Play Books",
-    patterns: [/\bplay\.google\.com\/store\/books\b/i, /\bgoogle play books\b/i],
+    patterns: [
+      /\bplay\.google\.com\/store\/books\b/i,
+      /\bgoogle play books\b/i,
+    ],
   },
   goodreads: {
     label: "Goodreads",
@@ -295,7 +304,12 @@ function normalizeLinks(value: unknown) {
   };
 
   if (record) {
-    for (const key of ["internal", "external", "socialProfiles", "retailerLinks"]) {
+    for (const key of [
+      "internal",
+      "external",
+      "socialProfiles",
+      "retailerLinks",
+    ]) {
       asArray(record[key]).forEach(addLink);
     }
 
@@ -326,6 +340,8 @@ function normalizeImages(value: unknown) {
       return {
         src,
         alt: asString(item.alt) || null,
+        width: asString(item.width) || null,
+        height: asString(item.height) || null,
       };
     })
     .filter((image): image is ImageLike => Boolean(image));
@@ -457,11 +473,11 @@ function isPageType(page: NormalizedPage, type: string) {
 function linkEvidence(
   pages: NormalizedPage[],
   predicate: (text: string, link: LinkLike) => boolean,
-  label: string
+  label: string,
 ) {
   for (const page of pages) {
     const link = page.links.find((candidate) =>
-      predicate(`${candidate.text} ${candidate.href}`, candidate)
+      predicate(`${candidate.text} ${candidate.href}`, candidate),
     );
 
     if (link) {
@@ -475,15 +491,10 @@ function linkEvidence(
 function hasEmailInput(form: FormLike) {
   return form.fields.some((field) =>
     /\bemail\b/i.test(
-      [
-        field.type,
-        field.name,
-        field.label,
-        field.placeholder,
-      ]
+      [field.type, field.name, field.label, field.placeholder]
         .filter(Boolean)
-        .join(" ")
-    )
+        .join(" "),
+    ),
   );
 }
 
@@ -498,11 +509,15 @@ function formText(form: FormLike) {
         field.label ?? "",
         field.placeholder ?? "",
       ]),
-    ].join(" ")
+    ].join(" "),
   );
 }
 
-function collectSchemaTypes(value: unknown, types: Set<string>, sameAs: string[]) {
+function collectSchemaTypes(
+  value: unknown,
+  types: Set<string>,
+  sameAs: string[],
+) {
   if (Array.isArray(value)) {
     value.forEach((item) => collectSchemaTypes(item, types, sameAs));
     return;
@@ -519,9 +534,12 @@ function collectSchemaTypes(value: unknown, types: Set<string>, sameAs: string[]
   if (typeof rawType === "string") {
     types.add(rawType.toLowerCase());
   } else if (Array.isArray(rawType)) {
-    rawType.map(asString).filter(Boolean).forEach((type) => {
-      types.add(type.toLowerCase());
-    });
+    rawType
+      .map(asString)
+      .filter(Boolean)
+      .forEach((type) => {
+        types.add(type.toLowerCase());
+      });
   }
 
   if (record.sameAs) {
@@ -563,8 +581,14 @@ function collectSchemaNames(value: unknown, type: string, names: string[]) {
   collectSchemaNames(record["@graph"], type, names);
 }
 
-function schemaDetection(schemaTypes: Set<string>, type: string, label: string) {
-  return detection(schemaTypes.has(type.toLowerCase()) ? [`Schema: ${label}`] : []);
+function schemaDetection(
+  schemaTypes: Set<string>,
+  type: string,
+  label: string,
+) {
+  return detection(
+    schemaTypes.has(type.toLowerCase()) ? [`Schema: ${label}`] : [],
+  );
 }
 
 function detectRetailers(pages: NormalizedPage[]) {
@@ -577,8 +601,8 @@ function detectRetailers(pages: NormalizedPage[]) {
       linkEvidence(
         pages,
         (text) => retailer.patterns.some((pattern) => pattern.test(text)),
-        retailer.label
-      )
+        retailer.label,
+      ),
     );
   }
 
@@ -615,30 +639,164 @@ function indexabilitySignal(pages: NormalizedPage[]): IndexabilitySignal {
   };
 }
 
-function likelyAuthorNameEvidence(titleH1Content: string, personNames: string[]) {
-  const schemaName = personNames.find((name) =>
-    new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(
-      titleH1Content
+function looksLikePersonName(value: string, allowRoleWord = false) {
+  const candidate = compact(value).replace(/^[\s:,-]+|[\s:,-]+$/g, "");
+  const words = candidate.split(/\s+/);
+
+  if (
+    words.length < 2 ||
+    words.length > 4 ||
+    (!allowRoleWord && AUTHOR_TERMS.test(candidate)) ||
+    /\b(home|welcome|books?|newsletter|official|website|latest|new)\b/i.test(
+      candidate,
     )
-  );
+  ) {
+    return false;
+  }
+
+  return words.every((word) => {
+    const letters = word.replace(/[^\p{L}]/gu, "");
+    return (
+      letters.length > 0 &&
+      (letters === letters.toLocaleUpperCase() || /^\p{Lu}/u.test(letters))
+    );
+  });
+}
+
+function likelyAuthorNameEvidence(
+  titleH1Content: string,
+  allText: string,
+  personNames: string[],
+) {
+  const schemaName = personNames.find(Boolean);
 
   if (schemaName) {
-    return [`Author name: ${schemaName}`];
+    return [`Author name: ${schemaName} (Person schema)`];
   }
 
-  if (!AUTHOR_TERMS.test(titleH1Content)) {
-    return [];
+  const rawHeadingSegments = titleH1Content
+    .split(/[|•—–\n]/)
+    .map(compact)
+    .filter(Boolean);
+  const headingSegments = rawHeadingSegments.filter((segment) =>
+    looksLikePersonName(segment),
+  );
+
+  if (headingSegments[0]) {
+    return [`Likely author name: ${headingSegments[0]}`];
   }
 
-  const likelyName = titleH1Content.match(
-    /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b/
-  )?.[0];
+  const repeatedName = rawHeadingSegments.find(
+    (segment) =>
+      looksLikePersonName(segment, true) &&
+      rawHeadingSegments.filter(
+        (candidate) =>
+          candidate.toLocaleLowerCase() === segment.toLocaleLowerCase(),
+      ).length >= 2,
+  );
 
-  return likelyName ? [`Likely author name: ${likelyName}`] : [];
+  if (repeatedName) {
+    return [`Likely author name: ${repeatedName}`];
+  }
+
+  const nameWord = "[\\p{Lu}][\\p{L}\\p{M}'’.-]*";
+  const rolePattern = new RegExp(
+    `\\b(${nameWord}(?:\\s+${nameWord}){1,3})\\s+(?:is|writes?)(?:\\s+as)?[^.!?]{0,60}\\b(author|writer|novelist|poet|memoirist)\\b`,
+    "u",
+  );
+  const roleMatch = allText.match(rolePattern)?.[1];
+
+  return roleMatch ? [`Likely author name from biography: ${roleMatch}`] : [];
+}
+
+function looksLikeBookTitle(value: string, personNames: string[]) {
+  const candidate = compact(value);
+  const wordCount = candidate.split(/\s+/).length;
+
+  return Boolean(
+    candidate.length >= 3 &&
+    candidate.length <= 100 &&
+    wordCount <= 12 &&
+    !/^(books?|series|reviews?|praise|welcome|home|about|latest book|featured book|new release)$/i.test(
+      candidate,
+    ) &&
+    !AUTHOR_TERMS.test(candidate) &&
+    !personNames.some(
+      (name) => name.toLocaleLowerCase() === candidate.toLocaleLowerCase(),
+    ),
+  );
+}
+
+function pageHasBookContext(page: NormalizedPage) {
+  return Boolean(
+    isPageType(page, "BOOKS") ||
+    BOOK_BLURB_TERMS.test(page.text) ||
+    FEATURED_BOOK_TERMS.test(page.text) ||
+    page.ctas.some((cta) => BUY_TERMS.test(`${cta.text} ${cta.href ?? ""}`)) ||
+    page.links.some((link) =>
+      Object.values(RETAILERS).some((retailer) =>
+        retailer.patterns.some((pattern) =>
+          pattern.test(`${link.text} ${link.href}`),
+        ),
+      ),
+    ),
+  );
+}
+
+function detectedBookHeadings(pages: NormalizedPage[], personNames: string[]) {
+  return pages.flatMap((page) => {
+    if (!pageHasBookContext(page)) {
+      return [];
+    }
+
+    return [page.h1, ...page.h2, ...page.h3]
+      .filter((heading): heading is string => Boolean(heading))
+      .filter((heading) => looksLikeBookTitle(heading, personNames))
+      .map((heading) => compact(heading));
+  });
+}
+
+function isLikelyBookCover(
+  image: ImageLike,
+  page: NormalizedPage,
+  bookTitles: string[],
+) {
+  const imageText = `${image.alt ?? ""} ${image.src}`;
+
+  if (BOOK_COVER_TERMS.test(imageText)) {
+    return true;
+  }
+
+  if (!pageHasBookContext(page)) {
+    return false;
+  }
+
+  const normalizedImageText = imageText
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ");
+  const matchesTitle = bookTitles.some((title) => {
+    const meaningfulWords = title
+      .toLocaleLowerCase()
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter((word) => word.length >= 4);
+
+    return (
+      meaningfulWords.length > 0 &&
+      meaningfulWords.every((word) => normalizedImageText.includes(word))
+    );
+  });
+  const width = Number(image.width);
+  const height = Number(image.height);
+  const portraitRatio =
+    width > 0 && height > 0
+      ? height / width >= 1.2 && height / width <= 2.2
+      : false;
+
+  return matchesTitle || portraitRatio;
 }
 
 export function detectAuthorWebsiteSignals(
-  scannedPages: ScannedPageSignalInput[]
+  scannedPages: ScannedPageSignalInput[],
 ): AuthorWebsiteSignals {
   const pages = scannedPages.map(normalizePage);
   const homepage = pages.find((page) => isPageType(page, "HOME")) ?? pages[0];
@@ -646,18 +804,21 @@ export function detectAuthorWebsiteSignals(
   const titleH1Content = pages
     .flatMap((page) => [page.title, page.h1])
     .filter(Boolean)
-    .join(" ");
-  const allHeadings = pages.flatMap((page) => [page.h1, ...page.h2, ...page.h3]);
+    .join("\n");
   const schemaTypes = new Set<string>();
   const sameAsValues: string[] = [];
   const personNames: string[] = [];
+  const bookNames: string[] = [];
 
   pages
     .flatMap((page) => page.jsonLd)
     .forEach((item) => {
       collectSchemaTypes(item, schemaTypes, sameAsValues);
       collectSchemaNames(item, "Person", personNames);
+      collectSchemaNames(item, "Book", bookNames);
     });
+
+  const bookHeadings = detectedBookHeadings(pages, personNames);
 
   const retailers = detectRetailers(pages);
   const retailerEvidence = Object.values(retailers)
@@ -671,48 +832,74 @@ export function detectAuthorWebsiteSignals(
   const emailInputEvidence = pages.flatMap((page) =>
     page.forms
       .filter(hasEmailInput)
-      .map((form) => `Email input on ${page.url}${form.action ? ` (${form.action})` : ""}`)
+      .map(
+        (form) =>
+          `Email input on ${page.url}${form.action ? ` (${form.action})` : ""}`,
+      ),
   );
   const newsletterFormEvidence = pages.flatMap((page) =>
     page.forms
-      .filter((form) => hasEmailInput(form) && NEWSLETTER_TERMS.test(formText(form)))
-      .map((form) => `Newsletter form on ${page.url}${form.buttons[0] ? `: ${form.buttons[0]}` : ""}`)
+      .filter(
+        (form) => hasEmailInput(form) && NEWSLETTER_TERMS.test(formText(form)),
+      )
+      .map(
+        (form) =>
+          `Newsletter form on ${page.url}${form.buttons[0] ? `: ${form.buttons[0]}` : ""}`,
+      ),
   );
   const subscribeFormEvidence = pages.flatMap((page) =>
     page.forms
       .filter((form) => /\b(subscribe|join|sign up)\b/i.test(formText(form)))
-      .map((form) => `Subscribe form on ${page.url}${form.buttons[0] ? `: ${form.buttons[0]}` : ""}`)
+      .map(
+        (form) =>
+          `Subscribe form on ${page.url}${form.buttons[0] ? `: ${form.buttons[0]}` : ""}`,
+      ),
+  );
+  const newsletterLinkEvidence = pages.flatMap((page) =>
+    page.links
+      .filter(
+        (link) =>
+          NEWSLETTER_TERMS.test(`${link.text} ${link.href}`) ||
+          NEWSLETTER_SERVICE_TERMS.test(link.href),
+      )
+      .map(
+        (link) => `Newsletter link on ${page.url}: ${link.text || link.href}`,
+      ),
   );
   const missingAltEvidence = pages.flatMap((page) =>
     page.images
       .filter((image) => !image.alt)
-      .map((image) => `Missing image alt text: ${image.src}`)
+      .map((image) => `Missing image alt text: ${image.src}`),
   );
   const socialEvidence = pages.flatMap((page) =>
     page.links
       .filter((link) =>
         /\b(facebook|instagram|tiktok|twitter|x\.com|linkedin|youtube|goodreads|threads|bsky|pinterest)\b/i.test(
-          link.href
-        )
+          link.href,
+        ),
       )
-      .map((link) => `Social link: ${link.text || link.href}`)
+      .map((link) => `Social link: ${link.text || link.href}`),
   );
 
   return {
     pagesAnalyzed: pages.length,
     authorBrand: {
       authorNameVisible: detection(
-        likelyAuthorNameEvidence(titleH1Content, personNames)
+        likelyAuthorNameEvidence(titleH1Content, allText, personNames),
       ),
       genreOrCategoryMentioned: detection(
-        firstEvidence([allText], GENRE_TERMS, "Genre/category wording")
+        firstEvidence([allText], GENRE_TERMS, "Genre/category wording"),
       ),
       clearHomepageHeadline: detection(homepageHeadline),
       aboutSectionOrPage: detection([
         ...pages
           .filter((page) => isPageType(page, "ABOUT"))
           .map((page) => `About page: ${page.url}`),
-        ...linkEvidence(pages, (text) => /\b(about|bio|meet the author)\b/i.test(text), "About link"),
+        ...linkEvidence(
+          pages,
+          (text) => /\b(about|bio|meet the author)\b/i.test(text),
+          "About link",
+        ),
       ]),
     },
     bookPromotion: {
@@ -720,105 +907,133 @@ export function detectAuthorWebsiteSignals(
         pages.flatMap((page) =>
           page.images
             .filter((image) =>
-              BOOK_COVER_TERMS.test(`${image.alt ?? ""} ${image.src}`)
+              isLikelyBookCover(image, page, [...bookHeadings, ...bookNames]),
             )
-            .map((image) => `Book cover image: ${image.alt || image.src}`)
-        )
+            .map((image) => `Book cover image: ${image.alt || image.src}`),
+        ),
       ),
       bookTitles: detection([
-        ...allHeadings
-          .filter(Boolean)
-          .filter((heading) =>
-            pages.some((page) => isPageType(page, "BOOKS") && page.text.includes(heading ?? ""))
-          )
-          .filter((heading) => !/^(books?|series|reviews?|praise)$/i.test(heading ?? ""))
-          .map((heading) => `Book heading: ${heading}`),
-        ...(schemaTypes.has("book") ? ["Book schema detected"] : []),
+        ...bookHeadings.map((heading) => `Book heading: ${heading}`),
+        ...bookNames.map((name) => `Book name from schema: ${name}`),
+        ...(schemaTypes.has("book") && bookNames.length === 0
+          ? ["Book schema detected"]
+          : []),
       ]),
       bookDescriptionOrBlurb: detection(
-        firstEvidence([allText], BOOK_BLURB_TERMS, "Book description wording")
+        firstEvidence([allText], BOOK_BLURB_TERMS, "Book description wording"),
       ),
       buyLinks: detection([
         ...pages.flatMap((page) =>
           page.ctas
             .filter((cta) => BUY_TERMS.test(`${cta.text} ${cta.href ?? ""}`))
-            .map((cta) => `Buy CTA: ${cta.text || cta.href}`)
+            .map((cta) => `Buy CTA: ${cta.text || cta.href}`),
         ),
         ...linkEvidence(pages, (text) => BUY_TERMS.test(text), "Buy link"),
       ]),
       retailerLinks: detection(retailerEvidence),
       featuredBookSection: detection(
-        firstEvidence([allText], FEATURED_BOOK_TERMS, "Featured book wording")
+        firstEvidence([allText], FEATURED_BOOK_TERMS, "Featured book wording"),
       ),
       seriesPage: detection([
         ...pages
-          .filter((page) => /\/series\b/i.test(page.url) || SERIES_TERMS.test(page.text))
+          .filter(
+            (page) =>
+              /\/series\b/i.test(page.url) || SERIES_TERMS.test(page.text),
+          )
           .map((page) => `Series signal: ${page.url}`),
       ]),
       reviewsOrPraise: detection(
-        firstEvidence([allText], PRAISE_TERMS, "Reviews/praise wording")
+        firstEvidence([allText], PRAISE_TERMS, "Reviews/praise wording"),
       ),
     },
     newsletter: {
-      newsletterSignupForm: detection(newsletterFormEvidence),
-      subscribeForm: detection(subscribeFormEvidence),
+      newsletterSignupForm: detection([
+        ...newsletterFormEvidence,
+        ...newsletterLinkEvidence,
+      ]),
+      subscribeForm: detection([
+        ...subscribeFormEvidence,
+        ...newsletterLinkEvidence,
+      ]),
       emailInput: detection(emailInputEvidence),
       readerMagnetPhrases: detection(
-        firstEvidence([allText], READER_MAGNET_TERMS, "Reader magnet wording")
+        firstEvidence([allText], READER_MAGNET_TERMS, "Reader magnet wording"),
       ),
-      freeChapter: detection(firstEvidence([allText], /\bfree chapter\b/i, "Free chapter wording")),
-      bonusScene: detection(firstEvidence([allText], /\bbonus scene\b/i, "Bonus scene wording")),
+      freeChapter: detection(
+        firstEvidence([allText], /\bfree chapter\b/i, "Free chapter wording"),
+      ),
+      bonusScene: detection(
+        firstEvidence([allText], /\bbonus scene\b/i, "Bonus scene wording"),
+      ),
       freeBook: detection(
-        firstEvidence([allText], /\bfree (book|novella|short story)\b/i, "Free book wording")
+        firstEvidence(
+          [allText],
+          /\bfree (book|novella|short story)\b/i,
+          "Free book wording",
+        ),
       ),
       updatesSignup: detection(
-        firstEvidence([allText], /\b(updates|book news|release news)\b/i, "Updates wording")
+        firstEvidence(
+          [allText],
+          /\b(updates|book news|release news)\b/i,
+          "Updates wording",
+        ),
       ),
     },
     seo: {
       titleTagExists: detection(
-        pages.filter((page) => page.title).map((page) => `Title tag: ${page.title}`)
+        pages
+          .filter((page) => page.title)
+          .map((page) => `Title tag: ${page.title}`),
       ),
       metaDescriptionExists: detection(
         pages
           .filter((page) => page.metaDescription)
-          .map((page) => `Meta description: ${page.metaDescription}`)
+          .map((page) => `Meta description: ${page.metaDescription}`),
       ),
-      h1Exists: detection(pages.filter((page) => page.h1).map((page) => `H1: ${page.h1}`)),
+      h1Exists: detection(
+        pages.filter((page) => page.h1).map((page) => `H1: ${page.h1}`),
+      ),
       multipleH1Issue: detection(
         pages
           .filter((page) => page.h1Count !== null && page.h1Count > 1)
-          .map((page) => `Multiple H1 tags on ${page.url}: ${page.h1Count}`)
+          .map((page) => `Multiple H1 tags on ${page.url}: ${page.h1Count}`),
       ),
       missingAltText: detection(missingAltEvidence),
       indexabilitySignals: indexabilitySignal(pages),
       canonicalUrl: detection(
         pages
           .filter((page) => page.canonicalUrl)
-          .map((page) => `Canonical URL: ${page.canonicalUrl}`)
+          .map((page) => `Canonical URL: ${page.canonicalUrl}`),
       ),
     },
     trust: {
       authorBio: detection([
         ...pages
-          .filter((page) => isPageType(page, "ABOUT") || BIO_TERMS.test(page.text))
+          .filter(
+            (page) => isPageType(page, "ABOUT") || BIO_TERMS.test(page.text),
+          )
           .map((page) => `Author bio signal: ${page.url}`),
       ]),
       authorPhoto: detection(
         pages.flatMap((page) =>
           page.images
-            .filter((image) => PHOTO_TERMS.test(`${image.alt ?? ""} ${image.src}`))
-            .map((image) => `Author photo: ${image.alt || image.src}`)
-        )
+            .filter((image) =>
+              PHOTO_TERMS.test(`${image.alt ?? ""} ${image.src}`),
+            )
+            .map((image) => `Author photo: ${image.alt || image.src}`),
+        ),
       ),
       contactForm: detection(
         pages
-          .filter((page) => isPageType(page, "CONTACT") && page.forms.length > 0)
-          .map((page) => `Contact form: ${page.url}`)
+          .filter(
+            (page) => isPageType(page, "CONTACT") && page.forms.length > 0,
+          )
+          .map((page) => `Contact form: ${page.url}`),
       ),
       contactEmail: detection([
         ...pages.flatMap((page) =>
-          page.emails.map((email) => `Contact email: ${email}`)
+          page.emails.map((email) => `Contact email: ${email}`),
         ),
         ...firstEvidence([allText], EMAIL_PATTERN, "Email text"),
       ]),
@@ -827,10 +1042,18 @@ export function detectAuthorWebsiteSignals(
         ...pages
           .filter((page) => isPageType(page, "MEDIA_KIT"))
           .map((page) => `Media kit page: ${page.url}`),
-        ...linkEvidence(pages, (text) => /\b(media kit|press kit|press)\b/i.test(text), "Media kit link"),
+        ...linkEvidence(
+          pages,
+          (text) => /\b(media kit|press kit|press)\b/i.test(text),
+          "Media kit link",
+        ),
       ]),
       privacyPolicy: detection(
-        linkEvidence(pages, (text) => /\bprivacy\b/i.test(text), "Privacy policy link")
+        linkEvidence(
+          pages,
+          (text) => /\bprivacy\b/i.test(text),
+          "Privacy policy link",
+        ),
       ),
     },
     retailers,
@@ -840,16 +1063,18 @@ export function detectAuthorWebsiteSignals(
       organization: schemaDetection(
         schemaTypes,
         "organization",
-        "Organization"
+        "Organization",
       ),
       review: schemaDetection(schemaTypes, "review", "Review"),
       aggregateRating: schemaDetection(
         schemaTypes,
         "aggregaterating",
-        "AggregateRating"
+        "AggregateRating",
       ),
       sameAs: detection(
-        sameAsValues.length > 0 ? [`sameAs links: ${sameAsValues.join(", ")}`] : []
+        sameAsValues.length > 0
+          ? [`sameAs links: ${sameAsValues.join(", ")}`]
+          : [],
       ),
     },
   };

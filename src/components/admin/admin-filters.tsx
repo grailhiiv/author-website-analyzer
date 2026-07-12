@@ -5,10 +5,7 @@ import {
   AdminPanelContent,
   AdminPanelHeader,
 } from "@/components/admin/admin-panel";
-import { Badge } from "@/components/catalyst/badge";
-import { Button } from "@/components/catalyst/button";
-import { Input } from "@/components/catalyst/input";
-import { Select } from "@/components/catalyst/select";
+import { Badge, Button, Input, Select } from "@/components/admin/admin-ui";
 import { ReportStatus } from "@/generated/prisma/client";
 import { authorTypes, websiteGoals } from "@/lib/analyzer/options";
 import {

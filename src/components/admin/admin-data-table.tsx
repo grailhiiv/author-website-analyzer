@@ -11,7 +11,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/catalyst/table";
+} from "@/components/admin/admin-ui";
 import { cn } from "@/lib/utils";
 
 type AdminDataTableColumn = {

@@ -40,7 +40,19 @@ const serverEnvSchema = z.object({
   ),
 });
 
+const reportDeliveryEnvSchema = z.object({
+  RESEND_API_KEY: requiredString(
+    "RESEND_API_KEY",
+    "Add the server-side Resend API key used to deliver full reports."
+  ),
+  RESEND_FROM_EMAIL: requiredString(
+    "RESEND_FROM_EMAIL",
+    "Add a sender address on a domain verified in Resend."
+  ).pipe(z.string().email("RESEND_FROM_EMAIL must be a valid email address.")),
+});
+
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
+export type ReportDeliveryEnv = z.infer<typeof reportDeliveryEnvSchema>;
 
 function formatEnvErrors(error: z.ZodError) {
   return error.issues
@@ -54,6 +66,22 @@ export function validateServerEnv(runtimeEnv: NodeJS.ProcessEnv): ServerEnv {
   if (!parsed.success) {
     throw new Error(
       `Missing or invalid server environment variables:\n${formatEnvErrors(
+        parsed.error
+      )}`
+    );
+  }
+
+  return parsed.data;
+}
+
+export function validateReportDeliveryEnv(
+  runtimeEnv: NodeJS.ProcessEnv
+): ReportDeliveryEnv {
+  const parsed = reportDeliveryEnvSchema.safeParse(runtimeEnv);
+
+  if (!parsed.success) {
+    throw new Error(
+      `Missing or invalid report delivery environment variables:\n${formatEnvErrors(
         parsed.error
       )}`
     );

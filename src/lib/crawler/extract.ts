@@ -7,16 +7,18 @@ const AUTHOR_PAGE_PATTERNS: Array<{ pageType: PageType; patterns: RegExp[] }> =
   [
     {
       pageType: PageType.ABOUT,
-      patterns: [/^\/about\/?$/, /^\/about-me\/?$/, /^\/author\/?$/, /^\/bio\/?$/],
+      patterns: [
+        /^\/about\/?$/,
+        /^\/about-me\/?$/,
+        /^\/author\/?$/,
+        /^\/bio\/?$/,
+      ],
     },
     {
       pageType: PageType.BOOKS,
       patterns: [
-        /^\/books?\/?$/,
-        /^\/book\/?$/,
-        /^\/novels?\/?$/,
-        /^\/series\/?$/,
-        /^\/works\/?$/,
+        /^\/(?:books?|my-books|novels?|series|works|bibliography|titles)(?:\/[^/]+)*\/?$/,
+        /^\/(?:published-works|writing)\/?$/,
       ],
     },
     {
@@ -174,7 +176,7 @@ function getText($: cheerio.CheerioAPI, selector: string) {
 
 function getMetaDescription($: cheerio.CheerioAPI) {
   const description = normalizeWhitespace(
-    $("meta[name='description' i]").first().attr("content") ?? ""
+    $("meta[name='description' i]").first().attr("content") ?? "",
   );
 
   return description.length > 0 ? description : null;
@@ -195,7 +197,7 @@ function isHostMatch(href: string, hostPatterns: string[]) {
 function extractLinks(
   $: cheerio.CheerioAPI,
   pageUrl: string,
-  siteOrigin: string
+  siteOrigin: string,
 ) {
   const internal = new Map<string, ExtractedLink>();
   const external = new Map<string, ExtractedLink>();
@@ -254,16 +256,33 @@ function extractLinks(
         $(element).attr("aria-label") ?? "",
         $(element).attr("title") ?? "",
         $(element).attr("class") ?? "",
-      ].join(" ")
+      ].join(" "),
     );
 
     if (CTA_TEXT_PATTERN.test(ctaText)) {
       ctas.push({
         type: "link",
-        text: link.text || normalizeWhitespace($(element).attr("aria-label") ?? ""),
+        text:
+          link.text || normalizeWhitespace($(element).attr("aria-label") ?? ""),
         href,
       });
     }
+  });
+
+  $("iframe[src]").each((_, element) => {
+    const href = safeHttpUrl($(element).attr("src"), pageUrl);
+
+    if (!href || isSameSite(href, siteOrigin)) {
+      return;
+    }
+
+    external.set(href, {
+      href,
+      text: normalizeWhitespace(
+        $(element).attr("title") ?? $(element).attr("aria-label") ?? "",
+      ),
+      rel: null,
+    });
   });
 
   $("button, input[type='button'], input[type='submit']").each((_, element) => {
@@ -271,7 +290,7 @@ function extractLinks(
       $(element).text() ||
         $(element).attr("value") ||
         $(element).attr("aria-label") ||
-        ""
+        "",
     );
 
     if (text && CTA_TEXT_PATTERN.test(text)) {
@@ -314,10 +333,7 @@ function extractImages($: cheerio.CheerioAPI, pageUrl: string) {
   return images;
 }
 
-function getFieldLabel(
-  $: cheerio.CheerioAPI,
-  element: Element
-) {
+function getFieldLabel($: cheerio.CheerioAPI, element: Element) {
   const id = $(element).attr("id");
 
   if (id) {
@@ -325,7 +341,7 @@ function getFieldLabel(
       $("label")
         .filter((_, label) => $(label).attr("for") === id)
         .first()
-        .text()
+        .text(),
     );
 
     if (explicitLabel) {
@@ -367,8 +383,8 @@ function extractForms($: cheerio.CheerioAPI, pageUrl: string) {
             $(button).text() ||
               $(button).attr("value") ||
               $(button).attr("aria-label") ||
-              ""
-          )
+              "",
+          ),
         )
         .get()
         .filter(Boolean),
@@ -409,13 +425,13 @@ function extractBodyText($: cheerio.CheerioAPI) {
 
 function extractSeo($: cheerio.CheerioAPI, pageUrl: string) {
   const robots = normalizeWhitespace(
-    $("meta[name='robots' i]").first().attr("content") ?? ""
+    $("meta[name='robots' i]").first().attr("content") ?? "",
   );
 
   return {
     canonicalUrl: safeHttpUrl(
       $("link[rel='canonical' i]").first().attr("href"),
-      pageUrl
+      pageUrl,
     ),
     robots: robots || null,
   };
@@ -447,7 +463,7 @@ export function detectPageType(url: string) {
 export function extractPageData(
   html: string,
   pageUrl: string,
-  siteOrigin = new URL(pageUrl).origin
+  siteOrigin = new URL(pageUrl).origin,
 ): ExtractedPageData {
   const $ = cheerio.load(html);
   const title = normalizeWhitespace($("title").first().text());

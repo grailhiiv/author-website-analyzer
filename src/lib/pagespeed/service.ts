@@ -95,7 +95,7 @@ async function saveFailureFinding(reportId: string, result: PageSpeedAuditResult
   await prisma.reportFinding.create({
     data: {
       reportId,
-      category: ReportCategory.PERFORMANCE_HEALTH,
+      category: ReportCategory.TECHNICAL_HEALTH,
       severity: FindingSeverity.LOW,
       title: PAGESPEED_FAILURE_FINDING_TITLE,
       finding:

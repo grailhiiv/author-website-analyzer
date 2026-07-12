@@ -200,7 +200,7 @@ Headline:
 Analyze your author website in minutes.
 
 Subheadline:
-Get a clear score, expert-style critique, and practical recommendations to improve your author brand, book visibility, and reader conversion.
+Get a clear score, expert-style critique, and practical recommendations to improve your brand clarity, book visibility, and reader engagement.
 
 Primary CTA:
 Analyze My Website
@@ -237,11 +237,14 @@ Example:
 Overall Website Score
 82 / 100
 
-Brand Clarity: 18/20
-Reader Conversion: 14/20
+Brand Clarity: 13/15
 Book Visibility: 17/20
-SEO Foundation: 16/20
-Design & Trust: 17/20
+Reader Engagement: 11/15
+Search Visibility: 12/15
+Mobile Performance: 8/10
+Technical Health: 8/10
+Author Trust: 9/10
+Site Usability: 4/5
 ```
 
 ---
@@ -267,16 +270,14 @@ Use a grid of feature cards.
 
 Recommended modules:
 
-- Homepage Message Clarity
-- Author Brand Positioning
+- Brand Clarity
 - Book Visibility
-- Reader Conversion
-- Email List Capture
-- Navigation & User Experience
-- SEO Foundation
-- Mobile Experience
-- Trust Signals
-- Technical Performance
+- Reader Engagement
+- Search Visibility
+- Mobile Performance
+- Technical Health
+- Author Trust
+- Site Usability
 
 ### Section 3: Sample Report Preview
 
@@ -399,7 +400,7 @@ Author Website Score
 82 / 100
 Strong
 
-Your website has a solid foundation, but it needs clearer reader conversion paths and stronger book promotion above the fold.
+Your website has a solid foundation, but it needs clearer reader engagement paths and stronger book visibility above the fold.
 ```
 
 ### Component Requirements
@@ -421,12 +422,14 @@ Recommended categories and weights:
 
 | Category | Weight |
 |---|---:|
-| Brand & Message Clarity | 20 |
-| Book Visibility & Sales Path | 20 |
-| Reader Conversion | 20 |
-| User Experience & Design | 15 |
-| SEO & Discoverability | 15 |
-| Technical Performance & Trust | 10 |
+| Brand Clarity | 15 |
+| Book Visibility | 20 |
+| Reader Engagement | 15 |
+| Search Visibility | 15 |
+| Mobile Performance | 10 |
+| Technical Health | 10 |
+| Author Trust | 10 |
+| Site Usability | 5 |
 | **Total** | **100** |
 
 ### Category Card Structure
@@ -442,7 +445,7 @@ Each category card should include:
 Example:
 
 ```text
-Book Visibility & Sales Path
+Book Visibility
 14 / 20
 Needs improvement
 
@@ -734,12 +737,12 @@ Allows scoring logic to be managed without changing code every time.
 
 ```text
 Strong Homepage Headline
-Category: Brand & Message Clarity
+Category: Brand Clarity
 Weight: 5 points
 Condition: Homepage contains a clear author positioning statement above the fold.
 
 Visible Book CTA
-Category: Book Visibility & Sales Path
+Category: Book Visibility
 Weight: 5 points
 Condition: Homepage includes a prominent CTA to view, buy, or learn about books.
 ```
@@ -767,7 +770,7 @@ Stores reusable recommendations that can be mapped to scoring issues.
 
 ```text
 Title: Rewrite the homepage headline
-Category: Brand & Message Clarity
+Category: Brand Clarity
 Priority: High
 Effort: Medium
 Impact: High
@@ -1002,7 +1005,7 @@ For analysis processing, use progress messaging:
 ```text
 Reviewing your homepage message...
 Checking book visibility...
-Evaluating reader conversion paths...
+Evaluating reader engagement paths...
 Preparing your recommendations...
 ```
 
@@ -1185,7 +1188,7 @@ Avoid:
 
 ---
 
-## 35. Trust and Credibility Elements
+## 35. Author Trust Elements
 
 The app should include trust-building details throughout the experience.
 

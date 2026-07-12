@@ -3,19 +3,35 @@ import test from "node:test";
 
 import { PageType } from "@/generated/prisma/client";
 import { extractPageData, detectPageType } from "@/lib/crawler/extract";
-import { prioritizeCrawlUrls } from "@/lib/crawler/prioritize";
+import {
+  getCrawlContentFingerprint,
+  normalizeCandidateUrl,
+  prioritizeCrawlUrls,
+} from "@/lib/crawler/prioritize";
 
 test("detectPageType maps author website paths", () => {
   assert.equal(detectPageType("https://author.test/"), PageType.HOME);
   assert.equal(detectPageType("https://author.test/about-me"), PageType.ABOUT);
   assert.equal(detectPageType("https://author.test/books"), PageType.BOOKS);
+  assert.equal(detectPageType("https://author.test/my-books"), PageType.BOOKS);
+  assert.equal(
+    detectPageType("https://author.test/books/the-moonlit-door"),
+    PageType.BOOKS,
+  );
+  assert.equal(
+    detectPageType("https://author.test/bibliography"),
+    PageType.BOOKS,
+  );
   assert.equal(detectPageType("https://author.test/contact"), PageType.CONTACT);
   assert.equal(
     detectPageType("https://author.test/newsletter"),
-    PageType.NEWSLETTER
+    PageType.NEWSLETTER,
   );
   assert.equal(detectPageType("https://author.test/blog"), PageType.BLOG);
-  assert.equal(detectPageType("https://author.test/press-kit"), PageType.MEDIA_KIT);
+  assert.equal(
+    detectPageType("https://author.test/press-kit"),
+    PageType.MEDIA_KIT,
+  );
   assert.equal(detectPageType("https://author.test/events"), PageType.EVENTS);
   assert.equal(detectPageType("https://author.test/random"), PageType.UNKNOWN);
 });
@@ -58,7 +74,7 @@ test("extractPageData extracts author page signals", () => {
   assert.equal(page.title, "Jane Writer | Fantasy Author");
   assert.equal(
     page.metaDescription,
-    "Fantasy books and updates from Jane Writer."
+    "Fantasy books and updates from Jane Writer.",
   );
   assert.equal(page.h1, "Jane Writer");
   assert.equal(page.h1Count, 1);
@@ -99,14 +115,11 @@ test("extractPageData extracts images, forms, and links with normalized URLs", (
         </body>
       </html>
     `,
-    "https://author.test/books"
+    "https://author.test/books",
   );
 
   assert.equal(page.title, "Books by Jane Writer");
-  assert.equal(
-    page.metaDescription,
-    "Books, newsletter, and reader updates."
-  );
+  assert.equal(page.metaDescription, "Books, newsletter, and reader updates.");
   assert.equal(page.h1, "Books by Jane Writer");
   assert.equal(page.images[0].src, "https://author.test/cover.jpg");
   assert.equal(page.forms[0].action, "https://author.test/signup");
@@ -133,8 +146,79 @@ test("prioritizeCrawlUrls keeps homepage first and limits important pages", () =
   assert.deepEqual(urls, [
     "https://author.test/",
     "https://author.test/books",
-    "https://author.test/contact",
     "https://author.test/newsletter",
+    "https://author.test/contact",
     "https://author.test/blog",
   ]);
+});
+
+test("prioritizeCrawlUrls normalizes tracking links and leaves /home behind useful pages", () => {
+  const urls = prioritizeCrawlUrls({
+    homepageUrl: "https://author.test/?utm_source=campaign",
+    sitemapUrls: [
+      "https://author.test/books/?utm_medium=email",
+      "https://author.test/books",
+      "https://author.test/home",
+      "https://author.test/about",
+    ],
+  });
+
+  assert.deepEqual(urls, [
+    "https://author.test/",
+    "https://author.test/books",
+    "https://author.test/about",
+    "https://author.test/home",
+  ]);
+  assert.equal(
+    normalizeCandidateUrl(
+      "https://author.test/books/?utm_source=x#buy",
+      "https://author.test/",
+    ),
+    "https://author.test/books",
+  );
+});
+
+test("getCrawlContentFingerprint identifies exact page-content duplicates", () => {
+  const bodyText = "A".repeat(120);
+
+  assert.equal(
+    getCrawlContentFingerprint({
+      title: "Jane Writer",
+      h1: "Welcome",
+      bodyText,
+    }),
+    getCrawlContentFingerprint({
+      title: " JANE WRITER ",
+      h1: "Welcome",
+      bodyText: `  ${bodyText}  `,
+    }),
+  );
+  assert.equal(
+    getCrawlContentFingerprint({ title: "Short", bodyText: "Short page" }),
+    null,
+  );
+});
+
+test("extractPageData captures embedded newsletter providers", () => {
+  const page = extractPageData(
+    `
+      <!doctype html>
+      <html>
+        <body>
+          <h1>Reader newsletter</h1>
+          <iframe
+            src="https://janewriter.substack.com/embed"
+            title="Subscribe to Jane Writer's newsletter"
+          ></iframe>
+        </body>
+      </html>
+    `,
+    "https://author.test/newsletter",
+  );
+
+  assert.ok(
+    page.links.external.some(
+      (link) => link.href === "https://janewriter.substack.com/embed",
+    ),
+  );
 });

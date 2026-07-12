@@ -4,12 +4,13 @@ import { type NextRequest, NextResponse } from "next/server";
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/admin/login" || pathname.startsWith("/admin/login/")) {
+  if (pathname === "/login" || pathname.startsWith("/login/")) {
     return NextResponse.next();
   }
 
   if (!getSessionCookie(request)) {
-    const loginUrl = new URL("/admin/login", request.url);
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirectUrl", pathname);
 
     return NextResponse.redirect(loginUrl);
   }
@@ -18,5 +19,15 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/reports/:path*",
+    "/leads/:path*",
+    "/dashboards/:path*",
+    "/concepts/:path*",
+    "/ui-components/:path*",
+    "/guide/:path*",
+    "/auth/:path*",
+    "/access-denied/:path*",
+  ],
 };

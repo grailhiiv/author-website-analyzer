@@ -26,13 +26,9 @@ export type CapturedReportHomepageScreenshots = {
   result: HomepageScreenshotResult;
 };
 
-function primaryScreenshotUrl(result: HomepageScreenshotResult) {
-  return result.screenshots.desktop?.url ?? result.screenshots.mobile?.url ?? null;
-}
-
 async function saveScreenshotFailureFinding(
   reportId: string,
-  result: HomepageScreenshotResult
+  result: HomepageScreenshotResult,
 ) {
   await prisma.reportFinding.deleteMany({
     where: {
@@ -48,10 +44,11 @@ async function saveScreenshotFailureFinding(
   await prisma.reportFinding.create({
     data: {
       reportId,
-      category: ReportCategory.PERFORMANCE_HEALTH,
-      severity: result.screenshots.desktop || result.screenshots.mobile
-        ? FindingSeverity.LOW
-        : FindingSeverity.MEDIUM,
+      category: ReportCategory.TECHNICAL_HEALTH,
+      severity:
+        result.screenshots.desktop || result.screenshots.mobile
+          ? FindingSeverity.LOW
+          : FindingSeverity.MEDIUM,
       title: SCREENSHOT_FAILURE_FINDING_TITLE,
       finding:
         "The analyzer could not capture every website screenshot during this run.",
@@ -65,9 +62,10 @@ async function saveScreenshotFailureFinding(
 async function savePrimaryScreenshotUrl(
   reportId: string,
   homepageUrl: string,
-  screenshotUrl: string | null
+  screenshotUrl: string | null,
+  mobileScreenshotUrl: string | null,
 ) {
-  if (!screenshotUrl) {
+  if (!screenshotUrl && !mobileScreenshotUrl) {
     return null;
   }
 
@@ -91,6 +89,7 @@ async function savePrimaryScreenshotUrl(
       },
       data: {
         screenshotUrl,
+        mobileScreenshotUrl,
       },
     });
   }
@@ -101,13 +100,14 @@ async function savePrimaryScreenshotUrl(
       url: homepageUrl,
       pageType: PageType.HOME,
       screenshotUrl,
+      mobileScreenshotUrl,
     },
   });
 }
 
 export async function captureReportHomepageScreenshots(
   reportId: string,
-  options: SaveReportScreenshotsOptions = {}
+  options: SaveReportScreenshotsOptions = {},
 ): Promise<CapturedReportHomepageScreenshots> {
   const report = await prisma.report.findUnique({
     where: {
@@ -115,6 +115,7 @@ export async function captureReportHomepageScreenshots(
     },
     select: {
       id: true,
+      domain: true,
       normalizedUrl: true,
       url: true,
       pagesScanned: {
@@ -142,7 +143,7 @@ export async function captureReportHomepageScreenshots(
     report.normalizedUrl ??
     report.url;
   const result = await captureHomepageScreenshots(homepageUrl, {
-    reportId,
+    websiteDomain: report.domain,
     redirectLimit: options.redirectLimit,
     storage: options.storage,
     timeoutMs: options.timeoutMs,
@@ -154,14 +155,17 @@ export async function captureReportHomepageScreenshots(
 
 export async function persistReportHomepageScreenshots(
   reportId: string,
-  capture: CapturedReportHomepageScreenshots
+  capture: CapturedReportHomepageScreenshots,
 ) {
   const { result } = capture;
-  const screenshotUrl = primaryScreenshotUrl(result);
+  const screenshotUrl =
+    result.screenshots.desktop?.url ?? result.screenshots.mobile?.url ?? null;
+  const mobileScreenshotUrl = result.screenshots.mobile?.url ?? null;
   const pageScanned = await savePrimaryScreenshotUrl(
     reportId,
     result.homepageUrl,
-    screenshotUrl
+    screenshotUrl,
+    mobileScreenshotUrl,
   );
 
   await saveScreenshotFailureFinding(reportId, result);
@@ -174,7 +178,7 @@ export async function persistReportHomepageScreenshots(
 
 export async function saveReportHomepageScreenshots(
   reportId: string,
-  options: SaveReportScreenshotsOptions = {}
+  options: SaveReportScreenshotsOptions = {},
 ) {
   const capture = await captureReportHomepageScreenshots(reportId, options);
 

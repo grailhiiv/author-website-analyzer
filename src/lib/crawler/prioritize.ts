@@ -2,16 +2,22 @@ import { detectPageType } from "@/lib/crawler/extract";
 
 const PRIORITY_PATHS = [
   "/",
+  "/books",
+  "/book",
+  "/my-books",
+  "/novels",
+  "/series",
+  "/bibliography",
+  "/titles",
+  "/works",
   "/about",
   "/about-me",
   "/author",
-  "/books",
-  "/book",
-  "/novels",
-  "/series",
-  "/contact",
+  "/bio",
   "/newsletter",
   "/subscribe",
+  "/reader-list",
+  "/contact",
   "/blog",
   "/news",
   "/media",
@@ -20,9 +26,16 @@ const PRIORITY_PATHS = [
   "/events",
 ];
 
-export const CRAWL_PAGE_LIMIT = 5;
+const TRACKING_PARAMETER_PATTERNS = [
+  /^utm_/i,
+  /^fbclid$/i,
+  /^gclid$/i,
+  /^mc_/i,
+];
 
-function normalizeCandidateUrl(url: string, homepageUrl: string) {
+export const CRAWL_PAGE_LIMIT = 10;
+
+export function normalizeCandidateUrl(url: string, homepageUrl: string) {
   try {
     const parsed = new URL(url, homepageUrl);
 
@@ -31,10 +44,38 @@ function normalizeCandidateUrl(url: string, homepageUrl: string) {
     }
 
     parsed.hash = "";
+    parsed.pathname = parsed.pathname.replace(/\/{2,}/g, "/");
+
+    if (parsed.pathname !== "/") {
+      parsed.pathname = parsed.pathname.replace(/\/+$/, "");
+    }
+
+    for (const key of Array.from(parsed.searchParams.keys())) {
+      if (TRACKING_PARAMETER_PATTERNS.some((pattern) => pattern.test(key))) {
+        parsed.searchParams.delete(key);
+      }
+    }
+
+    parsed.searchParams.sort();
     return parsed.toString();
   } catch {
     return null;
   }
+}
+
+export function getCrawlContentFingerprint(page: {
+  title?: string | null;
+  h1?: string | null;
+  bodyText?: string | null;
+}) {
+  const content = [page.title, page.h1, page.bodyText]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase();
+
+  return content.length >= 100 ? content : null;
 }
 
 function isSameHostname(url: string, homepageUrl: string) {
@@ -53,8 +94,13 @@ function getPriorityScore(url: string) {
     return exactIndex;
   }
 
+  if (path === "/home" || path.startsWith("/home/")) {
+    return PRIORITY_PATHS.length * 3;
+  }
+
   const prefixIndex = PRIORITY_PATHS.findIndex(
-    (priorityPath) => priorityPath !== "/" && path.startsWith(`${priorityPath}/`)
+    (priorityPath) =>
+      priorityPath !== "/" && path.startsWith(`${priorityPath}/`),
   );
 
   if (prefixIndex >= 0) {
@@ -114,7 +160,9 @@ export function prioritizeCrawlUrls({
         return scoreDifference;
       }
 
-      const pageTypeDifference = detectPageType(a).localeCompare(detectPageType(b));
+      const pageTypeDifference = detectPageType(a).localeCompare(
+        detectPageType(b),
+      );
 
       if (pageTypeDifference !== 0) {
         return pageTypeDifference;

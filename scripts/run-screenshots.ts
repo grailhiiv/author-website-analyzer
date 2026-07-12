@@ -2,8 +2,11 @@ import { captureHomepageScreenshots } from "@/lib/screenshots/capture.core";
 
 async function main() {
   const targetUrl = process.argv[2] ?? "https://example.com";
+  const websiteDomain = new URL(
+    /^https?:\/\//i.test(targetUrl) ? targetUrl : `https://${targetUrl}`,
+  ).hostname;
   const result = await captureHomepageScreenshots(targetUrl, {
-    reportId: "manual-test",
+    websiteDomain,
     timeoutMs: 15_000,
   });
 

@@ -27,15 +27,15 @@ test("renderAuthorReportPdf creates a PDF without admin-only note labels", async
         summary: "The homepage gives readers a useful first impression.",
       },
       {
-        category: ReportCategory.BOOK_PROMOTION,
+        category: ReportCategory.BOOK_VISIBILITY,
         score: 12,
         maxScore: 20,
-        summary: "Book promotion is present but could be clearer.",
+        summary: "Book visibility is present but could be clearer.",
       },
     ],
     findings: [
       {
-        category: ReportCategory.READER_CONVERSION,
+        category: ReportCategory.READER_ENGAGEMENT,
         severity: FindingSeverity.HIGH,
         title: "Newsletter path needs more clarity",
         finding: "The scan found limited newsletter conversion signals.",
