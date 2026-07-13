@@ -1,6 +1,5 @@
 import { Prisma } from "@/generated/prisma/client";
 import { extractPageData, type ExtractedPageData } from "@/lib/crawler/extract";
-import { mapWithConcurrency } from "@/lib/analysis/concurrency";
 import {
   CRAWL_PAGE_LIMIT,
   getCrawlContentFingerprint,
@@ -10,11 +9,14 @@ import {
 import { prisma } from "@/lib/db/prisma.core";
 import { validateUrlForScan } from "@/lib/urls/security";
 
+import { CheerioCrawler, Configuration } from "@crawlee/cheerio";
 import * as cheerio from "cheerio";
 
 const DEFAULT_TIMEOUT_MS = 8000;
 const DEFAULT_REDIRECT_LIMIT = 5;
 const USER_AGENT = "GrailHiiv Author Website Analyzer";
+const MAX_SITEMAPS = 8;
+const MAX_SITEMAP_URLS = 50;
 
 type CrawlOptions = {
   pageLimit?: number;
@@ -31,20 +33,6 @@ type ResolvedCrawlOptions = {
   concurrency: number;
   sitemapTimeoutMs: number;
 };
-
-type FetchedPage =
-  | {
-      ok: true;
-      requestedUrl: string;
-      finalUrl: string;
-      statusCode: number;
-      html: string | null;
-    }
-  | {
-      ok: false;
-      requestedUrl: string;
-      message: string;
-    };
 
 export type CrawledPageResult = {
   requestedUrl: string;
@@ -90,60 +78,6 @@ async function fetchText(url: string, timeoutMs: number) {
   }
 }
 
-async function fetchPage(
-  requestedUrl: string,
-  options: ResolvedCrawlOptions,
-): Promise<FetchedPage> {
-  const security = await validateUrlForScan(requestedUrl, {
-    redirectLimit: options.redirectLimit,
-    timeoutMs: options.timeoutMs,
-  });
-
-  if (!security.ok) {
-    return {
-      ok: false,
-      requestedUrl,
-      message: security.message,
-    };
-  }
-
-  let response: Response;
-
-  try {
-    response = await fetchText(security.finalUrl, options.timeoutMs);
-  } catch {
-    return {
-      ok: false,
-      requestedUrl,
-      message: "The page could not be reached quickly enough.",
-    };
-  }
-
-  const contentType = response.headers.get("content-type") ?? "";
-  const isHtml =
-    contentType.length === 0 ||
-    contentType.includes("text/html") ||
-    contentType.includes("application/xhtml+xml");
-
-  if (!response.ok || !isHtml) {
-    return {
-      ok: true,
-      requestedUrl,
-      finalUrl: security.finalUrl,
-      statusCode: response.status,
-      html: null,
-    };
-  }
-
-  return {
-    ok: true,
-    requestedUrl,
-    finalUrl: security.finalUrl,
-    statusCode: response.status,
-    html: await response.text(),
-  };
-}
-
 function sameHostname(url: string, hostname: string) {
   return new URL(url).hostname.toLowerCase() === hostname.toLowerCase();
 }
@@ -152,46 +86,81 @@ async function fetchSitemapUrls(
   homepageUrl: string,
   options: ResolvedCrawlOptions,
 ) {
-  const sitemapUrl = new URL("/sitemap.xml", homepageUrl).toString();
-  const security = await validateUrlForScan(sitemapUrl, {
-    redirectLimit: options.redirectLimit,
-    timeoutMs: options.sitemapTimeoutMs,
-  });
-
-  if (!security.ok) {
-    return [];
-  }
-
-  let response: Response;
-
-  try {
-    response = await fetchText(security.finalUrl, options.sitemapTimeoutMs);
-  } catch {
-    return [];
-  }
-
-  if (!response.ok) {
-    return [];
-  }
-
-  const xml = await response.text();
-  const $ = cheerio.load(xml, { xmlMode: true });
   const homepageHost = new URL(homepageUrl).hostname;
+  const sitemapQueue = [new URL("/sitemap.xml", homepageUrl).toString()];
+  const seenSitemaps = new Set<string>();
+  const pageUrls = new Set<string>();
 
-  return $("url > loc, sitemap > loc")
-    .map((_, element) => $(element).text().trim())
-    .get()
-    .filter((url) => {
-      try {
-        return (
-          ["http:", "https:"].includes(new URL(url).protocol) &&
-          sameHostname(url, homepageHost)
-        );
-      } catch {
+  while (
+    sitemapQueue.length > 0 &&
+    seenSitemaps.size < MAX_SITEMAPS &&
+    pageUrls.size < MAX_SITEMAP_URLS
+  ) {
+    const sitemapUrl = sitemapQueue.shift();
+
+    if (!sitemapUrl || seenSitemaps.has(sitemapUrl)) {
+      continue;
+    }
+
+    seenSitemaps.add(sitemapUrl);
+    const security = await validateUrlForScan(sitemapUrl, {
+      redirectLimit: options.redirectLimit,
+      timeoutMs: options.sitemapTimeoutMs,
+    });
+
+    if (!security.ok || !sameHostname(security.finalUrl, homepageHost)) {
+      continue;
+    }
+
+    let response: Response;
+
+    try {
+      response = await fetchText(security.finalUrl, options.sitemapTimeoutMs);
+    } catch {
+      continue;
+    }
+
+    if (!response.ok) {
+      continue;
+    }
+
+    const xml = await response.text();
+    const $ = cheerio.load(xml, { xmlMode: true });
+
+    $("url > loc").each((_, element) => {
+      if (pageUrls.size >= MAX_SITEMAP_URLS) {
         return false;
       }
-    })
-    .slice(0, 50);
+
+      const url = normalizeCandidateUrl($(element).text().trim(), homepageUrl);
+
+      if (url && sameHostname(url, homepageHost)) {
+        pageUrls.add(url);
+      }
+
+      return undefined;
+    });
+
+    $("sitemap > loc").each((_, element) => {
+      if (sitemapQueue.length + seenSitemaps.size >= MAX_SITEMAPS) {
+        return false;
+      }
+
+      const url = normalizeCandidateUrl($(element).text().trim(), homepageUrl);
+
+      if (
+        url &&
+        sameHostname(url, homepageHost) &&
+        !seenSitemaps.has(url)
+      ) {
+        sitemapQueue.push(url);
+      }
+
+      return undefined;
+    });
+  }
+
+  return [...pageUrls];
 }
 
 function toJson(value: unknown) {
@@ -273,52 +242,30 @@ export async function crawlReportWebsite(
     throw new Error("Report not found.");
   }
 
-  const homepage = await fetchPage(
-    report.normalizedUrl || report.url,
-    crawlOptions,
-  );
+  const requestedHomepageUrl = report.normalizedUrl || report.url;
+  const homepageSecurity = await validateUrlForScan(requestedHomepageUrl, {
+    redirectLimit: crawlOptions.redirectLimit,
+    timeoutMs: crawlOptions.timeoutMs,
+  });
 
-  if (!homepage.ok) {
-    throw new Error(homepage.message);
+  if (!homepageSecurity.ok) {
+    throw new Error(homepageSecurity.message);
   }
 
-  const siteOrigin = new URL(homepage.finalUrl).origin;
+  const homepageUrl = homepageSecurity.finalUrl;
+  const homepageHostname = new URL(homepageUrl).hostname;
+  const homepageNormalizedUrl =
+    normalizeCandidateUrl(homepageUrl, homepageUrl) ?? homepageUrl;
+  const siteOrigin = new URL(homepageUrl).origin;
+  const sitemapUrls = await fetchSitemapUrls(homepageUrl, crawlOptions);
   const crawledPages: CrawledPageResult[] = [];
-  const homepageExtracted = homepage.html
-    ? extractPageData(homepage.html, homepage.finalUrl, siteOrigin)
-    : null;
-
-  crawledPages.push({
-    requestedUrl: homepage.requestedUrl,
-    finalUrl: homepage.finalUrl,
-    statusCode: homepage.statusCode,
-    extracted: homepageExtracted,
-  });
-
-  const sitemapUrls = await fetchSitemapUrls(homepage.finalUrl, crawlOptions);
-  const homepageLinks =
-    homepageExtracted?.links.internal.map((link) => link.href) ?? [];
-  const crawlQueue = prioritizeCrawlUrls({
-    homepageUrl: homepage.finalUrl,
-    sitemapUrls,
-    homepageInternalLinks: homepageLinks,
-    limit: crawlOptions.pageLimit * 3,
-  });
-
-  const homepageHostname = new URL(homepage.finalUrl).hostname;
   const seenUrls = new Set<string>();
   const seenCanonicalUrls = new Set<string>();
   const seenContent = new Set<string>();
   const rememberPage = (page: CrawledPageResult) => {
-    const normalizedUrl = normalizeCandidateUrl(
-      page.finalUrl,
-      homepage.finalUrl,
-    );
+    const normalizedUrl = normalizeCandidateUrl(page.finalUrl, homepageUrl);
     const canonicalUrl = page.extracted?.seo.canonicalUrl
-      ? normalizeCandidateUrl(
-          page.extracted.seo.canonicalUrl,
-          homepage.finalUrl,
-        )
+      ? normalizeCandidateUrl(page.extracted.seo.canonicalUrl, homepageUrl)
       : null;
     const fingerprint = page.extracted
       ? getCrawlContentFingerprint(page.extracted)
@@ -337,15 +284,9 @@ export async function crawlReportWebsite(
     }
   };
   const isDuplicatePage = (page: CrawledPageResult) => {
-    const normalizedUrl = normalizeCandidateUrl(
-      page.finalUrl,
-      homepage.finalUrl,
-    );
+    const normalizedUrl = normalizeCandidateUrl(page.finalUrl, homepageUrl);
     const canonicalUrl = page.extracted?.seo.canonicalUrl
-      ? normalizeCandidateUrl(
-          page.extracted.seo.canonicalUrl,
-          homepage.finalUrl,
-        )
+      ? normalizeCandidateUrl(page.extracted.seo.canonicalUrl, homepageUrl)
       : null;
     const fingerprint = page.extracted
       ? getCrawlContentFingerprint(page.extracted)
@@ -358,55 +299,154 @@ export async function crawlReportWebsite(
       (fingerprint && seenContent.has(fingerprint)),
     );
   };
+  type SecurityValidation = Awaited<ReturnType<typeof validateUrlForScan>>;
+  const securityCache = new Map<string, Promise<SecurityValidation>>();
+  securityCache.set(homepageNormalizedUrl, Promise.resolve(homepageSecurity));
+  const validateRequestUrl = (url: string) => {
+    const normalizedUrl = normalizeCandidateUrl(url, homepageUrl) ?? url;
+    let validation = securityCache.get(normalizedUrl);
 
-  rememberPage(crawledPages[0]);
+    if (!validation) {
+      validation = validateUrlForScan(normalizedUrl, {
+        redirectLimit: crawlOptions.redirectLimit,
+        timeoutMs: crawlOptions.timeoutMs,
+      });
+      securityCache.set(normalizedUrl, validation);
+    }
 
-  for (
-    let index = 1;
-    index < crawlQueue.length && crawledPages.length < crawlOptions.pageLimit;
-    index += crawlOptions.concurrency
-  ) {
-    const batch = crawlQueue.slice(index, index + crawlOptions.concurrency);
-    const secondaryPages = await mapWithConcurrency(
-      batch,
-      crawlOptions.concurrency,
-      async (targetUrl): Promise<CrawledPageResult | null> => {
-        const page = await fetchPage(targetUrl, crawlOptions);
+    return validation;
+  };
+  let homepageError: string | null = null;
+  const configuration = new Configuration({
+    defaultRequestQueueId: `crawl-${reportId}`,
+    persistStorage: false,
+    purgeOnStart: true,
+  });
 
-        if (!page.ok || !sameHostname(page.finalUrl, homepageHostname)) {
-          return null;
+  const crawler = new CheerioCrawler(
+    {
+      minConcurrency: 1,
+      maxConcurrency: crawlOptions.concurrency,
+      maxRequestRetries: 1,
+      maxRequestsPerCrawl: crawlOptions.pageLimit * 3,
+      navigationTimeoutSecs: Math.ceil(crawlOptions.timeoutMs / 1000),
+      requestHandlerTimeoutSecs: Math.max(
+        30,
+        Math.ceil(crawlOptions.timeoutMs / 1000) * 2,
+      ),
+      preNavigationHooks: [
+        async ({ request }, gotOptions) => {
+          const security = await validateRequestUrl(request.url);
+
+          if (!security.ok) {
+            throw new Error(security.message);
+          }
+
+          if (!sameHostname(security.finalUrl, homepageHostname)) {
+            throw new Error("The page redirected outside the scanned website.");
+          }
+
+          gotOptions.url = new URL(security.finalUrl);
+          gotOptions.followRedirect = false;
+          gotOptions.maxRedirects = 0;
+          gotOptions.headers = {
+            ...gotOptions.headers,
+            Accept:
+              "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "User-Agent": USER_AGENT,
+          };
+        },
+      ],
+      async requestHandler({ request, response, body, contentType }) {
+        const security = await validateRequestUrl(request.url);
+
+        if (!security.ok || !sameHostname(security.finalUrl, homepageHostname)) {
+          return;
         }
 
-        return {
-          requestedUrl: page.requestedUrl,
-          finalUrl: page.finalUrl,
-          statusCode: page.statusCode,
-          extracted: page.html
-            ? extractPageData(page.html, page.finalUrl, siteOrigin)
-            : null,
+        const statusCode = response.statusCode ?? null;
+        const isHtml =
+          contentType.type === "text/html" ||
+          contentType.type === "application/xhtml+xml";
+        const html =
+          statusCode !== null &&
+          statusCode >= 200 &&
+          statusCode < 300 &&
+          isHtml
+            ? typeof body === "string"
+              ? body
+              : body.toString("utf8")
+            : null;
+        const extracted = html
+          ? extractPageData(html, security.finalUrl, siteOrigin)
+          : null;
+        const page: CrawledPageResult = {
+          requestedUrl: request.url,
+          finalUrl: security.finalUrl,
+          statusCode,
+          extracted,
         };
+
+        if (
+          !isDuplicatePage(page) &&
+          crawledPages.length < crawlOptions.pageLimit
+        ) {
+          crawledPages.push(page);
+          rememberPage(page);
+        }
+
+        if (crawledPages.length >= crawlOptions.pageLimit) {
+          crawler.stop("The configured page limit was reached.");
+          return;
+        }
+
+        if (!extracted) {
+          return;
+        }
+
+        const currentUrl =
+          normalizeCandidateUrl(security.finalUrl, homepageUrl) ??
+          security.finalUrl;
+        const nextUrls = prioritizeCrawlUrls({
+          homepageUrl,
+          sitemapUrls:
+            currentUrl === homepageNormalizedUrl ? sitemapUrls : [],
+          homepageInternalLinks: extracted.links.internal.map(
+            (link) => link.href,
+          ),
+          limit: crawlOptions.pageLimit * 3,
+        }).filter((url) => url !== currentUrl && !seenUrls.has(url));
+
+        if (nextUrls.length > 0) {
+          const result = await crawler.addRequests(
+            nextUrls.map((url) => ({ url, uniqueKey: url })),
+          );
+          await result.waitForAllRequestsToBeAdded;
+        }
       },
-    );
+      failedRequestHandler({ request }, error) {
+        const normalizedUrl =
+          normalizeCandidateUrl(request.url, homepageUrl) ?? request.url;
 
-    for (const page of secondaryPages) {
-      if (
-        !page ||
-        isDuplicatePage(page) ||
-        crawledPages.length >= crawlOptions.pageLimit
-      ) {
-        continue;
-      }
+        if (normalizedUrl === homepageNormalizedUrl) {
+          homepageError = error.message;
+        }
+      },
+    },
+    configuration,
+  );
 
-      crawledPages.push(page);
-      rememberPage(page);
-    }
+  await crawler.run([{ url: homepageUrl, uniqueKey: homepageNormalizedUrl }]);
+
+  if (crawledPages.length === 0) {
+    throw new Error(homepageError ?? "The website homepage could not be crawled.");
   }
 
   await saveCrawledPages(reportId, crawledPages);
 
   return {
     reportId,
-    homepageUrl: homepage.finalUrl,
+    homepageUrl,
     crawledUrls: crawledPages.map((page) => page.finalUrl),
     pagesSaved: crawledPages.length,
   };

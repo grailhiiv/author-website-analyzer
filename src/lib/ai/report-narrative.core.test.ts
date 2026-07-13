@@ -151,8 +151,6 @@ const findings: ScoringFinding[] = [
 
 const input = {
   websiteUrl: "https://janewriter.test/",
-  authorType: "Fiction Author",
-  websiteGoal: "Grow newsletter",
   pagesScanned: [
     {
       url: "https://janewriter.test/",

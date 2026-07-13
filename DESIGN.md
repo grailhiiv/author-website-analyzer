@@ -783,9 +783,24 @@ Rewrite the homepage headline so visitors immediately understand who the author 
 
 ## 24. Component Library
 
+### Ecme Is the Source of Truth
+
+The existing Ecme template is the primary design and implementation source for every new, updated, or redesigned public and admin interface. Preserve one coherent product system across frontend and backend by reusing Ecme's visual tokens, layout patterns, responsive behavior, accessibility, component states, and interactions.
+
+Before designing or implementing a custom component, layout, hook, or utility:
+
+1. Review `/guide/` for the template's documented patterns and conventions.
+2. Review `/concepts/` for an existing complete page, workflow, layout, or feature pattern that can be adapted.
+3. Review the matching `/ui-components/*` documentation and TypeScript example.
+4. Check `/guide/shared-component-doc/` for an existing composed shared component.
+5. Check `/guide/utils-doc/` for an existing hook, helper, or utility.
+6. Inspect the implementation in `src/components/ui`, `src/components/shared`, or `src/utils` (including `src/utils/hooks`) and reuse or compose it when suitable.
+
+Public pages may use a more editorial presentation and admin pages may use denser data layouts, but they should share the same typography, color tokens, controls, feedback states, spacing logic, and interaction conventions. Create feature-specific custom code only when Ecme does not provide the required behavior, and document intentional departures from an established pattern.
+
 ### Core Components
 
-The app should use a reusable component system.
+The app should use Ecme's reusable component system rather than adding a competing general-purpose UI library.
 
 #### Buttons
 
@@ -1074,15 +1089,15 @@ Try submitting the homepage URL instead.
 
 This design works well with:
 
-- Next.js
-- React
+- Next.js App Router
+- TypeScript and React
 - Tailwind CSS
-- shadcn/ui
-- Lucide icons
+- Ecme UI components, shared components, hooks, and utilities
+- Icon sets already installed and used by the Ecme template
 - Recharts or Tremor for charts
 - Framer Motion for subtle transitions
 
-Use component-driven development. Build reusable UI components first before assembling full pages.
+Use component-driven development. Start with the closest existing Ecme page pattern, component, shared component, hook, or utility before creating app-specific composition. Do not add shadcn, `analyzer-ui`, or another competing component system when Ecme provides an appropriate pattern.
 
 ---
 

@@ -1,14 +1,15 @@
 import Link from 'next/link'
 import type {
     ButtonHTMLAttributes,
+    ComponentProps,
     HTMLAttributes,
     InputHTMLAttributes,
     SelectHTMLAttributes,
-    TableHTMLAttributes,
     TdHTMLAttributes,
     ThHTMLAttributes,
 } from 'react'
 
+import EcmeTable from '@/components/ui/Table'
 import { cn } from '@/lib/utils'
 
 export function Badge({
@@ -107,14 +108,17 @@ export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectE
 
 export function Table({
     className,
-    dense: _dense,
-    grid: _grid,
+    dense,
+    grid,
     ...props
-}: TableHTMLAttributes<HTMLTableElement> & { dense?: boolean; grid?: boolean }) {
+}: ComponentProps<typeof EcmeTable> & { dense?: boolean; grid?: boolean }) {
     return (
-        <div className="overflow-x-auto">
-            <table className={cn('w-full border-collapse text-left text-sm', className)} {...props} />
-        </div>
+        <EcmeTable
+            compact={dense}
+            cellBorder={grid}
+            className={cn('w-full border-collapse text-left text-sm', className)}
+            {...props}
+        />
     )
 }
 

@@ -37,12 +37,13 @@ export function UnlockReportForm({ reportId }: { reportId: string }) {
         <div>
           <Input
             id="unlock-name"
-            name="name"
+            name="fullName"
             type="text"
             aria-label="Full name"
             autoComplete="name"
-            defaultValue={state.name}
+            defaultValue={state.fullName}
             placeholder="Full Name"
+            required
             className="h-13 rounded-full border-white/80 bg-white/85 px-5 shadow-sm backdrop-blur-sm placeholder:text-gray-400 dark:border-white/10 dark:bg-slate-950/55"
           />
         </div>

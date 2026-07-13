@@ -58,11 +58,10 @@ enum PageType {
 
 enum SalesLeadStatus {
   NEW
-  REVIEWED
   CONTACTED
-  INTERESTED
-  NOT_A_FIT
+  QUALIFIED
   CONVERTED
+  CLOSED
 }
 
 model Report {
@@ -70,8 +69,6 @@ model Report {
   url            String
   normalizedUrl  String
   domain         String
-  authorType     String
-  websiteGoal    String
   status         ReportStatus     @default(QUEUED)
   overallScore   Int?
   summary        String?
@@ -118,11 +115,9 @@ model Lead {
   id          String   @id @default(cuid())
   reportId    String   @unique
   report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  name        String
+  fullName    String
   email       String
   websiteUrl  String
-  authorType  String
-  websiteGoal String
   consent     Boolean  @default(false)
   createdAt   DateTime @default(now())
 

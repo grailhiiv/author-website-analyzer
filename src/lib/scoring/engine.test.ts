@@ -183,8 +183,6 @@ function scoreInput(overrides: Partial<ScoringInput> = {}): ScoringInput {
       mobileBestPractices: 94,
       desktopBestPractices: 96,
     },
-    authorType: "Series Author",
-    websiteGoal: "Sell more books",
     ...overrides,
   };
 }
@@ -230,22 +228,6 @@ test("scoreAuthorWebsite treats unavailable PageSpeed metrics as unknown", () =>
     ),
     false,
   );
-});
-
-test("scoreAuthorWebsite does not change numeric scores based on author type", () => {
-  const debut = scoreAuthorWebsite(
-    scoreInput({
-      authorType: "Debut Author",
-    }),
-  );
-  const series = scoreAuthorWebsite(
-    scoreInput({
-      authorType: "Series Author",
-    }),
-  );
-
-  assert.equal(debut.overallScore, series.overallScore);
-  assert.deepEqual(debut.categoryScores, series.categoryScores);
 });
 
 test("scoreAuthorWebsite uses the fixed 100-point category model", () => {
@@ -308,7 +290,6 @@ test("scoreAuthorWebsite creates findings for every reduced category score", () 
         },
       ],
       technicalAudit: null,
-      authorType: "Fiction Author",
     }),
   );
 
@@ -376,7 +357,6 @@ test("scoreAuthorWebsite labels SEO improvement when design is acceptable and SE
     scoreInput({
       signals,
       pagesScanned: pages,
-      authorType: "Fiction Author",
     }),
   );
 
@@ -410,7 +390,6 @@ test("scoreAuthorWebsite creates newsletter findings when newsletter signals are
     scoreInput({
       signals,
       pagesScanned: pages,
-      authorType: "Fiction Author",
     }),
   );
   const newsletterScore = result.categoryScores.find(
@@ -444,7 +423,6 @@ test("scoreAuthorWebsite creates book visibility findings when book links are mi
   const result = scoreAuthorWebsite(
     scoreInput({
       signals,
-      authorType: "Fiction Author",
     }),
   );
   const bookScore = result.categoryScores.find(
@@ -497,7 +475,6 @@ test("scoreAuthorWebsite creates poor SEO findings from missing metadata and noi
           contentText: "Jane Doe writes fantasy.",
         },
       ],
-      authorType: "Fiction Author",
     }),
   );
   const seoScore = result.categoryScores.find(
@@ -538,7 +515,6 @@ test("scoreAuthorWebsite labels website management for low technical scores on a
         mobileBestPractices: 45,
         desktopBestPractices: 50,
       },
-      authorType: "Fiction Author",
     }),
   );
 

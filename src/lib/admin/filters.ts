@@ -1,10 +1,8 @@
-import { Prisma, ReportStatus } from "@/generated/prisma/client";
 import {
-  type AuthorType,
-  authorTypes,
-  type WebsiteGoal,
-  websiteGoals,
-} from "@/lib/analyzer/options";
+  Prisma,
+  ReportStatus,
+  SalesLeadStatus,
+} from "@/generated/prisma/client";
 
 export type AdminSearchParams = Record<
   string,
@@ -12,11 +10,24 @@ export type AdminSearchParams = Record<
 >;
 
 export type AdminFilters = {
-  authorType: "all" | AuthorType;
   scoreRange: "all" | ScoreRangeValue;
   status: "all" | ReportStatus;
   website: string;
-  websiteGoal: "all" | WebsiteGoal;
+};
+
+export type AdminListPaging = {
+  order: "asc" | "desc";
+  pageIndex: number;
+  pageSize: number;
+  sortKey: string;
+};
+
+export type ReportListFilters = AdminFilters & AdminListPaging;
+
+export type LeadListFilters = AdminListPaging & {
+  consent: "all" | "yes" | "no";
+  leadStatus: "all" | SalesLeadStatus;
+  website: string;
 };
 
 type ScoreRangeValue = "0-49" | "50-69" | "70-84" | "85-100";
@@ -45,8 +56,7 @@ const scoreRanges: Record<
 };
 
 const reportStatuses = Object.values(ReportStatus);
-const authorTypeValues = authorTypes.map((option) => option.value);
-const websiteGoalValues = websiteGoals.map((option) => option.value);
+const salesLeadStatuses = Object.values(SalesLeadStatus);
 const scoreRangeValues = scoreRangeOptions
   .map((option) => option.value)
   .filter((value): value is ScoreRangeValue => value !== "all");
@@ -59,33 +69,66 @@ function isReportStatus(value: string): value is ReportStatus {
   return reportStatuses.includes(value as ReportStatus);
 }
 
-function isAuthorType(value: string): value is AuthorType {
-  return authorTypeValues.includes(value as AuthorType);
-}
-
-function isWebsiteGoal(value: string): value is WebsiteGoal {
-  return websiteGoalValues.includes(value as WebsiteGoal);
-}
-
 function isScoreRange(value: string): value is ScoreRangeValue {
   return scoreRangeValues.includes(value as ScoreRangeValue);
 }
 
+function isSalesLeadStatus(value: string): value is SalesLeadStatus {
+  return salesLeadStatuses.includes(value as SalesLeadStatus);
+}
+
+function parsePaging(params: AdminSearchParams): AdminListPaging {
+  const parsedPageIndex = Number.parseInt(firstParam(params.pageIndex) ?? "", 10);
+  const parsedPageSize = Number.parseInt(firstParam(params.pageSize) ?? "", 10);
+  const order = firstParam(params.order);
+
+  return {
+    pageIndex:
+      Number.isFinite(parsedPageIndex) && parsedPageIndex > 0
+        ? parsedPageIndex
+        : 1,
+    pageSize: [10, 25, 50, 100].includes(parsedPageSize)
+      ? parsedPageSize
+      : 10,
+    sortKey: firstParam(params.sortKey) ?? "createdAt",
+    order: order === "asc" ? "asc" : "desc",
+  };
+}
+
 export function parseAdminFilters(params: AdminSearchParams): AdminFilters {
   const status = firstParam(params.status);
-  const authorType = firstParam(params.authorType);
-  const websiteGoal = firstParam(params.websiteGoal);
   const scoreRange = firstParam(params.scoreRange);
   const website = firstParam(params.website);
 
   return {
     status: status && isReportStatus(status) ? status : "all",
-    authorType: authorType && isAuthorType(authorType) ? authorType : "all",
-    websiteGoal:
-      websiteGoal && isWebsiteGoal(websiteGoal) ? websiteGoal : "all",
     scoreRange:
       scoreRange && isScoreRange(scoreRange) ? scoreRange : "all",
     website: website?.trim() ?? "",
+  };
+}
+
+export function parseReportListFilters(
+  params: AdminSearchParams,
+): ReportListFilters {
+  return {
+    ...parseAdminFilters(params),
+    ...parsePaging(params),
+  };
+}
+
+export function parseLeadListFilters(
+  params: AdminSearchParams,
+): LeadListFilters {
+  const leadStatus = firstParam(params.leadStatus);
+  const consent = firstParam(params.consent);
+
+  return {
+    ...parsePaging(params),
+    website: firstParam(params.website)?.trim() ?? "",
+    leadStatus:
+      leadStatus && isSalesLeadStatus(leadStatus) ? leadStatus : "all",
+    consent: consent === "yes" || consent === "no" ? consent : "all",
   };
 }
 
@@ -94,14 +137,6 @@ export function buildReportWhere(filters: AdminFilters) {
 
   if (filters.status !== "all") {
     where.status = filters.status;
-  }
-
-  if (filters.authorType !== "all") {
-    where.authorType = filters.authorType;
-  }
-
-  if (filters.websiteGoal !== "all") {
-    where.websiteGoal = filters.websiteGoal;
   }
 
   if (filters.scoreRange !== "all") {
@@ -119,35 +154,29 @@ export function buildReportWhere(filters: AdminFilters) {
   return where;
 }
 
-export function buildLeadWhere(filters: AdminFilters) {
+export function buildLeadWhere(filters: LeadListFilters) {
   const where: Prisma.LeadWhereInput = {};
-  const reportWhere: Prisma.ReportWhereInput = {};
-
-  if (filters.authorType !== "all") {
-    where.authorType = filters.authorType;
-  }
-
-  if (filters.websiteGoal !== "all") {
-    where.websiteGoal = filters.websiteGoal;
-  }
 
   if (filters.website) {
-    where.websiteUrl = {
-      contains: filters.website,
-      mode: "insensitive",
+    where.OR = [
+      { fullName: { contains: filters.website, mode: "insensitive" } },
+      { email: { contains: filters.website, mode: "insensitive" } },
+      { websiteUrl: { contains: filters.website, mode: "insensitive" } },
+    ];
+  }
+
+  if (filters.consent !== "all") {
+    where.consent = filters.consent === "yes";
+  }
+
+  if (filters.leadStatus !== "all") {
+    where.report = {
+      is: {
+        salesNote: {
+          is: { leadStatus: filters.leadStatus },
+        },
+      },
     };
-  }
-
-  if (filters.status !== "all") {
-    reportWhere.status = filters.status;
-  }
-
-  if (filters.scoreRange !== "all") {
-    reportWhere.overallScore = scoreRanges[filters.scoreRange];
-  }
-
-  if (Object.keys(reportWhere).length > 0) {
-    where.report = { is: reportWhere };
   }
 
   return where;

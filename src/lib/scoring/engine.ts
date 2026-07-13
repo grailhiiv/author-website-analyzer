@@ -25,8 +25,6 @@ export type ScoringInput = {
   signals: AuthorWebsiteSignals;
   pagesScanned: ScoringPageInput[];
   technicalAudit?: TechnicalAuditScoreInput | null;
-  authorType: string;
-  websiteGoal?: string | null;
 };
 
 export type ScoringFinding = {

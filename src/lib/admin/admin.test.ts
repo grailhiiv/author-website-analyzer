@@ -40,8 +40,6 @@ test("admin protected routes reject a non-admin email", () => {
 test("admin report table includes the requested columns", () => {
   assert.deepEqual([...adminReportTableColumns], [
     "Website",
-    "Author type",
-    "Goal",
     "Status",
     "Overall score",
     "Created date",
@@ -51,11 +49,11 @@ test("admin report table includes the requested columns", () => {
 
 test("admin lead table includes the requested columns", () => {
   assert.deepEqual([...adminLeadTableColumns], [
-    "Name",
+    "Full Name",
     "Email",
     "Website URL",
-    "Author type",
-    "Website goal",
+    "Marketing consent",
+    "Lead status",
     "Created date",
     "View report",
   ]);

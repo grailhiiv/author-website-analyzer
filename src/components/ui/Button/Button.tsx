@@ -1,3 +1,5 @@
+'use client'
+
 import classNames from '../utils/classNames'
 import { useConfig } from '../ConfigProvider'
 import { useForm } from '../Form/context'

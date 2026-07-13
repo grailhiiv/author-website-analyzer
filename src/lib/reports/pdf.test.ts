@@ -13,8 +13,6 @@ test("renderAuthorReportPdf creates a PDF without admin-only note labels", async
       id: "report_123",
       normalizedUrl: "https://example-author.test",
       domain: "example-author.test",
-      authorType: "Fiction Author",
-      websiteGoal: "Grow newsletter",
       overallScore: 72,
       createdAt: new Date("2026-07-01T12:00:00.000Z"),
       completedAt: new Date("2026-07-01T12:10:00.000Z"),

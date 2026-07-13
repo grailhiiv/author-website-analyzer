@@ -10,18 +10,17 @@ import { getReportPath } from "@/lib/reports/domain";
 
 export type UnlockReportState = {
   email?: string;
-  name?: string;
+  fullName?: string;
   error?: string;
 };
 
 const unlockReportSchema = z.object({
   reportId: z.string().min(1, "Report ID is missing."),
-  name: z
+  fullName: z
     .string()
     .trim()
-    .max(120, "Name must be 120 characters or less.")
-    .optional()
-    .default(""),
+    .min(2, "Enter your full name.")
+    .max(120, "Full Name must be 120 characters or less."),
   email: z.string().trim().toLowerCase().email("Enter a valid email address."),
   consent: z.enum(["on"]).optional(),
 });
@@ -32,14 +31,14 @@ export async function unlockReportAction(
 ): Promise<UnlockReportState> {
   const parsed = unlockReportSchema.safeParse({
     reportId: formData.get("reportId"),
-    name: formData.get("name") ?? "",
+    fullName: formData.get("fullName") ?? "",
     email: formData.get("email"),
     consent: formData.get("consent"),
   });
 
   if (!parsed.success) {
     return {
-      name: String(formData.get("name") ?? ""),
+      fullName: String(formData.get("fullName") ?? ""),
       email: String(formData.get("email") ?? ""),
       error:
         parsed.error.issues[0]?.message ??
@@ -47,7 +46,7 @@ export async function unlockReportAction(
     };
   }
 
-  const { reportId, name, email, consent } = parsed.data;
+  const { reportId, fullName, email, consent } = parsed.data;
   let reportPath = "";
 
   try {
@@ -57,14 +56,12 @@ export async function unlockReportAction(
         id: true,
         domain: true,
         normalizedUrl: true,
-        authorType: true,
-        websiteGoal: true,
       },
     });
 
     if (!report) {
       return {
-        name,
+        fullName,
         email,
         error: "We could not find this report.",
       };
@@ -76,19 +73,15 @@ export async function unlockReportAction(
       where: { reportId: report.id },
       create: {
         reportId: report.id,
-        name,
+        fullName,
         email,
         websiteUrl: report.normalizedUrl,
-        authorType: report.authorType,
-        websiteGoal: report.websiteGoal,
         consent: consent === "on",
       },
       update: {
-        name,
+        fullName,
         email,
         websiteUrl: report.normalizedUrl,
-        authorType: report.authorType,
-        websiteGoal: report.websiteGoal,
         consent: consent === "on",
       },
     });
@@ -96,7 +89,7 @@ export async function unlockReportAction(
     await deliverFullReportEmail({
       reportId: report.id,
       recipientEmail: email,
-      recipientName: name,
+      recipientName: fullName,
     });
 
     revalidatePath(reportPath);
@@ -104,7 +97,7 @@ export async function unlockReportAction(
     console.error("Failed to unlock report", error);
 
     return {
-      name,
+      fullName,
       email,
       error:
         "We saved your details, but could not email the report yet. Please try again in a moment.",

@@ -1,7 +1,5 @@
 export const adminReportTableColumns = [
   "Website",
-  "Author type",
-  "Goal",
   "Status",
   "Overall score",
   "Created date",
@@ -9,11 +7,11 @@ export const adminReportTableColumns = [
 ] as const;
 
 export const adminLeadTableColumns = [
-  "Name",
+  "Full Name",
   "Email",
   "Website URL",
-  "Author type",
-  "Website goal",
+  "Marketing consent",
+  "Lead status",
   "Created date",
   "View report",
 ] as const;

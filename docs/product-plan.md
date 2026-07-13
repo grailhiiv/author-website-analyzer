@@ -10,9 +10,11 @@ Numeric scores must be deterministic. AI may explain findings in clear, author-f
 
 ## User interface system
 
-- Ecme is the application's primary UI component system. New and redesigned interfaces should reuse or compose the existing components in `src/components/ui` whenever possible.
-- Consult the matching `/ui-components/*` documentation route and its TypeScript example before implementing a UI element.
-- Create feature-specific custom components only when Ecme does not provide the required behavior. Do not introduce a competing general-purpose UI layer.
+- The existing Ecme template is the application's primary design and implementation source for new, updated, and redesigned interfaces.
+- Apply the same Ecme visual language, design tokens, responsive behavior, accessibility, states, and interaction patterns across public/frontend and protected admin/backend pages. The surfaces may differ in density and purpose, but they must remain one coherent product system.
+- Before implementing UI or supporting frontend behavior, consult `/guide/`, `/concepts/` for complete page and workflow patterns, the matching `/ui-components/*` route and TypeScript example, `/guide/shared-component-doc/`, and `/guide/utils-doc/` as applicable.
+- Inspect and reuse the corresponding implementations in `src/components/ui`, `src/components/shared`, and `src/utils` (including `src/utils/hooks`) before creating replacements.
+- Create feature-specific custom components or utilities only when Ecme does not provide the required behavior. Keep them close to their feature, document intentional departures from established Ecme patterns, and do not introduce a competing general-purpose UI layer.
 
 ## Release model
 
@@ -31,7 +33,7 @@ Numeric scores must be deterministic. AI may explain findings in clear, author-f
    - One top-priority problem
    - One quick win
    - Locked or obscured previews of the remaining findings and recommendations
-5. The author enters a valid email address to unlock the full report.
+5. The author enters their Full Name and a valid email address to unlock the full report. These are the only required contact fields.
 6. The full report unlocks immediately in the browser.
 7. The app emails the complete PDF report as an attachment together with a secure return link to the online report.
 
@@ -78,7 +80,8 @@ AI failure must never prevent delivery of a usable report. Deterministic finding
 
 ## Email consent and lead capture
 
-- An email address is required to unlock and deliver the full report.
+- Full Name and a valid email address are required to unlock and deliver the full report.
+- The full-report CTA collects only Full Name, email address, and the separate optional marketing-consent checkbox. Do not collect author type or website goal.
 - Report delivery does not constitute marketing consent.
 - Offer a separate, optional marketing checkbox that is unchecked by default.
 - Create an admin-visible lead after email submission whether or not the author opts into marketing.
@@ -88,6 +91,7 @@ AI failure must never prevent delivery of a usable report. Deterministic finding
 
 Admins can view captured leads and their associated reports. The initial lead record includes:
 
+- Full Name
 - Email address
 - Website URL
 - Report and scan date

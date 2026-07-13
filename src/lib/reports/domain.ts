@@ -12,6 +12,10 @@ export function getReportPath(domain: string) {
   return `/report/${encodeURIComponent(domain)}`;
 }
 
+export function getAdminReportPath(domain: string) {
+  return `/reports/${encodeURIComponent(domain)}`;
+}
+
 export function getDisplayDomain(domain: string) {
   return domain.replace(/^www\./i, "");
 }

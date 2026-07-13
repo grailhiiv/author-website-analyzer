@@ -24,8 +24,6 @@ export async function scoreAndSaveReport(reportId: string) {
     signals,
     pagesScanned: report.pagesScanned,
     technicalAudit: report.technicalAudit,
-    authorType: report.authorType,
-    websiteGoal: report.websiteGoal,
   });
 
   await prisma.$transaction([

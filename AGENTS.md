@@ -43,20 +43,25 @@ Tech stack:
 Important rule:
 Use deterministic scoring for numeric scores. Use AI only to explain findings in clear author-friendly language.
 
-## Ecme UI component priority
+## Ecme template priority
 
-When building, redesigning, or extending the application UI, use the existing Ecme components in `src/components/ui` as the primary component system.
+When creating, updating, or redesigning any application interface, use the existing Ecme template as the primary implementation and design source. This applies to both public/frontend pages and protected admin/backend pages so the entire product retains one consistent visual language and interaction model.
 
-Before creating a custom component:
+Before creating a custom component, layout, hook, or utility:
 
-1. Check the relevant Ecme documentation route, such as `/ui-components/button`, `/ui-components/grid`, `/ui-components/card`, or `/ui-components/form-control`.
-2. Review the TypeScript example in the documentation.
-3. Inspect the corresponding implementation under `src/components/ui`.
-4. Reuse or compose the Ecme component whenever it meets the requirement.
+1. Review `/guide/` for the template's documented patterns and conventions.
+2. Review `/concepts/` for an existing complete page, workflow, layout, or feature pattern that can be adapted.
+3. Check the relevant Ecme UI component route, such as `/ui-components/button`, `/ui-components/grid`, `/ui-components/card`, or `/ui-components/form-control`, and review its TypeScript example.
+4. Review `/guide/shared-component-doc/` for an existing composed or application-level shared component.
+5. Review `/guide/utils-doc/` for an existing hook, helper, or utility.
+6. Inspect the corresponding implementation under `src/components/ui`, `src/components/shared`, or `src/utils` (including `src/utils/hooks`) before writing a replacement.
+7. Reuse or compose the Ecme implementation whenever it meets the requirement, preserving its tokens, responsive behavior, accessibility, states, and interaction patterns.
 
-Create a custom component only when Ecme does not provide the required behavior. Keep app-specific composition components close to their feature rather than introducing another general-purpose UI layer.
+Use the Ecme template's existing layouts, navigation patterns, form controls, data displays, feedback states, and utilities consistently across public and admin surfaces. A public page may have a more editorial presentation and an admin page may be denser, but both must remain recognizable as the same product system.
 
-Do not add shadcn, `analyzer-ui`, or another competing component system when an appropriate Ecme component already exists.
+Create app-specific custom code only when the Ecme template does not provide the required behavior. Keep feature-specific composition components close to their feature rather than introducing another general-purpose UI layer. Document the reason when departing from an established Ecme pattern.
+
+Do not add shadcn, `analyzer-ui`, or another competing component system when an appropriate Ecme component or pattern already exists.
 
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know

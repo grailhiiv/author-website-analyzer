@@ -67,8 +67,6 @@ export type SerializedReportNarrative = {
 
 export type ReportNarrativeInput = {
   websiteUrl: string;
-  authorType: string;
-  websiteGoal?: string | null;
   pagesScanned: ScannedPageSignalInput[];
   signals: AuthorWebsiteSignals;
   categoryScores: CategoryScoreResult[];
@@ -236,8 +234,6 @@ function safeJson(value: unknown) {
 export function buildReportNarrativePrompt(input: ReportNarrativeInput) {
   const promptData = {
     websiteUrl: input.websiteUrl,
-    authorType: input.authorType,
-    websiteGoal: input.websiteGoal ?? null,
     overallScore: input.overallScore,
     serviceFitLabel: input.serviceFitLabel,
     pagesScanned: input.pagesScanned.map(toPagePromptData),
@@ -416,14 +412,6 @@ function firstRecommendation(
   return findings.find(matcher)?.recommendation ?? fallback;
 }
 
-function authorTypeLabel(authorType: string) {
-  return authorType
-    .replace(/_/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
 export function buildFallbackReportNarrative(
   input: ReportNarrativeInput
 ): ReportNarrative {
@@ -473,7 +461,7 @@ export function buildFallbackReportNarrative(
         finding.category === "BOOK_VISIBILITY",
       "Use one clear primary call to action for readers, such as joining the newsletter or viewing the featured book."
     ),
-    suggestedSeoTitle: `Author Name | ${authorTypeLabel(input.authorType) || "author website"}`,
+    suggestedSeoTitle: "Author Name | Official Author Website",
     suggestedMetaDescription:
       "Official author website for Author Name. Explore books, author updates, and reader links.",
     finalRecommendation: `Recommended service fit: ${input.serviceFitLabel}. Start with the highest-priority fixes, then refine the homepage, book links, newsletter path, and technical health in that order.`,

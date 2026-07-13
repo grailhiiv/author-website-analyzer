@@ -33,8 +33,6 @@ async function main() {
       url: "https://example-author.com",
       normalizedUrl: "https://example-author.com/",
       domain: "example-author.com",
-      authorType: "fiction",
-      websiteGoal: "grow_newsletter",
       status: ReportStatus.COMPLETE,
       overallScore: 78,
       summary:
@@ -42,11 +40,9 @@ async function main() {
       completedAt: new Date("2026-07-08T00:00:00.000Z"),
       lead: {
         create: {
-          name: "Sample Author",
+          fullName: "Sample Author",
           email: "author@example.com",
           websiteUrl: "https://example-author.com",
-          authorType: "fiction",
-          websiteGoal: "grow_newsletter",
           consent: true,
         },
       },

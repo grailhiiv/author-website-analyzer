@@ -14,8 +14,6 @@ const outreachInput = {
   authorName: "",
   websiteUrl: "https://janewriter.test/",
   domain: "janewriter.test",
-  authorType: "Fiction Author",
-  websiteGoal: "Grow newsletter",
   overallScore: 48,
   serviceFit: "Newsletter setup",
   findings: [

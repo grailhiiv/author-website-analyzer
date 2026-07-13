@@ -89,8 +89,6 @@ export async function startWebsiteAnalysis(
         url: input.websiteUrl.trim(),
         normalizedUrl: urlValidation.finalUrl,
         domain: urlValidation.domain,
-        authorType: "not_sure",
-        websiteGoal: "general_critique",
         status: ReportStatus.QUEUED,
       },
       select: {

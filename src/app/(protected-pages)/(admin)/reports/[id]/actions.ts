@@ -13,6 +13,7 @@ import {
 import { isAllowedAdminEmail } from "@/lib/auth/admin";
 import { auth } from "@/lib/auth/server";
 import { prisma } from "@/lib/db/prisma";
+import { getAdminReportPath } from "@/lib/reports/domain";
 
 const salesNoteSchema = z.object({
   reportId: z.string().min(1, "Report ID is missing."),
@@ -62,7 +63,7 @@ export async function updateSalesNotesAction(formData: FormData) {
 
   const report = await prisma.report.findUnique({
     where: { id: parsed.reportId },
-    select: { id: true },
+    select: { id: true, domain: true },
   });
 
   if (!report) {
@@ -86,8 +87,9 @@ export async function updateSalesNotesAction(formData: FormData) {
     },
   });
 
-  revalidatePath(`/reports/${report.id}`);
-  redirect(`/reports/${report.id}`);
+  const reportPath = getAdminReportPath(report.domain);
+  revalidatePath(reportPath);
+  redirect(reportPath);
 }
 
 export async function generateOutreachMessageAction(formData: FormData) {
@@ -114,11 +116,9 @@ export async function generateOutreachMessageAction(formData: FormData) {
 
   const result = await generateOutreachMessage(
     {
-      authorName: report.lead?.name ?? null,
+      authorName: report.lead?.fullName ?? null,
       websiteUrl: report.normalizedUrl,
       domain: report.domain,
-      authorType: report.authorType,
-      websiteGoal: report.websiteGoal,
       overallScore: report.overallScore,
       serviceFit: report.salesNote?.serviceFit ?? null,
       findings: report.findings.map((finding) => ({
@@ -156,6 +156,7 @@ export async function generateOutreachMessageAction(formData: FormData) {
     },
   });
 
-  revalidatePath(`/reports/${report.id}`);
-  redirect(`/reports/${report.id}`);
+  const reportPath = getAdminReportPath(report.domain);
+  revalidatePath(reportPath);
+  redirect(reportPath);
 }

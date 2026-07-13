@@ -45,16 +45,6 @@ const authorAnalyzerNavigationConfig: NavigationTree[] = [
         authority: [ADMIN, USER],
         subMenu: [],
       },
-      {
-        key: "authorAnalyzer.analyze",
-        path: "/",
-        title: "Analyze Website",
-        translateKey: "nav.authorAnalyzer.analyze",
-        icon: "uiGraphChart",
-        type: NAV_ITEM_TYPE_ITEM,
-        authority: [ADMIN, USER],
-        subMenu: [],
-      },
     ],
   },
 ];

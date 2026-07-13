@@ -1,99 +1,134 @@
-import { MailIcon } from "lucide-react";
+import AdaptiveCard from '@/components/shared/AdaptiveCard'
+import Container from '@/components/shared/Container'
+import { Prisma, SalesLeadStatus } from '@/generated/prisma/client'
+import {
+    type AdminSearchParams,
+    buildLeadWhere,
+    parseLeadListFilters,
+} from '@/lib/admin/filters'
+import { salesLeadStatusLabels } from '@/lib/admin/display'
+import { prisma } from '@/lib/db/prisma'
+import {
+    AdminListActionTools,
+    AdminListTableTools,
+} from '../_components/AdminListTools'
+import LeadsListTable, {
+    type LeadListItem,
+} from './_components/LeadsListTable'
 
-import { AdminDataTable } from "@/components/admin/admin-data-table";
-import { AdminEmptyState } from "@/components/admin/admin-empty-state";
-import { AdminFiltersCard } from "@/components/admin/admin-filters";
-import { Button, TableCell, TableRow } from "@/components/admin/admin-ui";
-import { GridSection } from "@/components/layout/grid-section";
-import { PageHeader } from "@/components/layout/page-header";
-import {
-  type AdminSearchParams,
-  buildLeadWhere,
-  parseAdminFilters,
-} from "@/lib/admin/filters";
-import { adminLeadTableColumns } from "@/lib/admin/table-config";
-import {
-  formatAuthorType,
-  formatDate,
-  formatWebsiteGoal,
-} from "@/lib/admin/display";
-import { prisma } from "@/lib/db/prisma";
+const leadStatusOptions = [
+    { value: 'all', label: 'Any status' },
+    ...Object.values(SalesLeadStatus).map((status) => ({
+        value: status,
+        label: salesLeadStatusLabels[status],
+    })),
+]
+
+const consentOptions = [
+    { value: 'all', label: 'Any consent' },
+    { value: 'yes', label: 'Consent given' },
+    { value: 'no', label: 'Consent not given' },
+]
+
+function getLeadOrderBy(
+    sortKey: string,
+    order: Prisma.SortOrder,
+): Prisma.LeadOrderByWithRelationInput {
+    if (sortKey === 'fullName') return { fullName: order }
+    if (sortKey === 'email') return { email: order }
+    if (sortKey === 'websiteUrl') return { websiteUrl: order }
+    if (sortKey === 'consent') return { consent: order }
+    return { createdAt: order }
+}
 
 // SECURITY: Keep this route inside the protected admin group because it exposes lead data.
 export default async function AdminLeadsPage({
-  searchParams,
+    searchParams,
 }: {
-  searchParams: Promise<AdminSearchParams>;
+    searchParams: Promise<AdminSearchParams>
 }) {
-  const filters = parseAdminFilters(await searchParams);
-  const leads = await prisma.lead.findMany({
-    where: buildLeadWhere(filters),
-    include: { report: true },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
+    const filters = parseLeadListFilters(await searchParams)
+    const where = buildLeadWhere(filters)
+    const [total, leads] = await Promise.all([
+        prisma.lead.count({ where }),
+        prisma.lead.findMany({
+            where,
+            orderBy: getLeadOrderBy(filters.sortKey, filters.order),
+            skip: (filters.pageIndex - 1) * filters.pageSize,
+            take: filters.pageSize,
+            select: {
+                id: true,
+                fullName: true,
+                email: true,
+                websiteUrl: true,
+                consent: true,
+                createdAt: true,
+                report: {
+                    select: {
+                        domain: true,
+                        salesNote: { select: { leadStatus: true } },
+                    },
+                },
+            },
+        }),
+    ])
 
-  return (
-    <GridSection>
-      <div className="px-0 py-8 sm:px-4 lg:px-6">
-        <PageHeader
-          eyebrow="Admin"
-          title="Leads"
-          description="Review author contact submissions connected to report requests."
-        />
+    const leadList: LeadListItem[] = leads.map((lead) => ({
+        id: lead.id,
+        reportDomain: lead.report.domain,
+        fullName: lead.fullName,
+        email: lead.email,
+        websiteUrl: lead.websiteUrl,
+        consent: lead.consent,
+        leadStatus: lead.report.salesNote?.leadStatus ?? SalesLeadStatus.NEW,
+        createdAt: lead.createdAt.toISOString(),
+    }))
 
-        <div className="flex flex-col gap-6">
-          <AdminFiltersCard filters={filters} resetHref="/leads" />
+    const csvData = leadList.map((lead) => ({
+        Name: lead.fullName,
+        Email: lead.email,
+        Website: lead.websiteUrl,
+        Consent: lead.consent ? 'Yes' : 'No',
+        Status: salesLeadStatusLabels[lead.leadStatus],
+        Created: lead.createdAt,
+    }))
 
-          <AdminDataTable
-            columns={adminLeadTableColumns.map((label) => ({ label }))}
-            rowCount={leads.length}
-            eyebrow={`Latest ${leads.length} of 100`}
-            title="Lead pipeline"
-            description="Author contacts captured during report unlock and follow-up workflows."
-            emptyState={
-              <AdminEmptyState
-                icon={MailIcon}
-                title="No leads match these filters"
-                description="Clear the filters or submit an author website with an email address to populate the pipeline."
-              />
-            }
-          >
-            {leads.map((lead) => (
-              <TableRow key={lead.id}>
-                <TableCell className="font-medium">
-                  {lead.name || "Not provided"}
-                </TableCell>
-                <TableCell className="max-w-[260px] whitespace-normal">
-                  <a
-                    className="break-all text-blue-600 underline-offset-4 hover:underline"
-                    href={`mailto:${lead.email}`}
-                  >
-                    {lead.email}
-                  </a>
-                </TableCell>
-                <TableCell className="max-w-[320px] break-all whitespace-normal text-zinc-500">
-                  {lead.websiteUrl}
-                </TableCell>
-                <TableCell className="text-zinc-500">
-                  {formatAuthorType(lead.authorType)}
-                </TableCell>
-                <TableCell className="text-zinc-500">
-                  {formatWebsiteGoal(lead.websiteGoal)}
-                </TableCell>
-                <TableCell className="text-zinc-500">
-                  {formatDate(lead.createdAt)}
-                </TableCell>
-                <TableCell>
-                  <Button outline href={`/reports/${lead.report.id}`}>
-                    View report
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </AdminDataTable>
-        </div>
-      </div>
-    </GridSection>
-  );
+    return (
+        <Container>
+            <AdaptiveCard>
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <h3>Leads</h3>
+                        <AdminListActionTools
+                            csvData={csvData}
+                            csvFilename="leads.csv"
+                        />
+                    </div>
+                    <AdminListTableTools
+                        searchValue={filters.website}
+                        filters={[
+                            {
+                                key: 'leadStatus',
+                                label: 'Lead status',
+                                value: filters.leadStatus,
+                                options: leadStatusOptions,
+                            },
+                            {
+                                key: 'consent',
+                                label: 'Consent',
+                                value: filters.consent,
+                                options: consentOptions,
+                            },
+                        ]}
+                    />
+                    <LeadsListTable
+                        data={leadList}
+                        total={total}
+                        pageIndex={filters.pageIndex}
+                        pageSize={filters.pageSize}
+                    />
+                </div>
+            </AdaptiveCard>
+        </Container>
+    )
 }

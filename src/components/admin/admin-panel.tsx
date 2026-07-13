@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import Card from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
 
 export function AdminPanel({
@@ -10,14 +11,15 @@ export function AdminPanel({
   className?: string;
 }) {
   return (
-    <section
+    <Card
+      bodyClass="p-0"
       className={cn(
-        "overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/10",
+        "overflow-hidden bg-white shadow-sm",
         className
       )}
     >
       {children}
-    </section>
+    </Card>
   );
 }
 

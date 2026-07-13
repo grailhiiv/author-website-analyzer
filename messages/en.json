@@ -7,6 +7,13 @@
             "project": "Project",
             "marketing": "Marketing"
         },
+        "authorAnalyzer": {
+            "title": "Author Website Analyzer",
+            "dashboard": "Dashboard",
+            "reports": "Reports",
+            "leads": "Leads",
+            "analyze": "Analyze website"
+        },
         "concepts": "Concepts",
         "conceptsAi": {
             "ai": "AI",

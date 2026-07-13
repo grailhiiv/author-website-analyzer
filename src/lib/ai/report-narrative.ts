@@ -33,8 +33,6 @@ async function loadReportNarrativeInput(
 
   return {
     websiteUrl: report.normalizedUrl || report.url,
-    authorType: report.authorType,
-    websiteGoal: report.websiteGoal,
     pagesScanned: report.pagesScanned,
     signals,
     categoryScores: scoringResult.categoryScores,

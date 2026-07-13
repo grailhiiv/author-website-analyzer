@@ -1,117 +1,122 @@
-import { ClipboardListIcon, SearchIcon } from "lucide-react";
+import { TbSearch } from 'react-icons/tb'
 
-import { AdminDataTable } from "@/components/admin/admin-data-table";
-import { AdminEmptyState } from "@/components/admin/admin-empty-state";
-import { AdminFiltersCard } from "@/components/admin/admin-filters";
+import AdaptiveCard from '@/components/shared/AdaptiveCard'
+import Container from '@/components/shared/Container'
+import { Prisma, ReportStatus } from '@/generated/prisma/client'
 import {
-  Badge,
-  Button,
-  TableCell,
-  TableRow,
-} from "@/components/admin/admin-ui";
-import { GridSection } from "@/components/layout/grid-section";
-import { PageHeader } from "@/components/layout/page-header";
+    type AdminSearchParams,
+    buildReportWhere,
+    parseReportListFilters,
+    scoreRangeOptions,
+} from '@/lib/admin/filters'
+import { reportStatusLabels } from '@/lib/admin/display'
+import { prisma } from '@/lib/db/prisma'
 import {
-  type AdminSearchParams,
-  buildReportWhere,
-  parseAdminFilters,
-} from "@/lib/admin/filters";
-import { adminReportTableColumns } from "@/lib/admin/table-config";
-import {
-  formatAuthorType,
-  formatDate,
-  formatScore,
-  formatWebsiteGoal,
-  reportStatusLabels,
-  statusBadgeColor,
-} from "@/lib/admin/display";
-import { prisma } from "@/lib/db/prisma";
+    AdminListActionTools,
+    AdminListTableTools,
+} from '../_components/AdminListTools'
+import ReportsListTable, {
+    type ReportListItem,
+} from './_components/ReportsListTable'
+
+const reportStatusOptions = [
+    { value: 'all', label: 'Any status' },
+    ...Object.values(ReportStatus).map((status) => ({
+        value: status,
+        label: reportStatusLabels[status],
+    })),
+]
+
+function getReportOrderBy(
+    sortKey: string,
+    order: Prisma.SortOrder,
+): Prisma.ReportOrderByWithRelationInput {
+    if (sortKey === 'domain') return { domain: order }
+    if (sortKey === 'status') return { status: order }
+    if (sortKey === 'overallScore') return { overallScore: order }
+    return { createdAt: order }
+}
 
 // SECURITY: Keep this route inside the protected admin group because it exposes report data.
 export default async function AdminReportsPage({
-  searchParams,
+    searchParams,
 }: {
-  searchParams: Promise<AdminSearchParams>;
+    searchParams: Promise<AdminSearchParams>
 }) {
-  const filters = parseAdminFilters(await searchParams);
-  const reports = await prisma.report.findMany({
-    where: buildReportWhere(filters),
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
+    const filters = parseReportListFilters(await searchParams)
+    const where = buildReportWhere(filters)
+    const [total, reports] = await Promise.all([
+        prisma.report.count({ where }),
+        prisma.report.findMany({
+            where,
+            orderBy: getReportOrderBy(filters.sortKey, filters.order),
+            skip: (filters.pageIndex - 1) * filters.pageSize,
+            take: filters.pageSize,
+            select: {
+                id: true,
+                domain: true,
+                normalizedUrl: true,
+                status: true,
+                overallScore: true,
+                createdAt: true,
+            },
+        }),
+    ])
 
-  return (
-    <GridSection>
-      <div className="px-0 py-8 sm:px-4 lg:px-6">
-        <PageHeader
-          eyebrow="Admin"
-          title="Reports"
-          description="Review author website reports, scores, and current scan status."
-        />
+    const reportList: ReportListItem[] = reports.map((report) => ({
+        ...report,
+        createdAt: report.createdAt.toISOString(),
+    }))
 
-        <div className="flex flex-col gap-6">
-          <AdminFiltersCard filters={filters} resetHref="/reports" />
+    const csvData = reports.map((report) => ({
+        Website: report.domain,
+        URL: report.normalizedUrl,
+        Status: reportStatusLabels[report.status],
+        Score: report.overallScore,
+        Created: report.createdAt.toISOString(),
+    }))
 
-          <AdminDataTable
-            columns={adminReportTableColumns.map((label) => ({ label }))}
-            rowCount={reports.length}
-            eyebrow={`Latest ${reports.length} of 100`}
-            title="Report queue"
-            description="Newest scans, deterministic score totals, and drilldowns for each author website."
-            actions={
-              <Button outline href="/">
-                <SearchIcon data-slot="icon" />
-                New scan
-              </Button>
-            }
-            emptyState={
-              <AdminEmptyState
-                icon={ClipboardListIcon}
-                title="No reports match these filters"
-                description="Clear the filters or submit an author website so the analyzer can create a new scorecard."
-                action={<Button href="/">Start a scan</Button>}
-              />
-            }
-          >
-            {reports.map((report) => (
-              <TableRow key={report.id}>
-                <TableCell className="max-w-[320px] whitespace-normal">
-                  <div className="flex flex-col gap-1">
-                    <span className="break-words font-medium">
-                      {report.domain}
-                    </span>
-                    <span className="break-all text-xs text-zinc-500">
-                      {report.normalizedUrl}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-zinc-500">
-                  {formatAuthorType(report.authorType)}
-                </TableCell>
-                <TableCell className="text-zinc-500">
-                  {formatWebsiteGoal(report.websiteGoal)}
-                </TableCell>
-                <TableCell>
-                  <Badge color={statusBadgeColor(report.status)}>
-                    {reportStatusLabels[report.status]}
-                  </Badge>
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatScore(report.overallScore)}
-                </TableCell>
-                <TableCell className="text-zinc-500">
-                  {formatDate(report.createdAt)}
-                </TableCell>
-                <TableCell>
-                  <Button outline href={`/reports/${report.id}`}>
-                    View report
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </AdminDataTable>
-        </div>
-      </div>
-    </GridSection>
-  );
+    return (
+        <Container>
+            <AdaptiveCard>
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <h3>Reports</h3>
+                        <AdminListActionTools
+                            csvData={csvData}
+                            csvFilename="reports.csv"
+                            primaryAction={{
+                                href: '/',
+                                icon: <TbSearch className="text-xl" />,
+                                label: 'New scan',
+                            }}
+                        />
+                    </div>
+                    <AdminListTableTools
+                        searchValue={filters.website}
+                        filters={[
+                            {
+                                key: 'status',
+                                label: 'Status',
+                                value: filters.status,
+                                options: reportStatusOptions,
+                            },
+                            {
+                                key: 'scoreRange',
+                                label: 'Score',
+                                value: filters.scoreRange,
+                                options: scoreRangeOptions,
+                            },
+                        ]}
+                    />
+                    <ReportsListTable
+                        data={reportList}
+                        total={total}
+                        pageIndex={filters.pageIndex}
+                        pageSize={filters.pageSize}
+                    />
+                </div>
+            </AdaptiveCard>
+        </Container>
+    )
 }

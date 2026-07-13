@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import Card from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
 
 type AdminStatCardProps = {
@@ -20,9 +21,10 @@ export function AdminStatCard({
   value,
 }: AdminStatCardProps) {
   return (
-    <section
+    <Card
+      bodyClass="p-0"
       className={cn(
-        "overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/10",
+        "overflow-hidden bg-white shadow-sm",
         className
       )}
     >
@@ -45,6 +47,6 @@ export function AdminStatCard({
           {value}
         </p>
       </div>
-    </section>
+    </Card>
   );
 }

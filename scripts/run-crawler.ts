@@ -19,8 +19,6 @@ async function main() {
       url: inputUrl,
       normalizedUrl,
       domain: getWebsiteDomain(normalizedUrl),
-      authorType: "Not Sure",
-      websiteGoal: "Get general critique",
     },
   });
 

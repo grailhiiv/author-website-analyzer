@@ -11,8 +11,6 @@ export type PdfReport = {
   id: string;
   normalizedUrl: string;
   domain: string;
-  authorType: string;
-  websiteGoal: string;
   overallScore: number | null;
   createdAt: Date;
   completedAt: Date | null;
@@ -337,8 +335,6 @@ function addHeader(doc: PDFKit.PDFDocument, input: AuthorReportPdfInput) {
   doc.moveDown(1);
 
   keyValue(doc, "Website", input.report.normalizedUrl);
-  keyValue(doc, "Author type", input.report.authorType);
-  keyValue(doc, "Website goal", input.report.websiteGoal);
   keyValue(doc, "Report date", formatDate(input.report.completedAt ?? input.report.createdAt));
   keyValue(doc, "Date generated", formatDate(input.generatedAt));
 }

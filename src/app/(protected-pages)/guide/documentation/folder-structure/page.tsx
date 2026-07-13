@@ -99,7 +99,7 @@ const Page = () => {
 ├── package.lock.json            
 ├── postcss.config.mjs            # PostCss configuration file
 ├── README.md 
-├── tailwind.config.ts            # TailwindCSS configuration file
+├── tailwind.config.mts           # TailwindCSS configuration file
 └── tsconfig.json                 # Project Typescript configuration file
 `}
                     </SyntaxHighlighter>

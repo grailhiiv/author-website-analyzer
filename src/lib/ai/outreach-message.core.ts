@@ -48,8 +48,6 @@ export type OutreachMessageInput = {
   authorName?: string | null;
   websiteUrl: string;
   domain: string;
-  authorType: string;
-  websiteGoal?: string | null;
   overallScore?: number | null;
   serviceFit?: string | null;
   findings: OutreachFindingInput[];
@@ -180,8 +178,6 @@ export function buildOutreachMessagePrompt(input: OutreachMessageInput) {
     authorName: input.authorName?.trim() || null,
     websiteUrl: input.websiteUrl,
     domain: input.domain,
-    authorType: input.authorType,
-    websiteGoal: input.websiteGoal ?? null,
     overallScore: input.overallScore ?? null,
     serviceFit: input.serviceFit ?? null,
     findings: sortedFindings(input).map((finding) => ({

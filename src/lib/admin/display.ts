@@ -4,7 +4,6 @@ import {
   ReportStatus,
   SalesLeadStatus,
 } from "@/generated/prisma/client";
-import { authorTypes, websiteGoals } from "@/lib/analyzer/options";
 
 export const reportStatusLabels: Record<ReportStatus, string> = {
   QUEUED: "Queued",
@@ -33,11 +32,10 @@ export const findingSeverityLabels: Record<FindingSeverity, string> = {
 
 export const salesLeadStatusLabels: Record<SalesLeadStatus, string> = {
   NEW: "New",
-  REVIEWED: "Reviewed",
   CONTACTED: "Contacted",
-  INTERESTED: "Interested",
-  NOT_A_FIT: "Not a Fit",
+  QUALIFIED: "Qualified",
   CONVERTED: "Converted",
+  CLOSED: "Closed",
 };
 
 export const priorityOptions = [
@@ -47,22 +45,6 @@ export const priorityOptions = [
   { value: 4, label: "High" },
   { value: 5, label: "Urgent" },
 ] as const;
-
-const authorTypeLabels = new Map<string, string>(
-  authorTypes.map((option) => [option.value, option.label])
-);
-
-const websiteGoalLabels = new Map<string, string>(
-  websiteGoals.map((option) => [option.value, option.label])
-);
-
-export function formatAuthorType(value: string) {
-  return authorTypeLabels.get(value) ?? value;
-}
-
-export function formatWebsiteGoal(value: string) {
-  return websiteGoalLabels.get(value) ?? value;
-}
 
 export function formatDate(value: Date) {
   return new Intl.DateTimeFormat("en", {
