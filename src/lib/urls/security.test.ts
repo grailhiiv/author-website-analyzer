@@ -173,3 +173,30 @@ test("blocks URLs that exceed the redirect limit", async () => {
     assert.match(result.message, /redirects too many times/i);
   }
 });
+
+for (const path of ["contact", "about"]) {
+  test(`preserves the final trailing slash when /${path} redirects to /${path}/`, async () => {
+    const result = await validateUrlForScan(`https://example.com/${path}`, {
+      ...createOptions(),
+      fetchImplementation: async (input) => {
+        if (input === `https://example.com/${path}`) {
+          return new Response(null, {
+            status: 301,
+            headers: {
+              location: `/${path}/`,
+            },
+          });
+        }
+
+        return new Response(null, { status: 200 });
+      },
+    });
+
+    assert.equal(result.ok, true);
+
+    if (result.ok) {
+      assert.equal(result.finalUrl, `https://example.com/${path}/`);
+      assert.deepEqual(result.redirects, [`https://example.com/${path}/`]);
+    }
+  });
+}

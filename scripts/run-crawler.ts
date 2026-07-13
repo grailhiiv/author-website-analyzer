@@ -30,6 +30,7 @@ async function main() {
         reportId: result.reportId,
         pagesSaved: result.pagesSaved,
         crawledUrls: result.crawledUrls,
+        diagnostics: result.diagnostics,
       },
       null,
       2

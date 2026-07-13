@@ -1,9 +1,15 @@
 import { Prisma } from "@/generated/prisma/client";
+import {
+  createCrawlPageDeduplicator,
+  isSuccessfulHtmlPage,
+  type CrawlDiagnostics,
+  type CrawlDiagnosticUrl,
+} from "@/lib/crawler/diagnostics";
 import { extractPageData, type ExtractedPageData } from "@/lib/crawler/extract";
 import {
   CRAWL_PAGE_LIMIT,
-  getCrawlContentFingerprint,
   normalizeCandidateUrl,
+  parseRobotsSitemapUrls,
   prioritizeCrawlUrls,
 } from "@/lib/crawler/prioritize";
 import { prisma } from "@/lib/db/prisma.core";
@@ -47,6 +53,7 @@ export type CrawlReportResult = {
   homepageUrl: string;
   crawledUrls: string[];
   pagesSaved: number;
+  diagnostics: CrawlDiagnostics;
 };
 
 function timeoutSignal(timeoutMs: number) {
@@ -87,7 +94,37 @@ async function fetchSitemapUrls(
   options: ResolvedCrawlOptions,
 ) {
   const homepageHost = new URL(homepageUrl).hostname;
-  const sitemapQueue = [new URL("/sitemap.xml", homepageUrl).toString()];
+  const robotsUrl = new URL("/robots.txt", homepageUrl).toString();
+  const robotsSecurity = await validateUrlForScan(robotsUrl, {
+    redirectLimit: options.redirectLimit,
+    timeoutMs: options.sitemapTimeoutMs,
+  });
+  let robotsSitemapUrls: string[] = [];
+
+  if (robotsSecurity.ok && sameHostname(robotsSecurity.finalUrl, homepageHost)) {
+    try {
+      const response = await fetchText(
+        robotsSecurity.finalUrl,
+        options.sitemapTimeoutMs,
+      );
+
+      if (response.ok) {
+        robotsSitemapUrls = parseRobotsSitemapUrls(
+          await response.text(),
+          robotsSecurity.finalUrl,
+        ).filter((url) => sameHostname(url, homepageHost));
+      }
+    } catch {
+      // `/sitemap.xml` remains the bounded fallback when robots is unavailable.
+    }
+  }
+
+  const sitemapQueue = [
+    ...new Set([
+      new URL("/sitemap.xml", homepageUrl).toString(),
+      ...robotsSitemapUrls,
+    ]),
+  ];
   const seenSitemaps = new Set<string>();
   const pageUrls = new Set<string>();
 
@@ -160,7 +197,10 @@ async function fetchSitemapUrls(
     });
   }
 
-  return [...pageUrls];
+  return {
+    pageUrls: [...pageUrls],
+    robotsSitemapUrls,
+  };
 }
 
 function toJson(value: unknown) {
@@ -257,48 +297,23 @@ export async function crawlReportWebsite(
   const homepageNormalizedUrl =
     normalizeCandidateUrl(homepageUrl, homepageUrl) ?? homepageUrl;
   const siteOrigin = new URL(homepageUrl).origin;
-  const sitemapUrls = await fetchSitemapUrls(homepageUrl, crawlOptions);
-  const crawledPages: CrawledPageResult[] = [];
-  const seenUrls = new Set<string>();
-  const seenCanonicalUrls = new Set<string>();
-  const seenContent = new Set<string>();
-  const rememberPage = (page: CrawledPageResult) => {
-    const normalizedUrl = normalizeCandidateUrl(page.finalUrl, homepageUrl);
-    const canonicalUrl = page.extracted?.seo.canonicalUrl
-      ? normalizeCandidateUrl(page.extracted.seo.canonicalUrl, homepageUrl)
-      : null;
-    const fingerprint = page.extracted
-      ? getCrawlContentFingerprint(page.extracted)
-      : null;
-
-    if (normalizedUrl) {
-      seenUrls.add(normalizedUrl);
-    }
-
-    if (canonicalUrl) {
-      seenCanonicalUrls.add(canonicalUrl);
-    }
-
-    if (fingerprint) {
-      seenContent.add(fingerprint);
-    }
-  };
-  const isDuplicatePage = (page: CrawledPageResult) => {
-    const normalizedUrl = normalizeCandidateUrl(page.finalUrl, homepageUrl);
-    const canonicalUrl = page.extracted?.seo.canonicalUrl
-      ? normalizeCandidateUrl(page.extracted.seo.canonicalUrl, homepageUrl)
-      : null;
-    const fingerprint = page.extracted
-      ? getCrawlContentFingerprint(page.extracted)
-      : null;
-
-    return Boolean(
-      (normalizedUrl && seenUrls.has(normalizedUrl)) ||
-      (canonicalUrl &&
-        (seenUrls.has(canonicalUrl) || seenCanonicalUrls.has(canonicalUrl))) ||
-      (fingerprint && seenContent.has(fingerprint)),
-    );
-  };
+  const sitemapDiscovery = await fetchSitemapUrls(homepageUrl, crawlOptions);
+  const successfulPages: CrawledPageResult[] = [];
+  const failedHttpPages: CrawledPageResult[] = [];
+  const failedHttpUrls = new Set<string>();
+  const deduplicator = createCrawlPageDeduplicator(homepageUrl);
+  const discoveredUrls = new Set<string>([
+    homepageNormalizedUrl,
+    ...sitemapDiscovery.pageUrls,
+  ]);
+  const attemptedUrls = new Set<string>();
+  const skippedUrls: CrawlDiagnosticUrl[] = [];
+  const failedRequests: CrawlDiagnosticUrl[] = [];
+  let attemptedRequests = 0;
+  let discoveredFromHomepage = 0;
+  let skippedDuplicates = 0;
+  let skippedNonHtml = 0;
+  let skippedUnsuccessfulStatus = 0;
   type SecurityValidation = Awaited<ReturnType<typeof validateUrlForScan>>;
   const securityCache = new Map<string, Promise<SecurityValidation>>();
   securityCache.set(homepageNormalizedUrl, Promise.resolve(homepageSecurity));
@@ -336,6 +351,10 @@ export async function crawlReportWebsite(
       ),
       preNavigationHooks: [
         async ({ request }, gotOptions) => {
+          attemptedRequests += 1;
+          attemptedUrls.add(
+            normalizeCandidateUrl(request.url, homepageUrl) ?? request.url,
+          );
           const security = await validateRequestUrl(request.url);
 
           if (!security.ok) {
@@ -387,35 +406,87 @@ export async function crawlReportWebsite(
           extracted,
         };
 
-        if (
-          !isDuplicatePage(page) &&
-          crawledPages.length < crawlOptions.pageLimit
-        ) {
-          crawledPages.push(page);
-          rememberPage(page);
-        }
+        if (!isSuccessfulHtmlPage(page)) {
+          const normalizedFinalUrl =
+            normalizeCandidateUrl(page.finalUrl, homepageUrl) ?? page.finalUrl;
 
-        if (crawledPages.length >= crawlOptions.pageLimit) {
-          crawler.stop("The configured page limit was reached.");
+          if (
+            statusCode !== null &&
+            (statusCode < 200 || statusCode >= 300)
+          ) {
+            skippedUnsuccessfulStatus += 1;
+            skippedUrls.push({
+              requestedUrl: request.url,
+              finalUrl: security.finalUrl,
+              statusCode,
+              reason: "unsuccessful_status",
+            });
+
+            if (!failedHttpUrls.has(normalizedFinalUrl)) {
+              failedHttpUrls.add(normalizedFinalUrl);
+              failedHttpPages.push(page);
+            }
+          } else {
+            skippedNonHtml += 1;
+            skippedUrls.push({
+              requestedUrl: request.url,
+              finalUrl: security.finalUrl,
+              statusCode,
+              reason: "non_html",
+            });
+          }
+
           return;
         }
 
-        if (!extracted) {
+        if (deduplicator.has(page)) {
+          skippedDuplicates += 1;
+          skippedUrls.push({
+            requestedUrl: request.url,
+            finalUrl: security.finalUrl,
+            statusCode,
+            reason: "duplicate",
+          });
+        } else if (successfulPages.length < crawlOptions.pageLimit) {
+          successfulPages.push(page);
+          deduplicator.remember(page);
+        }
+
+        if (successfulPages.length >= crawlOptions.pageLimit) {
+          crawler.stop("The configured page limit was reached.");
           return;
         }
 
         const currentUrl =
           normalizeCandidateUrl(security.finalUrl, homepageUrl) ??
           security.finalUrl;
+        const normalizedInternalLinks = page.extracted.links.internal
+          .map((link) => normalizeCandidateUrl(link.href, homepageUrl))
+          .filter(
+            (url): url is string =>
+              url !== null && sameHostname(url, homepageHostname),
+          );
+
+        for (const url of normalizedInternalLinks) {
+          discoveredUrls.add(url);
+        }
+
         const nextUrls = prioritizeCrawlUrls({
           homepageUrl,
           sitemapUrls:
-            currentUrl === homepageNormalizedUrl ? sitemapUrls : [],
-          homepageInternalLinks: extracted.links.internal.map(
-            (link) => link.href,
-          ),
+            currentUrl === homepageNormalizedUrl
+              ? sitemapDiscovery.pageUrls
+              : [],
+          homepageInternalLinks: normalizedInternalLinks,
           limit: crawlOptions.pageLimit * 3,
-        }).filter((url) => url !== currentUrl && !seenUrls.has(url));
+        }).filter(
+          (url) =>
+            url !== currentUrl && !deduplicator.hasSeenUrl(url),
+        );
+
+        if (currentUrl === homepageNormalizedUrl) {
+          discoveredFromHomepage = new Set(normalizedInternalLinks).size;
+        }
 
         if (nextUrls.length > 0) {
           const result = await crawler.addRequests(
@@ -428,6 +499,12 @@ export async function crawlReportWebsite(
         const normalizedUrl =
           normalizeCandidateUrl(request.url, homepageUrl) ?? request.url;
 
+        failedRequests.push({
+          requestedUrl: request.url,
+          reason: "request_failed",
+          message: error.message,
+        });
+
         if (normalizedUrl === homepageNormalizedUrl) {
           homepageError = error.message;
         }
@@ -438,16 +515,53 @@ export async function crawlReportWebsite(
 
   await crawler.run([{ url: homepageUrl, uniqueKey: homepageNormalizedUrl }]);
 
-  if (crawledPages.length === 0) {
+  const diagnostics: CrawlDiagnostics = {
+    submittedUrl: requestedHomepageUrl,
+    homepageFinalUrl: homepageUrl,
+    allowedHostnames: [homepageHostname],
+    discoveredFromHomepage,
+    discoveredFromSitemap: sitemapDiscovery.pageUrls.length,
+    discoveredFromRobotsSitemaps: sitemapDiscovery.robotsSitemapUrls.length,
+    candidateUrls: discoveredUrls.size,
+    discoveredUrls: [...discoveredUrls],
+    attemptedRequests,
+    attemptedUrls: [...attemptedUrls],
+    savedHtmlPages: successfulPages.length,
+    failedHttpPagesRecorded: failedHttpPages.length,
+    skippedDuplicates,
+    skippedNonHtml,
+    skippedUnsuccessfulStatus,
+    skippedUrls,
+    failedRequests,
+    savedUrls: successfulPages.map((page) => ({
+      requestedUrl: page.requestedUrl,
+      finalUrl: page.finalUrl,
+      ...(page.extracted?.seo.canonicalUrl
+        ? { canonicalUrl: page.extracted.seo.canonicalUrl }
+        : {}),
+      pageType: page.extracted!.pageType,
+    })),
+  };
+
+  await saveCrawledPages(reportId, [...successfulPages, ...failedHttpPages]);
+  await prisma.report.update({
+    where: {
+      id: reportId,
+    },
+    data: {
+      crawlDiagnostics: toJson(diagnostics),
+    },
+  });
+
+  if (successfulPages.length === 0) {
     throw new Error(homepageError ?? "The website homepage could not be crawled.");
   }
-
-  await saveCrawledPages(reportId, crawledPages);
 
   return {
     reportId,
     homepageUrl,
-    crawledUrls: crawledPages.map((page) => page.finalUrl),
-    pagesSaved: crawledPages.length,
+    crawledUrls: successfulPages.map((page) => page.finalUrl),
+    pagesSaved: successfulPages.length,
+    diagnostics,
   };
 }

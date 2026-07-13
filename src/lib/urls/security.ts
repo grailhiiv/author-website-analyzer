@@ -105,9 +105,14 @@ function isBlockedHostOrAddress(value: string) {
   return false;
 }
 
-function parseHttpUrl(value: string) {
+function parseHttpUrl(
+  value: string,
+  { normalizeWebsiteInput = true }: { normalizeWebsiteInput?: boolean } = {},
+) {
   try {
-    const normalizedUrl = normalizeWebsiteUrl(value);
+    const normalizedUrl = normalizeWebsiteInput
+      ? normalizeWebsiteUrl(value)
+      : value.trim();
     const parsedUrl = new URL(normalizedUrl);
 
     if (!["http:", "https:"].includes(parsedUrl.protocol)) {
@@ -117,10 +122,13 @@ function parseHttpUrl(value: string) {
       };
     }
 
+    parsedUrl.hash = "";
+    parsedUrl.hostname = parsedUrl.hostname.toLowerCase();
+
     return {
       ok: true as const,
       url: parsedUrl,
-      normalizedUrl,
+      normalizedUrl: parsedUrl.toString(),
     };
   } catch {
     return {
@@ -268,7 +276,12 @@ export async function validateUrlForScan(
       };
     }
 
-    const nextParsed = parseHttpUrl(new URL(location, currentUrl).toString());
+    // Redirect destinations are server-selected crawl URLs. Preserve their
+    // path shape (especially a trailing slash) instead of applying the public
+    // intake normalizer again, or `/page -> /page/` becomes a synthetic loop.
+    const nextParsed = parseHttpUrl(new URL(location, currentUrl).toString(), {
+      normalizeWebsiteInput: false,
+    });
 
     if (!nextParsed.ok) {
       return {

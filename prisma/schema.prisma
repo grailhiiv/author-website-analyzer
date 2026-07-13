@@ -76,6 +76,7 @@ model Report {
   updatedAt      DateTime         @updatedAt
   completedAt    DateTime?
   errorMessage   String?
+  crawlDiagnostics Json?
   lead           Lead?
   pagesScanned   PageScanned[]
   scores         ReportScore[]

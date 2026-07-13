@@ -18,6 +18,9 @@ Numeric scores should be calculated with deterministic rules. AI may be used lat
 ## Scripts
 
 ```bash
+npm ci
+npm run deps:check
+npm run workspace:sync
 npm run dev
 npm run build
 npm run lint
@@ -29,10 +32,32 @@ npm run prisma:deploy
 npx prisma validate
 ```
 
+- `npm ci`: Recreates local dependencies exactly from `package-lock.json`. Use it after pulling on another computer whenever the lockfile changed.
+- `npm run deps:check`: Confirms every direct application dependency is installed at the locked version. This runs automatically before development and production builds.
+- `npm run workspace:sync`: Verifies dependencies, regenerates Prisma Client, and applies every committed database migration. This runs automatically before `npm run dev`.
 - `npm run build`: Runs the production Next.js build.
 - `npm run vercel-build`: Generates Prisma Client, then runs the production build. Use this as the Vercel build command.
 - `npm run prisma:migrate`: Creates and applies a local development migration.
-- `npm run prisma:deploy`: Applies committed migrations in production.
+- `npm run prisma:deploy`: Applies committed migrations to the database configured by `DATABASE_URL`. It is used by local workspace synchronization and by deployment workflows.
+
+## Working between home and office
+
+Git stores the dependency manifests, but it intentionally does not store `node_modules`, `.next`, generated Prisma Client files, or local `.env` secrets. Use this workflow whenever you move to the other computer:
+
+First stop any running `npm run dev` process. Pulling while the development server is still running can leave Turbopack holding an older generated Prisma Client in memory, even after the database and files have been updated.
+
+```bash
+git pull --ff-only
+npm ci
+npx playwright install chromium
+npm run dev
+```
+
+The tracked `.npmrc` makes `npm ci` use the peer-dependency policy required by the current Next.js canary and Better Auth versions. `npm ci` also regenerates Prisma Client through the existing `postinstall` script. Before Next.js starts, `npm run dev` regenerates Prisma Client again and applies committed migrations to the database configured by that computer's `DATABASE_URL`. This prevents pulled application code from running against an older local database schema.
+
+Keep each computer's `.env` configured locally; it is deliberately excluded from Git. Run the Playwright install again only after a new computer setup or a Playwright version change.
+
+Before leaving either computer, commit and push the tracked project changes. Never copy or commit `node_modules` or `.next`; recreate them with the commands above.
 
 ## Environment
 

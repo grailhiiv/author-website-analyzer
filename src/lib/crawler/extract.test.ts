@@ -6,12 +6,17 @@ import { extractPageData, detectPageType } from "@/lib/crawler/extract";
 import {
   getCrawlContentFingerprint,
   normalizeCandidateUrl,
+  parseRobotsSitemapUrls,
   prioritizeCrawlUrls,
 } from "@/lib/crawler/prioritize";
 
 test("detectPageType maps author website paths", () => {
   assert.equal(detectPageType("https://author.test/"), PageType.HOME);
   assert.equal(detectPageType("https://author.test/about-me"), PageType.ABOUT);
+  assert.equal(
+    detectPageType("https://author.test/about-the-author/"),
+    PageType.ABOUT,
+  );
   assert.equal(detectPageType("https://author.test/books"), PageType.BOOKS);
   assert.equal(detectPageType("https://author.test/my-books"), PageType.BOOKS);
   assert.equal(
@@ -22,9 +27,25 @@ test("detectPageType maps author website paths", () => {
     detectPageType("https://author.test/bibliography"),
     PageType.BOOKS,
   );
+  assert.equal(
+    detectPageType("https://author.test/the-evermen-saga/"),
+    PageType.BOOKS,
+  );
+  assert.equal(
+    detectPageType("https://author.test/the-firewall-trilogy/"),
+    PageType.BOOKS,
+  );
+  assert.equal(
+    detectPageType("https://author.test/the-evermen-saga-map/"),
+    PageType.UNKNOWN,
+  );
   assert.equal(detectPageType("https://author.test/contact"), PageType.CONTACT);
   assert.equal(
     detectPageType("https://author.test/newsletter"),
+    PageType.NEWSLETTER,
+  );
+  assert.equal(
+    detectPageType("https://author.test/sign-up/"),
     PageType.NEWSLETTER,
   );
   assert.equal(detectPageType("https://author.test/blog"), PageType.BLOG);
@@ -165,8 +186,9 @@ test("prioritizeCrawlUrls normalizes tracking links and leaves /home behind usef
 
   assert.deepEqual(urls, [
     "https://author.test/",
-    "https://author.test/books",
     "https://author.test/about",
+    "https://author.test/books",
+    "https://author.test/books/",
     "https://author.test/home",
   ]);
   assert.equal(
@@ -174,8 +196,92 @@ test("prioritizeCrawlUrls normalizes tracking links and leaves /home behind usef
       "https://author.test/books/?utm_source=x#buy",
       "https://author.test/",
     ),
-    "https://author.test/books",
+    "https://author.test/books/",
   );
+});
+
+test("prioritizeCrawlUrls ranks author and series slugs before generic pages", () => {
+  const urls = prioritizeCrawlUrls({
+    homepageUrl: "https://author.test/",
+    homepageInternalLinks: [
+      "https://author.test/golden-age/",
+      "https://author.test/the-evermen-saga/",
+      "https://author.test/download-now/",
+      "https://author.test/contact/",
+      "https://author.test/about-the-author/",
+      "https://author.test/sign-up/",
+    ],
+  });
+
+  assert.deepEqual(urls, [
+    "https://author.test/",
+    "https://author.test/about-the-author/",
+    "https://author.test/the-evermen-saga/",
+    "https://author.test/sign-up/",
+    "https://author.test/contact/",
+    "https://author.test/golden-age/",
+    "https://author.test/download-now/",
+  ]);
+});
+
+test("parseRobotsSitemapUrls discovers absolute and relative Sitemap directives", () => {
+  assert.deepEqual(
+    parseRobotsSitemapUrls(
+      `
+        User-agent: *
+        Disallow:
+        Sitemap: https://author.test/sitemap_index.xml
+        sitemap: /news-sitemap.xml
+        Sitemap: ftp://author.test/ignored.xml
+      `,
+      "https://author.test/robots.txt",
+    ),
+    [
+      "https://author.test/sitemap_index.xml",
+      "https://author.test/news-sitemap.xml",
+    ],
+  );
+});
+
+test("homepage menu and footer links become same-host crawl candidates", () => {
+  const homepage = extractPageData(
+    `
+      <!doctype html>
+      <html>
+        <body>
+          <nav>
+            <a href="/books">Books</a>
+            <div class="dropdown">
+              <a href="/series/evermen">The Evermen Saga</a>
+              <a href="/books/enchantress">Enchantress</a>
+            </div>
+            <a href="/about">About</a>
+          </nav>
+          <footer>
+            <a href="/contact">Contact</a>
+            <a href="/books/enchantress">Enchantress</a>
+            <a href="https://shop.example/book">Buy</a>
+          </footer>
+        </body>
+      </html>
+    `,
+    "https://author.test/",
+  );
+  const candidates = prioritizeCrawlUrls({
+    homepageUrl: homepage.url,
+    homepageInternalLinks: homepage.links.internal.map((link) => link.href),
+    limit: 10,
+  });
+
+  assert.deepEqual(new Set(candidates), new Set([
+    "https://author.test/",
+    "https://author.test/books",
+    "https://author.test/series/evermen",
+    "https://author.test/books/enchantress",
+    "https://author.test/about",
+    "https://author.test/contact",
+  ]));
+  assert.equal(candidates.includes("https://shop.example/book"), false);
 });
 
 test("getCrawlContentFingerprint identifies exact page-content duplicates", () => {

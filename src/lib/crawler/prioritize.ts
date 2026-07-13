@@ -1,3 +1,4 @@
+import { PageType } from "@/generated/prisma/client";
 import { detectPageType } from "@/lib/crawler/extract";
 
 const PRIORITY_PATHS = [
@@ -46,10 +47,6 @@ export function normalizeCandidateUrl(url: string, homepageUrl: string) {
     parsed.hash = "";
     parsed.pathname = parsed.pathname.replace(/\/{2,}/g, "/");
 
-    if (parsed.pathname !== "/") {
-      parsed.pathname = parsed.pathname.replace(/\/+$/, "");
-    }
-
     for (const key of Array.from(parsed.searchParams.keys())) {
       if (TRACKING_PARAMETER_PATTERNS.some((pattern) => pattern.test(key))) {
         parsed.searchParams.delete(key);
@@ -61,6 +58,36 @@ export function normalizeCandidateUrl(url: string, homepageUrl: string) {
   } catch {
     return null;
   }
+}
+
+export function parseRobotsSitemapUrls(
+  robotsText: string,
+  robotsUrl: string,
+) {
+  const sitemapUrls = new Set<string>();
+
+  for (const line of robotsText.split(/\r?\n/)) {
+    const match = line.match(/^\s*sitemap\s*:\s*(\S+)\s*$/i);
+
+    if (!match) {
+      continue;
+    }
+
+    try {
+      const parsed = new URL(match[1], robotsUrl);
+
+      if (!["http:", "https:"].includes(parsed.protocol)) {
+        continue;
+      }
+
+      parsed.hash = "";
+      sitemapUrls.add(parsed.toString());
+    } catch {
+      // Ignore malformed Sitemap directives.
+    }
+  }
+
+  return [...sitemapUrls];
 }
 
 export function getCrawlContentFingerprint(page: {
@@ -88,26 +115,37 @@ function isSameHostname(url: string, homepageUrl: string) {
 function getPriorityScore(url: string) {
   const parsed = new URL(url);
   const path = parsed.pathname.toLowerCase().replace(/\/+$/, "") || "/";
-  const exactIndex = PRIORITY_PATHS.indexOf(path);
-
-  if (exactIndex >= 0) {
-    return exactIndex;
-  }
 
   if (path === "/home" || path.startsWith("/home/")) {
-    return PRIORITY_PATHS.length * 3;
+    return 9_000;
   }
+
+  const pageTypePriority: Record<PageType, number> = {
+    [PageType.HOME]: 0,
+    [PageType.ABOUT]: 1,
+    [PageType.BOOKS]: 2,
+    [PageType.NEWSLETTER]: 3,
+    [PageType.CONTACT]: 4,
+    [PageType.EVENTS]: 5,
+    [PageType.MEDIA_KIT]: 6,
+    [PageType.BLOG]: 7,
+    [PageType.UNKNOWN]: 8,
+  };
+  const pageType = detectPageType(url);
+  const exactIndex = PRIORITY_PATHS.indexOf(path);
 
   const prefixIndex = PRIORITY_PATHS.findIndex(
     (priorityPath) =>
       priorityPath !== "/" && path.startsWith(`${priorityPath}/`),
   );
+  const pathPriority =
+    exactIndex >= 0
+      ? exactIndex
+      : prefixIndex >= 0
+        ? PRIORITY_PATHS.length + prefixIndex
+        : PRIORITY_PATHS.length * 2;
 
-  if (prefixIndex >= 0) {
-    return prefixIndex + PRIORITY_PATHS.length;
-  }
-
-  return PRIORITY_PATHS.length * 4;
+  return pageTypePriority[pageType] * 1_000 + pathPriority;
 }
 
 export function prioritizeCrawlUrls({
@@ -158,14 +196,6 @@ export function prioritizeCrawlUrls({
 
       if (scoreDifference !== 0) {
         return scoreDifference;
-      }
-
-      const pageTypeDifference = detectPageType(a).localeCompare(
-        detectPageType(b),
-      );
-
-      if (pageTypeDifference !== 0) {
-        return pageTypeDifference;
       }
 
       return new URL(a).pathname.length - new URL(b).pathname.length;

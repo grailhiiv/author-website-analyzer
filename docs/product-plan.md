@@ -69,6 +69,15 @@ AI failure must never prevent delivery of a usable report. Deterministic finding
 - Show a helpful explanation and next steps when a report cannot be generated.
 - Record failed attempts for admin visibility, but do not treat them as qualified leads.
 
+## Crawl coverage policy
+
+- Use a bounded, same-host HTML crawl rather than attempting to mirror an entire author website. Anchor the crawl to the homepage's validated final hostname; do not automatically trust sibling subdomains or a `www`/non-`www` variant that was not reached through a validated redirect.
+- Discover candidates from server-returned homepage links, `/sitemap.xml`, and sitemap locations declared in `robots.txt`. Keep Cheerio as the default crawler because the audit primarily needs inspectable HTML; JavaScript-browser fallback is a separate future decision, not the default for every scan.
+- Attempt at most 30 requests and save at most 10 successful, unique 2xx HTML pages. Redirects, failed requests, non-HTML responses, unsuccessful status pages, and duplicates do not consume the 10-page success budget.
+- Preserve discovered path shape, including trailing slashes, while requests are queued. After redirects resolve, identify saved pages by the final URL, canonical URL, and extracted-content fingerprint.
+- Prioritize the homepage, About/author page, book and series pages, newsletter signup, Contact, events, media/press, and blog/news before generic pages. Common root-level author slugs such as `about-the-author`, `the-example-saga`, and `the-example-trilogy` count as author-relevant candidates.
+- Persist structured crawl diagnostics with each report, including discovery sources, candidate and attempt counts, saved URLs, final redirect URLs, skipped duplicates, unsuccessful responses, and request failures. A page limit is a maximum, not a guaranteed minimum; diagnostics must explain lower coverage.
+
 ## Repeat scans and cost controls
 
 - Allow one fresh public scan per website within a 24-hour period.

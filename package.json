@@ -3,8 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "deps:check": "node scripts/check-dependencies.mjs",
+    "workspace:sync": "npm run deps:check && npm run prisma:generate && npm run prisma:deploy",
+    "predev": "npm run workspace:sync",
     "dev": "next dev",
+    "prebuild": "npm run deps:check",
     "build": "next build",
+    "prevercel-build": "npm run deps:check",
     "vercel-build": "prisma generate && next build",
     "start": "next start",
     "postinstall": "prisma generate",

@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { deliverFullReportEmail } from "@/lib/email/report-delivery";
 import { getReportPath } from "@/lib/reports/domain";
+import { parseUnlockReportFormData } from "@/lib/reports/unlock-report-form";
 
 export type UnlockReportState = {
   email?: string;
@@ -14,27 +14,11 @@ export type UnlockReportState = {
   error?: string;
 };
 
-const unlockReportSchema = z.object({
-  reportId: z.string().min(1, "Report ID is missing."),
-  fullName: z
-    .string()
-    .trim()
-    .min(2, "Enter your full name.")
-    .max(120, "Full Name must be 120 characters or less."),
-  email: z.string().trim().toLowerCase().email("Enter a valid email address."),
-  consent: z.enum(["on"]).optional(),
-});
-
 export async function unlockReportAction(
   _previousState: UnlockReportState,
   formData: FormData,
 ): Promise<UnlockReportState> {
-  const parsed = unlockReportSchema.safeParse({
-    reportId: formData.get("reportId"),
-    fullName: formData.get("fullName") ?? "",
-    email: formData.get("email"),
-    consent: formData.get("consent"),
-  });
+  const parsed = parseUnlockReportFormData(formData);
 
   if (!parsed.success) {
     return {

@@ -12,6 +12,7 @@ const AUTHOR_PAGE_PATTERNS: Array<{ pageType: PageType; patterns: RegExp[] }> =
         /^\/about-me\/?$/,
         /^\/author\/?$/,
         /^\/bio\/?$/,
+        /^\/(?:[^/]+-)*(?:about|author|bio)(?:-[^/]+)*\/?$/,
       ],
     },
     {
@@ -19,6 +20,7 @@ const AUTHOR_PAGE_PATTERNS: Array<{ pageType: PageType; patterns: RegExp[] }> =
       patterns: [
         /^\/(?:books?|my-books|novels?|series|works|bibliography|titles)(?:\/[^/]+)*\/?$/,
         /^\/(?:published-works|writing)\/?$/,
+        /^\/(?:[^/]+-)*(?:series|saga|trilogy)\/?$/,
       ],
     },
     {
@@ -27,7 +29,12 @@ const AUTHOR_PAGE_PATTERNS: Array<{ pageType: PageType; patterns: RegExp[] }> =
     },
     {
       pageType: PageType.NEWSLETTER,
-      patterns: [/^\/newsletter\/?$/, /^\/subscribe\/?$/, /^\/reader-list\/?$/],
+      patterns: [
+        /^\/newsletter\/?$/,
+        /^\/subscribe\/?$/,
+        /^\/reader-list\/?$/,
+        /^\/sign-up\/?$/,
+      ],
     },
     {
       pageType: PageType.BLOG,
