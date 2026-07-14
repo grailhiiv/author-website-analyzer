@@ -1,3 +1,11 @@
+import {
+  classifyPageRole,
+  pageSupportsRole,
+  type EvidenceObservation,
+  type PageRole,
+  type PageRoleClassification,
+} from "./page-role-classifier";
+
 export type SignalDetection = {
   detected: boolean;
   evidence: string[];
@@ -35,6 +43,8 @@ export type ScannedPageSignalInput = {
 
 export type AuthorWebsiteSignals = {
   pagesAnalyzed: number;
+  pageRoles?: PageRoleClassification[];
+  observations?: EvidenceObservation[];
   authorBrand: {
     authorNameVisible: SignalDetection;
     genreOrCategoryMentioned: SignalDetection;
@@ -114,6 +124,7 @@ type FormFieldLike = {
 type FormLike = {
   action?: string | null;
   method?: string | null;
+  scope?: "main" | "navigation" | "footer";
   fields: FormFieldLike[];
   buttons: string[];
 };
@@ -136,7 +147,9 @@ type NormalizedPage = {
   jsonLd: unknown[];
   canonicalUrl: string | null;
   robots: string | null;
+  bodyText: string;
   text: string;
+  roleClassification: PageRoleClassification | null;
 };
 
 const AUTHOR_TERMS =
@@ -149,6 +162,8 @@ const BOOK_COVER_TERMS = /\b(book cover|cover art|cover image|novel cover)\b/i;
 const BOOK_BLURB_TERMS =
   /\b(book description|blurb|synopsis|about the book|back cover|readers will|this novel|this book)\b/i;
 const BUY_TERMS = /\b(buy|order|pre-?order|purchase|get the book|shop now)\b/i;
+const NON_BOOK_PURCHASE_TERMS =
+  /\b(tickets?|events?|workshops?|courses?|classes|memberships?|merch(?:andise)?|donations?|donate|consultations?|services?)\b/i;
 const FEATURED_BOOK_TERMS =
   /\b(featured book|latest book|new release|available now|coming soon|debut novel)\b/i;
 const SERIES_TERMS = /\b(series|book one|book two|trilogy|saga)\b/i;
@@ -158,12 +173,30 @@ const NEWSLETTER_TERMS =
   /\b(newsletter|reader list|mailing list|subscribe|join my list|updates)\b/i;
 const NEWSLETTER_SERVICE_TERMS =
   /\b(substack\.com|convertkit\.com|kit\.com|mailchi\.mp|list-manage\.com|mailerlite\.com|beehiiv\.com|buttondown\.email|flodesk\.com|campaignmonitor\.com)\b/i;
+const NON_NEWSLETTER_SUBSCRIBE_DESTINATIONS =
+  /\b(youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|spotify\.com|podcasts\.apple\.com)\b/i;
 const READER_MAGNET_TERMS =
   /\b(reader magnet|free chapter|bonus scene|free book|free novella|free short story|download a sample)\b/i;
 const BIO_TERMS =
   /\b(author bio|biography|about the author|meet the author)\b/i;
 const PHOTO_TERMS = /\b(author photo|author portrait|headshot|portrait)\b/i;
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+
+function isBookPurchaseAction(value: string) {
+  return BUY_TERMS.test(value) && !NON_BOOK_PURCHASE_TERMS.test(value);
+}
+
+function isNewsletterLink(link: LinkLike) {
+  if (NEWSLETTER_SERVICE_TERMS.test(link.href)) {
+    return true;
+  }
+
+  if (NON_NEWSLETTER_SUBSCRIBE_DESTINATIONS.test(link.href)) {
+    return false;
+  }
+
+  return NEWSLETTER_TERMS.test(`${link.text} ${link.href}`);
+}
 
 const RETAILERS: Record<RetailerKey, { label: string; patterns: RegExp[] }> = {
   amazon: {
@@ -383,6 +416,10 @@ function normalizeForms(value: unknown) {
     forms.push({
       action: asString(item.action) || null,
       method: asString(item.method) || null,
+      scope:
+        item.scope === "navigation" || item.scope === "footer"
+          ? item.scope
+          : "main",
       fields,
       buttons: stringArray(item.buttons),
     });
@@ -462,12 +499,24 @@ function normalizePage(page: ScannedPageSignalInput): NormalizedPage {
     jsonLd: normalizeJsonLd(page.headingsJson),
     canonicalUrl,
     robots,
+    bodyText: compact(bodyText || page.contentText),
     text: compact(textParts.filter(Boolean).join(" ")),
+    roleClassification: null,
   };
 }
 
 function isPageType(page: NormalizedPage, type: string) {
   return page.pageType.toUpperCase() === type;
+}
+
+function supportsPageRole(page: NormalizedPage, role: PageRole) {
+  return Boolean(
+    page.roleClassification && pageSupportsRole(page.roleClassification, role),
+  );
+}
+
+function supportsAnyPageRole(page: NormalizedPage, roles: PageRole[]) {
+  return roles.some((role) => supportsPageRole(page, role));
 }
 
 function linkEvidence(
@@ -730,9 +779,12 @@ function looksLikeBookTitle(value: string, personNames: string[]) {
 function pageHasBookContext(page: NormalizedPage) {
   return Boolean(
     isPageType(page, "BOOKS") ||
+    supportsAnyPageRole(page, ["BOOKS_INDEX", "BOOK_DETAIL", "SERIES"]) ||
     BOOK_BLURB_TERMS.test(page.text) ||
     FEATURED_BOOK_TERMS.test(page.text) ||
-    page.ctas.some((cta) => BUY_TERMS.test(`${cta.text} ${cta.href ?? ""}`)) ||
+    page.ctas.some((cta) =>
+      isBookPurchaseAction(`${cta.text} ${cta.href ?? ""}`),
+    ) ||
     page.links.some((link) =>
       Object.values(RETAILERS).some((retailer) =>
         retailer.patterns.some((pattern) =>
@@ -798,8 +850,32 @@ function isLikelyBookCover(
 export function detectAuthorWebsiteSignals(
   scannedPages: ScannedPageSignalInput[],
 ): AuthorWebsiteSignals {
-  const pages = scannedPages.map(normalizePage);
-  const homepage = pages.find((page) => isPageType(page, "HOME")) ?? pages[0];
+  const pages = scannedPages
+    .map(normalizePage)
+    .filter(
+      (page) =>
+        page.statusCode === null ||
+        (page.statusCode >= 200 && page.statusCode < 300),
+    )
+    .map((page) => ({
+      ...page,
+      roleClassification: classifyPageRole({
+        url: page.url,
+        declaredPageType: page.pageType,
+        title: page.title,
+        h1: page.h1,
+        headings: [...page.h2, ...page.h3],
+        bodyText: page.bodyText,
+        links: page.links,
+        images: page.images,
+        forms: page.forms,
+        jsonLd: page.jsonLd,
+      }),
+    }));
+  const homepage =
+    pages.find((page) => supportsPageRole(page, "HOME")) ??
+    pages.find((page) => isPageType(page, "HOME")) ??
+    pages[0];
   const allText = pages.map((page) => page.text).join(" ");
   const titleH1Content = pages
     .flatMap((page) => [page.title, page.h1])
@@ -840,7 +916,10 @@ export function detectAuthorWebsiteSignals(
   const newsletterFormEvidence = pages.flatMap((page) =>
     page.forms
       .filter(
-        (form) => hasEmailInput(form) && NEWSLETTER_TERMS.test(formText(form)),
+        (form) =>
+          hasEmailInput(form) &&
+          (NEWSLETTER_TERMS.test(formText(form)) ||
+            supportsPageRole(page, "NEWSLETTER")),
       )
       .map(
         (form) =>
@@ -857,11 +936,7 @@ export function detectAuthorWebsiteSignals(
   );
   const newsletterLinkEvidence = pages.flatMap((page) =>
     page.links
-      .filter(
-        (link) =>
-          NEWSLETTER_TERMS.test(`${link.text} ${link.href}`) ||
-          NEWSLETTER_SERVICE_TERMS.test(link.href),
-      )
+      .filter(isNewsletterLink)
       .map(
         (link) => `Newsletter link on ${page.url}: ${link.text || link.href}`,
       ),
@@ -883,6 +958,8 @@ export function detectAuthorWebsiteSignals(
 
   return {
     pagesAnalyzed: pages.length,
+    pageRoles: pages.map((page) => page.roleClassification),
+    observations: pages.flatMap((page) => page.roleClassification.observations),
     authorBrand: {
       authorNameVisible: detection(
         likelyAuthorNameEvidence(titleH1Content, allText, personNames),
@@ -893,7 +970,10 @@ export function detectAuthorWebsiteSignals(
       clearHomepageHeadline: detection(homepageHeadline),
       aboutSectionOrPage: detection([
         ...pages
-          .filter((page) => isPageType(page, "ABOUT"))
+          .filter(
+            (page) =>
+              isPageType(page, "ABOUT") || supportsPageRole(page, "ABOUT"),
+          )
           .map((page) => `About page: ${page.url}`),
         ...linkEvidence(
           pages,
@@ -925,10 +1005,12 @@ export function detectAuthorWebsiteSignals(
       buyLinks: detection([
         ...pages.flatMap((page) =>
           page.ctas
-            .filter((cta) => BUY_TERMS.test(`${cta.text} ${cta.href ?? ""}`))
+            .filter((cta) =>
+              isBookPurchaseAction(`${cta.text} ${cta.href ?? ""}`),
+            )
             .map((cta) => `Buy CTA: ${cta.text || cta.href}`),
         ),
-        ...linkEvidence(pages, (text) => BUY_TERMS.test(text), "Buy link"),
+        ...linkEvidence(pages, isBookPurchaseAction, "Buy link"),
       ]),
       retailerLinks: detection(retailerEvidence),
       featuredBookSection: detection(
@@ -938,7 +1020,9 @@ export function detectAuthorWebsiteSignals(
         ...pages
           .filter(
             (page) =>
-              /\/series\b/i.test(page.url) || SERIES_TERMS.test(page.text),
+              supportsPageRole(page, "SERIES") ||
+              /\/series\b/i.test(page.url) ||
+              SERIES_TERMS.test(page.text),
           )
           .map((page) => `Series signal: ${page.url}`),
       ]),
@@ -1011,7 +1095,10 @@ export function detectAuthorWebsiteSignals(
       authorBio: detection([
         ...pages
           .filter(
-            (page) => isPageType(page, "ABOUT") || BIO_TERMS.test(page.text),
+            (page) =>
+              isPageType(page, "ABOUT") ||
+              supportsPageRole(page, "ABOUT") ||
+              BIO_TERMS.test(page.text),
           )
           .map((page) => `Author bio signal: ${page.url}`),
       ]),
@@ -1027,7 +1114,10 @@ export function detectAuthorWebsiteSignals(
       contactForm: detection(
         pages
           .filter(
-            (page) => isPageType(page, "CONTACT") && page.forms.length > 0,
+            (page) =>
+              (isPageType(page, "CONTACT") ||
+                supportsPageRole(page, "CONTACT")) &&
+              page.forms.length > 0,
           )
           .map((page) => `Contact form: ${page.url}`),
       ),
@@ -1040,7 +1130,11 @@ export function detectAuthorWebsiteSignals(
       socialLinks: detection(socialEvidence),
       mediaKit: detection([
         ...pages
-          .filter((page) => isPageType(page, "MEDIA_KIT"))
+          .filter(
+            (page) =>
+              isPageType(page, "MEDIA_KIT") ||
+              supportsPageRole(page, "MEDIA_KIT"),
+          )
           .map((page) => `Media kit page: ${page.url}`),
         ...linkEvidence(
           pages,
@@ -1048,13 +1142,16 @@ export function detectAuthorWebsiteSignals(
           "Media kit link",
         ),
       ]),
-      privacyPolicy: detection(
-        linkEvidence(
+      privacyPolicy: detection([
+        ...pages
+          .filter((page) => supportsPageRole(page, "PRIVACY"))
+          .map((page) => `Privacy policy page: ${page.url}`),
+        ...linkEvidence(
           pages,
           (text) => /\bprivacy\b/i.test(text),
           "Privacy policy link",
         ),
-      ),
+      ]),
     },
     retailers,
     schema: {

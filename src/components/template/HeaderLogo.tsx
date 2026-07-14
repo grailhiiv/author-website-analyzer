@@ -10,7 +10,6 @@ const HeaderLogo = ({ mode }: { mode?: Mode }) => {
     return (
         <Link href={appConfig.authenticatedEntryPath}>
             <Logo
-                imgClass="max-h-10"
                 mode={mode || defaultMode}
                 className="hidden lg:block"
             />

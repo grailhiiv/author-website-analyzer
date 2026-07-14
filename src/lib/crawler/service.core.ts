@@ -1,18 +1,37 @@
-import { Prisma } from "@/generated/prisma/client";
+import { randomUUID } from "node:crypto";
+
 import {
+  BROWSER_FALLBACK_NAVIGATION_TIMEOUT_MS,
+  BROWSER_FALLBACK_PAGE_LIMIT,
+  BROWSER_FALLBACK_POLICY_VERSION,
+  BROWSER_FALLBACK_REPORT_DEADLINE_MS,
+  BROWSER_FALLBACK_REPORT_REQUEST_LIMIT,
+  BROWSER_FALLBACK_REQUEST_LIMIT,
+  createBrowserRenderSession,
+  detectBrowserFallbackTrigger,
+  extractRenderedPage,
+  mergeRenderedExtraction,
+  type BrowserFallbackTriggerCode,
+  type BrowserRenderSessionFactory,
+} from "@/lib/crawler/browser-fallback.core";
+import {
+  CRAWL_DIAGNOSTICS_VERSION,
   createCrawlPageDeduplicator,
   isSuccessfulHtmlPage,
   type CrawlDiagnostics,
   type CrawlDiagnosticUrl,
 } from "@/lib/crawler/diagnostics";
-import { extractPageData, type ExtractedPageData } from "@/lib/crawler/extract";
+import {
+  CRAWLER_EXTRACTION_VERSION,
+  extractPageData,
+  type ExtractedPageData,
+} from "@/lib/crawler/extract";
 import {
   CRAWL_PAGE_LIMIT,
   normalizeCandidateUrl,
   parseRobotsSitemapUrls,
   prioritizeCrawlUrls,
 } from "@/lib/crawler/prioritize";
-import { prisma } from "@/lib/db/prisma.core";
 import { validateUrlForScan } from "@/lib/urls/security";
 
 import { CheerioCrawler, Configuration } from "@crawlee/cheerio";
@@ -24,12 +43,16 @@ const USER_AGENT = "GrailHiiv Author Website Analyzer";
 const MAX_SITEMAPS = 8;
 const MAX_SITEMAP_URLS = 50;
 
-type CrawlOptions = {
+export type CrawlOptions = {
   pageLimit?: number;
   timeoutMs?: number;
   redirectLimit?: number;
   concurrency?: number;
   sitemapTimeoutMs?: number;
+  browserFallbackEnabled?: boolean;
+  browserFallbackPageLimit?: number;
+  browserFallbackTimeoutMs?: number;
+  browserRenderSessionFactory?: BrowserRenderSessionFactory;
 };
 
 type ResolvedCrawlOptions = {
@@ -38,6 +61,10 @@ type ResolvedCrawlOptions = {
   redirectLimit: number;
   concurrency: number;
   sitemapTimeoutMs: number;
+  browserFallbackEnabled: boolean;
+  browserFallbackPageLimit: number;
+  browserFallbackTimeoutMs: number;
+  browserRenderSessionFactory: BrowserRenderSessionFactory;
 };
 
 export type CrawledPageResult = {
@@ -46,6 +73,16 @@ export type CrawledPageResult = {
   statusCode: number | null;
   extracted: ExtractedPageData | null;
   errorMessage?: string;
+  browserTriggerCodes?: BrowserFallbackTriggerCode[];
+  renderedEvidence?: {
+    policyVersion: string;
+    finalUrl: string;
+    triggerCodes: BrowserFallbackTriggerCode[];
+    adopted: boolean;
+    requestCount: number;
+    abortedRequestCount: number;
+    htmlTruncated: boolean;
+  };
 };
 
 export type CrawlReportResult = {
@@ -54,6 +91,15 @@ export type CrawlReportResult = {
   crawledUrls: string[];
   pagesSaved: number;
   diagnostics: CrawlDiagnostics;
+};
+
+export type CrawlWebsiteResult = {
+  homepageUrl: string;
+  crawledUrls: string[];
+  pages: CrawledPageResult[];
+  successfulHtmlPages: number;
+  diagnostics: CrawlDiagnostics;
+  failureMessage: string | null;
 };
 
 function timeoutSignal(timeoutMs: number) {
@@ -203,60 +249,10 @@ async function fetchSitemapUrls(
   };
 }
 
-function toJson(value: unknown) {
-  return value as Prisma.InputJsonValue;
-}
-
-async function saveCrawledPages(reportId: string, pages: CrawledPageResult[]) {
-  await prisma.pageScanned.deleteMany({
-    where: {
-      reportId,
-    },
-  });
-
-  for (const page of pages) {
-    if (!page.extracted) {
-      await prisma.pageScanned.create({
-        data: {
-          reportId,
-          url: page.finalUrl,
-          statusCode: page.statusCode,
-        },
-      });
-      continue;
-    }
-
-    await prisma.pageScanned.create({
-      data: {
-        reportId,
-        url: page.extracted.url,
-        pageType: page.extracted.pageType,
-        statusCode: page.statusCode,
-        title: page.extracted.title,
-        metaDescription: page.extracted.metaDescription,
-        h1: page.extracted.h1,
-        headingsJson: toJson({
-          h1Count: page.extracted.h1Count,
-          h2: page.extracted.headings.h2,
-          h3: page.extracted.headings.h3,
-          bodyText: page.extracted.bodyText,
-          jsonLd: page.extracted.jsonLd,
-          canonicalUrl: page.extracted.seo.canonicalUrl,
-          robots: page.extracted.seo.robots,
-        }),
-        linksJson: toJson(page.extracted.links),
-        imagesJson: toJson(page.extracted.images),
-        formsJson: toJson(page.extracted.forms),
-        wordCount: page.extracted.wordCount,
-      },
-    });
-  }
-}
-
-export async function crawlReportWebsite(
-  reportId: string,
+export async function crawlWebsite(
+  requestedHomepageUrl: string,
   options: CrawlOptions = {},
-): Promise<CrawlReportResult> {
+): Promise<CrawlWebsiteResult> {
   const crawlOptions = {
     pageLimit: Math.min(
       options.pageLimit ?? CRAWL_PAGE_LIMIT,
@@ -266,23 +262,23 @@ export async function crawlReportWebsite(
     redirectLimit: options.redirectLimit ?? DEFAULT_REDIRECT_LIMIT,
     concurrency: Math.max(1, Math.min(options.concurrency ?? 4, 4)),
     sitemapTimeoutMs: options.sitemapTimeoutMs ?? 3_000,
+    browserFallbackEnabled:
+      options.browserFallbackEnabled ??
+      process.env.CRAWLER_BROWSER_FALLBACK_ENABLED !== "false",
+    browserFallbackPageLimit: Math.max(
+      0,
+      Math.min(
+        options.browserFallbackPageLimit ?? BROWSER_FALLBACK_PAGE_LIMIT,
+        BROWSER_FALLBACK_PAGE_LIMIT,
+      ),
+    ),
+    browserFallbackTimeoutMs: Math.min(
+      options.browserFallbackTimeoutMs ?? BROWSER_FALLBACK_NAVIGATION_TIMEOUT_MS,
+      BROWSER_FALLBACK_NAVIGATION_TIMEOUT_MS,
+    ),
+    browserRenderSessionFactory:
+      options.browserRenderSessionFactory ?? createBrowserRenderSession,
   } satisfies ResolvedCrawlOptions;
-  const report = await prisma.report.findUnique({
-    where: {
-      id: reportId,
-    },
-    select: {
-      id: true,
-      normalizedUrl: true,
-      url: true,
-    },
-  });
-
-  if (!report) {
-    throw new Error("Report not found.");
-  }
-
-  const requestedHomepageUrl = report.normalizedUrl || report.url;
   const homepageSecurity = await validateUrlForScan(requestedHomepageUrl, {
     redirectLimit: crawlOptions.redirectLimit,
     timeoutMs: crawlOptions.timeoutMs,
@@ -333,7 +329,7 @@ export async function crawlReportWebsite(
   };
   let homepageError: string | null = null;
   const configuration = new Configuration({
-    defaultRequestQueueId: `crawl-${reportId}`,
+    defaultRequestQueueId: `crawl-${randomUUID()}`,
     persistStorage: false,
     purgeOnStart: true,
   });
@@ -399,11 +395,22 @@ export async function crawlReportWebsite(
         const extracted = html
           ? extractPageData(html, security.finalUrl, siteOrigin)
           : null;
+        const browserTrigger =
+          html && extracted
+            ? detectBrowserFallbackTrigger({
+                html,
+                extracted,
+                homepageUrl,
+              })
+            : null;
         const page: CrawledPageResult = {
           requestedUrl: request.url,
           finalUrl: security.finalUrl,
           statusCode,
           extracted,
+          ...(browserTrigger
+            ? { browserTriggerCodes: browserTrigger.codes }
+            : {}),
         };
 
         if (!isSuccessfulHtmlPage(page)) {
@@ -515,7 +522,157 @@ export async function crawlReportWebsite(
 
   await crawler.run([{ url: homepageUrl, uniqueKey: homepageNormalizedUrl }]);
 
+  const browserFallback = {
+    policyVersion: BROWSER_FALLBACK_POLICY_VERSION,
+    enabled: crawlOptions.browserFallbackEnabled,
+    status: "not_needed" as
+      | "disabled"
+      | "not_needed"
+      | "completed"
+      | "partial"
+      | "failed",
+    limits: {
+      maxRenderedPages: crawlOptions.browserFallbackPageLimit,
+      navigationTimeoutMs: crawlOptions.browserFallbackTimeoutMs,
+      maxRequestsPerPage: BROWSER_FALLBACK_REQUEST_LIMIT,
+      maxRequestsPerReport: BROWSER_FALLBACK_REPORT_REQUEST_LIMIT,
+    },
+    triggerCandidates: successfulPages
+      .filter((page) => page.browserTriggerCodes?.length)
+      .map((page) => ({
+        url: page.finalUrl,
+        codes: page.browserTriggerCodes!,
+      })),
+    attemptedUrls: [] as string[],
+    renderedUrls: [] as string[],
+    adoptedUrls: [] as string[],
+    requestCount: 0,
+    abortedRequestCount: 0,
+    discoveredFromRenderedDom: 0,
+    failures: [] as Array<{ url: string; code: string; message: string }>,
+  };
+
+  if (!crawlOptions.browserFallbackEnabled) {
+    browserFallback.status = "disabled";
+  } else if (browserFallback.triggerCandidates.length > 0) {
+    const candidates = successfulPages
+      .filter((page) => page.browserTriggerCodes?.length)
+      .sort((left, right) =>
+        left.finalUrl === homepageUrl ? -1 : right.finalUrl === homepageUrl ? 1 : 0,
+      )
+      .slice(0, crawlOptions.browserFallbackPageLimit);
+    const browserFallbackStartedAt = Date.now();
+    let session: Awaited<ReturnType<BrowserRenderSessionFactory>> | null = null;
+
+    try {
+      session = await crawlOptions.browserRenderSessionFactory({
+        homepageUrl,
+        navigationTimeoutMs: crawlOptions.browserFallbackTimeoutMs,
+        requestLimit: BROWSER_FALLBACK_REQUEST_LIMIT,
+      });
+
+      for (const page of candidates) {
+        if (
+          Date.now() - browserFallbackStartedAt >=
+          BROWSER_FALLBACK_REPORT_DEADLINE_MS
+        ) {
+          browserFallback.failures.push({
+            url: page.finalUrl,
+            code: "report_deadline",
+            message: "The browser fallback report deadline was exhausted.",
+          });
+          break;
+        }
+        if (browserFallback.requestCount >= BROWSER_FALLBACK_REPORT_REQUEST_LIMIT) {
+          browserFallback.failures.push({
+            url: page.finalUrl,
+            code: "report_request_limit",
+            message: "The browser fallback request budget was exhausted.",
+          });
+          break;
+        }
+
+        browserFallback.attemptedUrls.push(page.finalUrl);
+        try {
+          const rendered = await session.render(page.finalUrl);
+          browserFallback.requestCount += rendered.requestCount;
+          browserFallback.abortedRequestCount += rendered.abortedRequestCount;
+
+          if (
+            rendered.statusCode === null ||
+            rendered.statusCode < 200 ||
+            rendered.statusCode >= 300
+          ) {
+            throw new Error("The rendered page did not return a successful HTML response.");
+          }
+
+          const staticIdentity =
+            normalizeCandidateUrl(page.finalUrl, homepageUrl) ?? page.finalUrl;
+          const renderedIdentity =
+            normalizeCandidateUrl(rendered.finalUrl, homepageUrl) ?? rendered.finalUrl;
+          if (staticIdentity !== renderedIdentity) {
+            throw new Error("The rendered page identity did not match its static page.");
+          }
+
+          const renderedData = extractRenderedPage(rendered, siteOrigin);
+          const merged = mergeRenderedExtraction(page.extracted!, renderedData);
+          page.extracted = merged.extracted;
+          page.renderedEvidence = {
+            policyVersion: BROWSER_FALLBACK_POLICY_VERSION,
+            finalUrl: rendered.finalUrl,
+            triggerCodes: page.browserTriggerCodes!,
+            adopted: merged.adopted,
+            requestCount: rendered.requestCount,
+            abortedRequestCount: rendered.abortedRequestCount,
+            htmlTruncated: rendered.htmlTruncated,
+          };
+          browserFallback.renderedUrls.push(page.finalUrl);
+          if (merged.adopted) browserFallback.adoptedUrls.push(page.finalUrl);
+
+          for (const link of renderedData.links.internal) {
+            const normalized = normalizeCandidateUrl(link.href, homepageUrl);
+            if (normalized && sameHostname(normalized, homepageHostname)) {
+              const before = discoveredUrls.size;
+              discoveredUrls.add(normalized);
+              if (discoveredUrls.size > before) {
+                browserFallback.discoveredFromRenderedDom += 1;
+              }
+            }
+          }
+        } catch (error) {
+          browserFallback.failures.push({
+            url: page.finalUrl,
+            code: "render_failed",
+            message: error instanceof Error ? error.message : "Browser rendering failed.",
+          });
+        }
+      }
+    } catch (error) {
+      browserFallback.failures.push({
+        url: candidates[0]?.finalUrl ?? homepageUrl,
+        code: "session_start_failed",
+        message: error instanceof Error ? error.message : "The browser could not start.",
+      });
+    } finally {
+      await session?.close().catch(() => undefined);
+    }
+
+    browserFallback.status =
+      browserFallback.renderedUrls.length === 0
+        ? "failed"
+        : browserFallback.failures.length > 0
+          ? "partial"
+          : "completed";
+  }
+
   const diagnostics: CrawlDiagnostics = {
+    schemaVersion: CRAWL_DIAGNOSTICS_VERSION,
+    extractionVersion: CRAWLER_EXTRACTION_VERSION,
+    limits: {
+      maxSavedHtmlPages: crawlOptions.pageLimit,
+      maxRequests: crawlOptions.pageLimit * 3,
+      maxRenderedPages: crawlOptions.browserFallbackPageLimit,
+    },
     submittedUrl: requestedHomepageUrl,
     homepageFinalUrl: homepageUrl,
     allowedHostnames: [homepageHostname],
@@ -541,27 +698,19 @@ export async function crawlReportWebsite(
         : {}),
       pageType: page.extracted!.pageType,
     })),
+    browserFallback,
   };
 
-  await saveCrawledPages(reportId, [...successfulPages, ...failedHttpPages]);
-  await prisma.report.update({
-    where: {
-      id: reportId,
-    },
-    data: {
-      crawlDiagnostics: toJson(diagnostics),
-    },
-  });
-
-  if (successfulPages.length === 0) {
-    throw new Error(homepageError ?? "The website homepage could not be crawled.");
-  }
-
+  const pages = [...successfulPages, ...failedHttpPages];
   return {
-    reportId,
     homepageUrl,
     crawledUrls: successfulPages.map((page) => page.finalUrl),
-    pagesSaved: successfulPages.length,
+    pages,
+    successfulHtmlPages: successfulPages.length,
     diagnostics,
+    failureMessage:
+      successfulPages.length === 0
+        ? homepageError ?? "The website homepage could not be crawled."
+        : null,
   };
 }

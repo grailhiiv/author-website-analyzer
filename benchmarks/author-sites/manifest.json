@@ -1,0 +1,395 @@
+{
+  "schemaVersion": "1.0.0",
+  "description": "Curated offline author-site corpus for deterministic extraction, role classification, signal detection, diagnostics, and browser-fallback regression testing.",
+  "cases": [
+    {
+      "id": "conventional-multi-page-author",
+      "description": "A conventional multi-page author site with complete brand, book, trust, and search evidence.",
+      "tags": ["positive", "multi-page", "conventional"],
+      "baseUrl": "https://mara-conventional.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/conventional-home.html", "expectedPrimaryRole": "HOME" },
+        { "path": "/about", "fixture": "fixtures/conventional-about.html", "expectedPrimaryRole": "ABOUT" },
+        { "path": "/books", "fixture": "fixtures/conventional-books.html", "expectedPrimaryRole": "BOOKS_INDEX" },
+        { "path": "/books/glass-harbor", "fixture": "fixtures/conventional-book.html", "expectedPrimaryRole": "BOOK_DETAIL" },
+        { "path": "/contact", "fixture": "fixtures/conventional-contact.html", "expectedPrimaryRole": "CONTACT" },
+        { "path": "/privacy", "fixture": "fixtures/conventional-privacy.html", "expectedPrimaryRole": "PRIVACY" }
+      ],
+      "expectedSignals": {
+        "authorBrand.authorNameVisible": true,
+        "authorBrand.genreOrCategoryMentioned": true,
+        "authorBrand.clearHomepageHeadline": true,
+        "authorBrand.aboutSectionOrPage": true,
+        "bookPromotion.bookCoverImages": true,
+        "bookPromotion.bookTitles": true,
+        "bookPromotion.bookDescriptionOrBlurb": true,
+        "bookPromotion.buyLinks": true,
+        "bookPromotion.retailerLinks": true,
+        "bookPromotion.featuredBookSection": true,
+        "bookPromotion.reviewsOrPraise": true,
+        "newsletter.newsletterSignupForm": false,
+        "trust.authorBio": true,
+        "trust.authorPhoto": true,
+        "trust.contactForm": true,
+        "trust.privacyPolicy": true,
+        "schema.person": true,
+        "schema.book": true,
+        "seo.titleTagExists": true,
+        "seo.metaDescriptionExists": true,
+        "seo.h1Exists": true
+      },
+      "expectedOutcomes": {
+        "brand.about_presence": "present",
+        "books.cover_image": "present",
+        "books.purchase_path": "present",
+        "engagement.newsletter_signup": "absent",
+        "trust.contact_route": "present",
+        "trust.privacy_information": "present",
+        "search.home_title": "present",
+        "search.home_meta_description": "present",
+        "search.home_h1": "present"
+      },
+      "expectedObservations": [
+        { "signalId": "page.role.about", "path": "/about", "sourceKind": "text", "state": "present" },
+        { "signalId": "page.role.book_detail", "path": "/books/glass-harbor", "sourceKind": "jsonld", "state": "present" },
+        { "signalId": "page.role.contact", "path": "/contact", "sourceKind": "form", "state": "present" },
+        { "signalId": "page.role.privacy", "path": "/privacy", "sourceKind": "text", "state": "present" }
+      ]
+    },
+    {
+      "id": "custom-about-slug",
+      "description": "An author biography lives on a custom meet-the-author slug rather than /about.",
+      "tags": ["positive", "custom-slug", "multi-page"],
+      "baseUrl": "https://nia-custom.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/custom-about-home.html", "expectedPrimaryRole": "HOME" },
+        { "path": "/meet-nia", "fixture": "fixtures/custom-about.html", "expectedPrimaryRole": "ABOUT" }
+      ],
+      "expectedSignals": {
+        "authorBrand.aboutSectionOrPage": true,
+        "trust.authorBio": true,
+        "authorBrand.authorNameVisible": true
+      },
+      "expectedOutcomes": { "brand.about_presence": "present" }
+    },
+    {
+      "id": "jsonld-book-custom-slug",
+      "description": "Book schema identifies a detail page whose URL contains no books directory.",
+      "tags": ["positive", "jsonld", "custom-slug"],
+      "baseUrl": "https://elias-jsonld.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/jsonld-home.html", "expectedPrimaryRole": "HOME" },
+        { "path": "/the-clockwork-moon", "fixture": "fixtures/jsonld-book.html", "expectedPrimaryRole": "BOOK_DETAIL" }
+      ],
+      "expectedSignals": {
+        "schema.book": true,
+        "bookPromotion.bookTitles": true,
+        "bookPromotion.bookCoverImages": true,
+        "bookPromotion.bookDescriptionOrBlurb": true,
+        "bookPromotion.buyLinks": true,
+        "bookPromotion.retailerLinks": true
+      },
+      "expectedOutcomes": {
+        "books.cover_image": "present",
+        "books.purchase_path": "present"
+      },
+      "expectedObservations": [
+        { "signalId": "page.role.book_detail", "path": "/the-clockwork-moon", "sourceKind": "jsonld", "state": "present" }
+      ]
+    },
+    {
+      "id": "books-index-language-variant",
+      "description": "A books index uses Published Works rather than Books as its main label.",
+      "tags": ["positive", "content-variant"],
+      "baseUrl": "https://ada-works.author.test/",
+      "pages": [
+        { "path": "/works", "fixture": "fixtures/books-index.html", "expectedPrimaryRole": "BOOKS_INDEX" }
+      ],
+      "expectedSignals": {
+        "bookPromotion.bookTitles": true,
+        "bookPromotion.buyLinks": false,
+        "schema.book": false,
+        "newsletter.newsletterSignupForm": false
+      },
+      "expectedOutcomes": {
+        "books.cover_image": "unknown",
+        "books.purchase_path": "absent"
+      }
+    },
+    {
+      "id": "series-reading-order",
+      "description": "A series page is identified through reading-order and ordered-book language.",
+      "tags": ["positive", "series"],
+      "baseUrl": "https://river-crown.author.test/",
+      "pages": [
+        { "path": "/reading-order", "fixture": "fixtures/series-reading-order.html", "expectedPrimaryRole": "SERIES" }
+      ],
+      "expectedSignals": {
+        "bookPromotion.seriesPage": true,
+        "bookPromotion.bookTitles": true,
+        "bookPromotion.buyLinks": false
+      }
+    },
+    {
+      "id": "local-newsletter-form",
+      "description": "A first-party newsletter form includes an email field, explicit action, and reader magnet.",
+      "tags": ["positive", "newsletter", "form"],
+      "baseUrl": "https://cora-news.author.test/",
+      "pages": [
+        { "path": "/newsletter", "fixture": "fixtures/newsletter-local.html", "expectedPrimaryRole": "NEWSLETTER" }
+      ],
+      "expectedSignals": {
+        "newsletter.newsletterSignupForm": true,
+        "newsletter.subscribeForm": true,
+        "newsletter.emailInput": true,
+        "newsletter.freeChapter": true,
+        "newsletter.updatesSignup": true
+      },
+      "expectedOutcomes": { "engagement.newsletter_signup": "present" },
+      "expectedObservations": [
+        { "signalId": "page.role.newsletter", "path": "/newsletter", "sourceKind": "form", "state": "present" }
+      ]
+    },
+    {
+      "id": "hosted-newsletter-link",
+      "description": "The signup lives on a recognized hosted newsletter service rather than a local form.",
+      "tags": ["positive", "newsletter", "hosted-service"],
+      "baseUrl": "https://imani-hosted.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/newsletter-hosted.html", "expectedPrimaryRole": "HOME" }
+      ],
+      "expectedSignals": {
+        "newsletter.newsletterSignupForm": true,
+        "newsletter.subscribeForm": true,
+        "newsletter.emailInput": false
+      }
+    },
+    {
+      "id": "login-email-field-trap",
+      "description": "A login form has an email input but is not a newsletter signup.",
+      "tags": ["negative", "false-positive", "form"],
+      "baseUrl": "https://member-login.author.test/",
+      "pages": [
+        { "path": "/login", "fixture": "fixtures/login-email-trap.html", "expectedPrimaryRole": "UNKNOWN" }
+      ],
+      "expectedSignals": {
+        "newsletter.newsletterSignupForm": false,
+        "newsletter.subscribeForm": false,
+        "newsletter.emailInput": true,
+        "trust.contactForm": false
+      },
+      "expectedOutcomes": { "engagement.newsletter_signup": "absent" },
+      "forbiddenObservations": [
+        { "signalId": "page.role.newsletter", "path": "/login", "sourceKind": "form" }
+      ]
+    },
+    {
+      "id": "contact-email-field-trap",
+      "description": "A contact form with an email field must not be counted as a newsletter form.",
+      "tags": ["negative", "false-positive", "contact", "form"],
+      "baseUrl": "https://rowan-contact.author.test/",
+      "pages": [
+        { "path": "/hello", "fixture": "fixtures/contact-form-trap.html", "expectedPrimaryRole": "CONTACT" }
+      ],
+      "expectedSignals": {
+        "newsletter.newsletterSignupForm": false,
+        "newsletter.subscribeForm": false,
+        "newsletter.emailInput": true,
+        "trust.contactForm": true
+      },
+      "expectedOutcomes": {
+        "engagement.newsletter_signup": "absent",
+        "trust.contact_route": "present"
+      },
+      "expectedObservations": [
+        { "signalId": "page.role.contact", "path": "/hello", "sourceKind": "form", "state": "present" }
+      ],
+      "forbiddenObservations": [
+        { "signalId": "page.role.newsletter", "path": "/hello", "sourceKind": "form" }
+      ]
+    },
+    {
+      "id": "article-book-mention",
+      "description": "An article about books is not the author's book-detail or catalog page.",
+      "tags": ["negative", "ambiguous", "false-positive", "article"],
+      "baseUrl": "https://essay-author.author.test/",
+      "pages": [
+        { "path": "/journal/five-books", "fixture": "fixtures/article-book-mention.html", "expectedPrimaryRole": "ARTICLE" }
+      ],
+      "expectedSignals": {
+        "schema.book": false,
+        "bookPromotion.bookTitles": false,
+        "bookPromotion.buyLinks": false
+      },
+      "expectedObservations": [
+        { "signalId": "page.role.article", "path": "/journal/five-books", "sourceKind": "jsonld", "state": "present" }
+      ],
+      "forbiddenObservations": [
+        { "signalId": "page.role.book_detail", "path": "/journal/five-books", "sourceKind": "jsonld" }
+      ]
+    },
+    {
+      "id": "youtube-subscribe-trap",
+      "description": "Subscribe on YouTube is a social call to action, not newsletter evidence.",
+      "tags": ["negative", "false-positive", "social"],
+      "baseUrl": "https://jun-videos.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/youtube-subscribe-trap.html", "expectedPrimaryRole": "HOME" }
+      ],
+      "expectedSignals": {
+        "newsletter.newsletterSignupForm": false,
+        "newsletter.subscribeForm": false,
+        "trust.socialLinks": true
+      }
+    },
+    {
+      "id": "event-buy-ticket-trap",
+      "description": "A Buy tickets event CTA must not be treated as a book purchase path.",
+      "tags": ["negative", "false-positive", "events"],
+      "baseUrl": "https://lena-events.author.test/",
+      "pages": [
+        { "path": "/events", "fixture": "fixtures/events-buy-ticket-trap.html", "expectedPrimaryRole": "EVENTS" }
+      ],
+      "expectedSignals": {
+        "bookPromotion.buyLinks": false,
+        "bookPromotion.retailerLinks": false,
+        "schema.book": false
+      }
+    },
+    {
+      "id": "sparse-server-rendered-home",
+      "description": "A sparse but complete server-rendered homepage must not invoke browser fallback.",
+      "tags": ["ambiguous", "fallback-negative", "sparse"],
+      "baseUrl": "https://sol-sparse.author.test/",
+      "pages": [
+        {
+          "path": "/",
+          "fixture": "fixtures/sparse-ssr.html",
+          "expectedPrimaryRole": "HOME",
+          "expectedFallback": { "triggerCodes": [] }
+        }
+      ],
+      "expectedSignals": {
+        "authorBrand.clearHomepageHeadline": true,
+        "seo.titleTagExists": true,
+        "seo.metaDescriptionExists": true,
+        "seo.h1Exists": true
+      },
+      "expectedOutcomes": {
+        "search.home_title": "present",
+        "search.home_meta_description": "present",
+        "search.home_h1": "present"
+      }
+    },
+    {
+      "id": "javascript-shell-hydrated",
+      "description": "A JavaScript application shell is rendered and the richer extraction is adopted.",
+      "tags": ["positive", "dynamic", "browser-fallback"],
+      "baseUrl": "https://aria-dynamic.author.test/",
+      "pages": [
+        {
+          "path": "/",
+          "fixture": "fixtures/js-shell-static.html",
+          "renderedFixture": "fixtures/js-shell-rendered.html",
+          "expectedPrimaryRole": "HOME",
+          "expectedFallback": {
+            "triggerCodes": ["empty_application_root", "javascript_required_noscript"],
+            "adopted": true
+          }
+        }
+      ],
+      "expectedSignals": {
+        "authorBrand.clearHomepageHeadline": true,
+        "newsletter.newsletterSignupForm": true,
+        "newsletter.emailInput": true,
+        "seo.h1Exists": true
+      },
+      "expectedOutcomes": {
+        "engagement.newsletter_signup": "present",
+        "search.home_title": "present",
+        "search.home_h1": "present"
+      }
+    },
+    {
+      "id": "widget-render-no-material-gain",
+      "description": "A rendered widget response that adds no useful evidence is not adopted.",
+      "tags": ["negative", "dynamic", "browser-fallback"],
+      "baseUrl": "https://tomas-widget.author.test/",
+      "pages": [
+        {
+          "path": "/",
+          "fixture": "fixtures/widget-static.html",
+          "renderedFixture": "fixtures/widget-rendered-no-gain.html",
+          "expectedPrimaryRole": "HOME",
+          "expectedFallback": {
+            "triggerCodes": ["unresolved_widget_placeholder"],
+            "adopted": false
+          }
+        }
+      ],
+      "expectedSignals": {
+        "newsletter.newsletterSignupForm": false,
+        "newsletter.emailInput": false
+      }
+    },
+    {
+      "id": "javascript-shell-render-failed",
+      "description": "A JavaScript-dependent homepage with no rendered result preserves unknown diagnostic outcomes.",
+      "tags": ["ambiguous", "dynamic", "browser-fallback", "failure"],
+      "baseUrl": "https://vera-failed.author.test/",
+      "pages": [
+        {
+          "path": "/",
+          "fixture": "fixtures/js-shell-failed.html",
+          "expectedPrimaryRole": "HOME",
+          "expectedFallback": {
+            "triggerCodes": ["empty_application_root", "javascript_required_noscript"]
+          }
+        }
+      ],
+      "expectedSignals": {
+        "seo.h1Exists": false
+      },
+      "expectedOutcomes": {
+        "search.home_title": "present",
+        "search.home_meta_description": "unknown",
+        "search.home_h1": "unknown"
+      }
+    },
+    {
+      "id": "unattempted-books-candidate",
+      "description": "A discovered books page that was not requested keeps book evidence unknown rather than absent.",
+      "tags": ["ambiguous", "crawl-coverage", "partial-crawl"],
+      "baseUrl": "https://owen-partial.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/unattempted-home.html", "expectedPrimaryRole": "HOME" }
+      ],
+      "crawl": {
+        "discoveredPaths": ["/", "/books"],
+        "attemptedPaths": ["/"]
+      },
+      "expectedSignals": {
+        "bookPromotion.buyLinks": false
+      },
+      "expectedOutcomes": {
+        "books.cover_image": "unknown",
+        "books.purchase_path": "unknown"
+      }
+    },
+    {
+      "id": "malformed-jsonld",
+      "description": "Malformed structured data is ignored without fabricating book evidence or failing extraction.",
+      "tags": ["negative", "malformed", "resilience"],
+      "baseUrl": "https://pia-malformed.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/malformed-jsonld.html", "expectedPrimaryRole": "HOME" }
+      ],
+      "expectedSignals": {
+        "schema.book": false,
+        "bookPromotion.bookTitles": false,
+        "seo.titleTagExists": true,
+        "seo.h1Exists": true
+      }
+    }
+  ]
+}

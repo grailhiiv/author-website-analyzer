@@ -1,6 +1,4 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @plugin "@tailwindcss/forms";
 
@@ -10,7 +8,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-inter);
   --font-display: var(--font-lexend);
   --font-heading: var(--font-lexend);
   --container-2xl: 40rem;

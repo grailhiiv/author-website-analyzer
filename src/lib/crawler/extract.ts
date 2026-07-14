@@ -3,6 +3,10 @@ import { PageType } from "@/generated/prisma/client";
 import * as cheerio from "cheerio";
 import type { Element } from "domhandler";
 
+export const CRAWLER_EXTRACTION_VERSION = "1.2.0";
+
+const MAX_IMAGE_CANDIDATE_SOURCES = 12;
+
 const AUTHOR_PAGE_PATTERNS: Array<{ pageType: PageType; patterns: RegExp[] }> =
   [
     {
@@ -99,6 +103,16 @@ export type ExtractedImage = {
   alt: string | null;
   width: string | null;
   height: string | null;
+  sourceAttribute:
+    | "src"
+    | "srcset"
+    | "data-src"
+    | "data-srcset"
+    | "data-lazy-src"
+    | "data-lazy-srcset"
+    | "data-original"
+    | "picture-source";
+  candidateSources: string[];
 };
 
 export type ExtractedFormField = {
@@ -113,6 +127,7 @@ export type ExtractedFormField = {
 export type ExtractedForm = {
   action: string | null;
   method: string;
+  scope?: "main" | "navigation" | "footer";
   fields: ExtractedFormField[];
   buttons: string[];
 };
@@ -322,18 +337,107 @@ function extractLinks(
 function extractImages($: cheerio.CheerioAPI, pageUrl: string) {
   const images: ExtractedImage[] = [];
 
-  $("img[src]").each((_, element) => {
-    const src = safeHttpUrl($(element).attr("src"), pageUrl);
+  type ImageSource = {
+    url: string;
+    attribute: ExtractedImage["sourceAttribute"];
+    rank: number;
+  };
 
-    if (!src) {
+  const parseSrcset = (
+    value: string | undefined,
+    attribute: ExtractedImage["sourceAttribute"],
+  ) =>
+    (value ?? "")
+      .split(",")
+      .map((candidate, index): ImageSource | null => {
+        const parts = candidate.trim().split(/\s+/);
+        const url = safeHttpUrl(parts[0], pageUrl);
+
+        if (!url) {
+          return null;
+        }
+
+        const descriptor = parts[1] ?? "";
+        const width = descriptor.match(/^(\d+(?:\.\d+)?)w$/i);
+        const density = descriptor.match(/^(\d+(?:\.\d+)?)x$/i);
+        const rank = width
+          ? Number(width[1]) * 100
+          : density
+            ? Number(density[1]) * 1_000
+            : index + 1;
+
+        return { url, attribute, rank };
+      })
+      .filter((source): source is ImageSource => source !== null);
+
+  const isPlaceholder = (value: string | undefined) =>
+    !value ||
+    /^(?:data:|about:blank)/i.test(value.trim()) ||
+    /(?:transparent|spacer|blank)(?:[-_.]|$)/i.test(value);
+
+  $("img").each((_, element) => {
+    const image = $(element);
+    const sources: ImageSource[] = [];
+
+    sources.push(
+      ...parseSrcset(image.attr("data-srcset"), "data-srcset"),
+      ...parseSrcset(image.attr("data-lazy-srcset"), "data-lazy-srcset"),
+      ...parseSrcset(image.attr("srcset"), "srcset"),
+    );
+
+    image
+      .closest("picture")
+      .find("source")
+      .each((__, source) => {
+        sources.push(
+          ...parseSrcset(
+            $(source).attr("data-srcset") ?? $(source).attr("srcset"),
+            "picture-source",
+          ),
+        );
+      });
+
+    const directSources: Array<{
+      attribute: ExtractedImage["sourceAttribute"];
+      value: string | undefined;
+    }> = [
+      { attribute: "data-src", value: image.attr("data-src") },
+      { attribute: "data-lazy-src", value: image.attr("data-lazy-src") },
+      { attribute: "data-original", value: image.attr("data-original") },
+      { attribute: "src", value: image.attr("src") },
+    ];
+
+    for (const source of directSources) {
+      if (isPlaceholder(source.value)) {
+        continue;
+      }
+
+      const url = safeHttpUrl(source.value, pageUrl);
+
+      if (url) {
+        sources.push({ url, attribute: source.attribute, rank: 0 });
+      }
+    }
+
+    const uniqueSources = Array.from(
+      new Map(sources.map((source) => [source.url, source])).values(),
+    );
+    const rankedSources = [...uniqueSources].sort((a, b) => b.rank - a.rank);
+    const preferred = rankedSources[0];
+
+    if (!preferred) {
       return;
     }
 
     images.push({
-      src,
-      alt: normalizeWhitespace($(element).attr("alt") ?? "") || null,
-      width: $(element).attr("width") ?? null,
-      height: $(element).attr("height") ?? null,
+      src: preferred.url,
+      alt: normalizeWhitespace(image.attr("alt") ?? "") || null,
+      width: image.attr("width") ?? null,
+      height: image.attr("height") ?? null,
+      sourceAttribute: preferred.attribute,
+      candidateSources: rankedSources
+        .slice(0, MAX_IMAGE_CANDIDATE_SOURCES)
+        .map((source) => source.url),
     });
   });
 
@@ -382,6 +486,12 @@ function extractForms($: cheerio.CheerioAPI, pageUrl: string) {
     forms.push({
       action: safeHttpUrl($(form).attr("action"), pageUrl),
       method: ($(form).attr("method") ?? "get").toLowerCase(),
+      scope:
+        $(form).closest("footer, [role='contentinfo']").length > 0
+          ? "footer"
+          : $(form).closest("header, nav, [role='navigation']").length > 0
+            ? "navigation"
+            : "main",
       fields,
       buttons: $(form)
         .find("button, input[type='button'], input[type='submit']")
@@ -486,10 +596,22 @@ export function extractPageData(
     bodyText,
     headings: {
       h2: $("h2")
+        .filter(
+          (_, element) =>
+            $(element).closest(
+              "header, nav, footer, [role='navigation'], [role='contentinfo']",
+            ).length === 0,
+        )
         .map((_, element) => normalizeWhitespace($(element).text()))
         .get()
         .filter(Boolean),
       h3: $("h3")
+        .filter(
+          (_, element) =>
+            $(element).closest(
+              "header, nav, footer, [role='navigation'], [role='contentinfo']",
+            ).length === 0,
+        )
         .map((_, element) => normalizeWhitespace($(element).text()))
         .get()
         .filter(Boolean),

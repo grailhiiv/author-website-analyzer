@@ -9,11 +9,14 @@ Numeric scores should be calculated with deterministic rules. AI may be used lat
 - Next.js App Router
 - TypeScript
 - Tailwind CSS
-- shadcn/ui
-- Prisma
+- Ecme UI components
 - PostgreSQL
-- Zod
-- React Hook Form
+- Prisma
+- Better Auth for admin login
+- Playwright for screenshots and page inspection
+- PageSpeed Insights API for performance data
+- AI SDK/OpenAI for report explanation
+- Vercel deployment
 
 ## Scripts
 
@@ -26,6 +29,7 @@ npm run build
 npm run lint
 npm run typecheck
 npm run test
+npm run benchmark:analyzer
 npm run prisma:generate
 npm run prisma:migrate -- --name your_migration_name
 npm run prisma:deploy
@@ -36,6 +40,7 @@ npx prisma validate
 - `npm run deps:check`: Confirms every direct application dependency is installed at the locked version. This runs automatically before development and production builds.
 - `npm run workspace:sync`: Verifies dependencies, regenerates Prisma Client, and applies every committed database migration. This runs automatically before `npm run dev`.
 - `npm run build`: Runs the production Next.js build.
+- `npm run benchmark:analyzer`: Runs the offline author-site detection corpus and reports signal precision/recall, page-role accuracy, diagnostics, crawl coverage, and browser-fallback regressions.
 - `npm run vercel-build`: Generates Prisma Client, then runs the production build. Use this as the Vercel build command.
 - `npm run prisma:migrate`: Creates and applies a local development migration.
 - `npm run prisma:deploy`: Applies committed migrations to the database configured by `DATABASE_URL`. It is used by local workspace synchronization and by deployment workflows.

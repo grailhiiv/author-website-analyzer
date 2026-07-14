@@ -14,7 +14,7 @@ const config: Config = {
 	theme: {
 		fontFamily: {
 			sans: [
-				'Inter',
+				'var(--font-inter)',
 				'ui-sans-serif',
 				'system-ui',
 				'-apple-system',
@@ -39,6 +39,7 @@ const config: Config = {
 				'serif',
 			],
 			mono: [
+				'var(--font-inter)',
 				'ui-monospace',
 				'SFMono-Regular',
 				'Menlo',

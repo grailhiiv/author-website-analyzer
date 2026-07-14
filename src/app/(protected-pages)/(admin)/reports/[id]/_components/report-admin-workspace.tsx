@@ -55,7 +55,10 @@ function FieldLabel({
   children: string;
 }) {
   return (
-    <label className="mb-2 block font-semibold text-gray-700" htmlFor={htmlFor}>
+    <label
+      className="mb-2 block text-sm font-semibold text-gray-700"
+      htmlFor={htmlFor}
+    >
       {children}
     </label>
   );
@@ -101,16 +104,16 @@ export default function ReportAdminWorkspace({
   outreach,
 }: ReportAdminWorkspaceProps) {
   return (
-    <Tabs defaultValue="lead" variant="pill">
+    <Tabs defaultValue="qualification" variant="pill">
       <Tabs.TabList className="mb-5 grid grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-700">
         <Tabs.TabNav value="lead">Lead</Tabs.TabNav>
-        <Tabs.TabNav value="sales">Sales</Tabs.TabNav>
+        <Tabs.TabNav value="qualification">Qualification</Tabs.TabNav>
         <Tabs.TabNav value="outreach">Outreach</Tabs.TabNav>
       </Tabs.TabList>
 
       <Tabs.TabContent value="lead">
         {lead ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Detail label="Full name" value={lead.fullName} />
             <Detail label="Email" value={lead.email} />
             <Detail label="Consent" value={lead.consent} />
@@ -123,13 +126,14 @@ export default function ReportAdminWorkspace({
         )}
       </Tabs.TabContent>
 
-      <Tabs.TabContent value="sales">
+      <Tabs.TabContent value="qualification">
         <form action={updateSalesNotesAction} className="space-y-5">
           <input type="hidden" name="reportId" value={reportId} />
 
           <div>
             <FieldLabel htmlFor="leadStatus">Lead status</FieldLabel>
             <Select<SelectOption>
+              instanceId="report-lead-status"
               inputId="leadStatus"
               name="leadStatus"
               options={leadStatusOptions}
@@ -140,8 +144,9 @@ export default function ReportAdminWorkspace({
           </div>
 
           <div>
-            <FieldLabel htmlFor="serviceFit">Service fit</FieldLabel>
+            <FieldLabel htmlFor="serviceFit">Recommended service</FieldLabel>
             <Select<SelectOption>
+              instanceId="report-service-fit"
               inputId="serviceFit"
               name="serviceFit"
               options={serviceFitOptions}
@@ -152,8 +157,9 @@ export default function ReportAdminWorkspace({
           </div>
 
           <div>
-            <FieldLabel htmlFor="priority">Priority</FieldLabel>
+            <FieldLabel htmlFor="priority">Follow-up priority</FieldLabel>
             <Select<SelectOption>
+              instanceId="report-priority"
               inputId="priority"
               name="priority"
               options={priorityOptions}
@@ -164,19 +170,19 @@ export default function ReportAdminWorkspace({
           </div>
 
           <div>
-            <FieldLabel htmlFor="manualNote">Manual note</FieldLabel>
+            <FieldLabel htmlFor="manualNote">Internal notes</FieldLabel>
             <Input
               id="manualNote"
               name="manualNote"
               textArea
-              rows={6}
+              rows={4}
               defaultValue={manualNote}
-              placeholder="Add internal context, follow-up notes, or outreach details."
+              placeholder="Add useful context, follow-up history, objections, or outreach notes."
             />
           </div>
 
           <Button block type="submit" variant="solid" icon={<TbDeviceFloppy />}>
-            Save sales notes
+            Save follow-up details
           </Button>
         </form>
       </Tabs.TabContent>

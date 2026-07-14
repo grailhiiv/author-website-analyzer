@@ -4,6 +4,28 @@ import {
   normalizeCandidateUrl,
 } from "@/lib/crawler/prioritize";
 
+export const CRAWL_DIAGNOSTICS_VERSION = "1.2.0";
+
+export type BrowserFallbackDiagnostics = {
+  policyVersion: string;
+  enabled: boolean;
+  status: "disabled" | "not_needed" | "completed" | "partial" | "failed";
+  limits: {
+    maxRenderedPages: number;
+    navigationTimeoutMs: number;
+    maxRequestsPerPage: number;
+    maxRequestsPerReport: number;
+  };
+  triggerCandidates: Array<{ url: string; codes: string[] }>;
+  attemptedUrls: string[];
+  renderedUrls: string[];
+  adoptedUrls: string[];
+  requestCount: number;
+  abortedRequestCount: number;
+  discoveredFromRenderedDom: number;
+  failures: Array<{ url: string; code: string; message: string }>;
+};
+
 type CrawlIdentityPage = {
   finalUrl: string;
   statusCode: number | null;
@@ -39,6 +61,13 @@ export type CrawlSavedUrl = {
 };
 
 export type CrawlDiagnostics = {
+  schemaVersion: string;
+  extractionVersion: string;
+  limits: {
+    maxSavedHtmlPages: number;
+    maxRequests: number;
+    maxRenderedPages: number;
+  };
   submittedUrl: string;
   homepageFinalUrl: string;
   allowedHostnames: string[];
@@ -57,6 +86,7 @@ export type CrawlDiagnostics = {
   skippedUrls: CrawlDiagnosticUrl[];
   failedRequests: CrawlDiagnosticUrl[];
   savedUrls: CrawlSavedUrl[];
+  browserFallback: BrowserFallbackDiagnostics;
 };
 
 type SuccessfulHtmlPage<T extends CrawlIdentityPage> = T & {

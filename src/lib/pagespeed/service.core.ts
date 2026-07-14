@@ -1,6 +1,8 @@
 export const PAGESPEED_ENDPOINT =
   "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 
+export const DEFAULT_PAGESPEED_TIMEOUT_MS = 60_000;
+
 export const PAGESPEED_CATEGORIES = [
   "performance",
   "accessibility",
@@ -249,7 +251,7 @@ export async function runPageSpeedStrategy(
   options: PageSpeedOptions
 ): Promise<PageSpeedStrategyResult> {
   const fetchImplementation = options.fetchImplementation ?? fetch;
-  const timeoutMs = options.timeoutMs ?? 30000;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_PAGESPEED_TIMEOUT_MS;
   const url = buildPageSpeedUrl(homepageUrl, strategy, options.apiKey);
 
   try {

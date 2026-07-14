@@ -109,6 +109,7 @@ test("extractPageData extracts author page signals", () => {
   assert.equal(page.images[0].alt, "Jane Writer author portrait");
   assert.equal(page.forms[0].fields[0].label, "Email address");
   assert.equal(page.forms[0].fields[0].required, true);
+  assert.equal(page.forms[0].scope, "main");
   assert.equal(page.jsonLd.length, 1);
   assert.equal(page.seo.canonicalUrl, "https://author.test/");
   assert.equal(page.seo.robots, "index,follow");
@@ -146,6 +147,86 @@ test("extractPageData extracts images, forms, and links with normalized URLs", (
   assert.equal(page.forms[0].action, "https://author.test/signup");
   assert.equal(page.links.internal[0].href, "https://author.test/books");
   assert.equal(page.links.external[0].href, "https://retailer.example/book");
+});
+
+test("extractPageData separates main headings and forms from repeated page chrome", () => {
+  const page = extractPageData(
+    `
+      <main>
+        <h2>About Jane</h2>
+      </main>
+      <footer>
+        <h2>Join my newsletter</h2>
+        <form action="/subscribe">
+          <input type="email" name="email">
+          <button>Subscribe</button>
+        </form>
+      </footer>
+    `,
+    "https://author.test/about",
+  );
+
+  assert.deepEqual(page.headings.h2, ["About Jane"]);
+  assert.equal(page.forms[0].scope, "footer");
+});
+
+test("extractPageData recognizes lazy, srcset, and picture image sources", () => {
+  const page = extractPageData(
+    `
+      <html>
+        <body>
+          <img data-src="/lazy-cover.jpg" alt="Lazy book cover">
+          <img
+            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+            srcset="/cover-small.jpg 400w, /cover-large.jpg 1200w"
+            alt="Responsive book cover"
+          >
+          <picture>
+            <source srcset="/cover.webp 1x, /cover@2x.webp 2x" type="image/webp">
+            <img src="/cover-fallback.jpg" alt="Picture book cover">
+          </picture>
+        </body>
+      </html>
+    `,
+    "https://author.test/books",
+  );
+
+  assert.equal(page.images.length, 3);
+  assert.deepEqual(
+    page.images.map((image) => [image.src, image.sourceAttribute]),
+    [
+      ["https://author.test/lazy-cover.jpg", "data-src"],
+      ["https://author.test/cover-large.jpg", "srcset"],
+      ["https://author.test/cover@2x.webp", "picture-source"],
+    ],
+  );
+  assert.deepEqual(page.images[1].candidateSources, [
+    "https://author.test/cover-large.jpg",
+    "https://author.test/cover-small.jpg",
+  ]);
+  assert.ok(
+    page.images[2].candidateSources.includes(
+      "https://author.test/cover-fallback.jpg",
+    ),
+  );
+});
+
+test("extractPageData caps persisted responsive image candidates", () => {
+  const candidates = Array.from(
+    { length: 15 },
+    (_, index) => `/cover-${index + 1}.jpg ${(index + 1) * 100}w`,
+  ).join(", ");
+  const page = extractPageData(
+    `<img srcset="${candidates}" alt="The book cover">`,
+    "https://author.test/books",
+  );
+
+  assert.equal(page.images[0].candidateSources.length, 12);
+  assert.equal(page.images[0].src, "https://author.test/cover-15.jpg");
+  assert.equal(
+    page.images[0].candidateSources.at(-1),
+    "https://author.test/cover-4.jpg",
+  );
 });
 
 test("prioritizeCrawlUrls keeps homepage first and limits important pages", () => {
@@ -222,6 +303,39 @@ test("prioritizeCrawlUrls ranks author and series slugs before generic pages", (
     "https://author.test/golden-age/",
     "https://author.test/download-now/",
   ]);
+});
+
+test("prioritizeCrawlUrls keeps event archive entries behind core pages", () => {
+  const eventEntries = Array.from(
+    { length: 20 },
+    (_, index) => `https://author.test/events/past-event-${index + 1}`,
+  );
+  const urls = prioritizeCrawlUrls({
+    homepageUrl: "https://author.test/",
+    sitemapUrls: [
+      ...eventEntries,
+      "https://author.test/events",
+      "https://author.test/privacy-notice",
+      "https://author.test/contact",
+      "https://author.test/about",
+      "https://author.test/books",
+      "https://author.test/newsletter",
+      "https://author.test/blog",
+    ],
+    limit: 10,
+  });
+
+  assert.deepEqual(urls.slice(0, 8), [
+    "https://author.test/",
+    "https://author.test/about",
+    "https://author.test/books",
+    "https://author.test/newsletter",
+    "https://author.test/contact",
+    "https://author.test/events",
+    "https://author.test/blog",
+    "https://author.test/privacy-notice",
+  ]);
+  assert.equal(urls.filter((url) => url.includes("/events/")).length, 2);
 });
 
 test("parseRobotsSitemapUrls discovers absolute and relative Sitemap directives", () => {

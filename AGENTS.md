@@ -70,3 +70,31 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 <!-- END:nextjs-agent-rules -->
+
+## Model and subagent routing
+
+Automatically decide whether delegation is useful. Keep simple tasks on the
+main agent, and do not delegate merely because a custom agent is available. Do
+not ask the user to choose a model unless the required model is unavailable.
+
+Use `fast_scan` for substantial read-only exploration that would otherwise
+produce noisy context.
+
+Use `quick_worker` for tiny, obvious edits such as exact wording changes,
+simple CSS adjustments, formatting, and other bounded one-file fixes. Keep its
+scope narrow and escalate to `routine_worker` when broader implementation or
+verification is needed.
+
+Use `routine_worker` for normal, bounded implementation. This is the default
+subagent for everyday Author Website Analyzer development.
+
+Use `deep_worker` when work crosses multiple systems, involves ambiguous
+behavior, or requires substantial debugging and verification.
+
+Use `critical_worker` only for consequential architecture, security,
+deterministic scoring, report authorization, production reliability, or
+release-readiness work.
+
+Use no more than one subagent by default. Use multiple subagents only when the
+tasks are genuinely independent. Numeric analyzer scores must always remain
+deterministic; AI may explain findings but must not determine scores.

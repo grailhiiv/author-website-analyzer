@@ -2,6 +2,15 @@
 
 The Author Website Analyzer assigns every numeric score from saved scan data. AI can explain the resulting scores and findings, but it cannot create, change, or override them.
 
+## Related standards
+
+- [`author-site-standard/README.md`](./author-site-standard/README.md) defines the authority, scope, and maintenance rules for the author-site standard.
+- [`author-site-standard/page-standards.md`](./author-site-standard/page-standards.md) documents recommended observable qualities by page role.
+- [`author-site-standard/detection-evidence.md`](./author-site-standard/detection-evidence.md) defines how crawler evidence should support a deterministic result.
+- [`author-site-standard/check-registry.md`](./author-site-standard/check-registry.md) is the proposed contract for stable check IDs and applicability.
+
+Those documents are a calibration basis. They do not add, remove, or reweight a scoring check by themselves. A numeric scoring change requires an explicit product decision, an engine change, tests, and an entry in the standard changelog.
+
 ## Formula
 
 For each category `c`:

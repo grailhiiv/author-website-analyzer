@@ -31,3 +31,15 @@ _Avoid_: AI suggestion, practical action
 **Practical Action**:
 One fixed, concrete implementation step attached to a primary recommendation. A finding can contain several practical actions.
 _Avoid_: Scoring check, primary recommendation
+
+**Page Role**:
+The primary reader purpose served by a scanned page, inferred from several observable signals such as navigation context, headings, structured data, links, and URL path. A page can support secondary purposes, but one primary role guides evaluation.
+_Avoid_: Page type inferred from the URL alone
+
+**Evidence Observation**:
+A source-attributed fact collected from a page or response and used to evaluate one or more scoring checks. It records what was observed and where, without deciding the score by itself.
+_Avoid_: Finding, AI opinion
+
+**Page Standard**:
+The documented observable qualities expected for a page role. A page standard is a calibration reference and does not become a scoring check until the deterministic scoring contract and tests explicitly adopt it.
+_Avoid_: Automatic scoring rule

@@ -24,7 +24,11 @@
 # misc
 .DS_Store
 *.pem
-.codex/
+/.codex/*
+!/.codex/config.toml
+!/.codex/agents/
+/.codex/agents/*
+!/.codex/agents/*.toml
 
 # debug
 npm-debug.log*
@@ -44,3 +48,8 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# operator-approved live validation inputs and sanitized outputs
+/validation/*.json
+!/validation/live-sites.example.json
+/artifacts/live-site-validation/

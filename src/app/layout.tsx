@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { getLocale, getMessages } from 'next-intl/server'
+import { Inter } from 'next/font/google'
 
 import LocaleProvider from '@/components/template/LocaleProvider'
 import NavigationProvider from '@/components/template/Navigation/NavigationProvider'
@@ -7,6 +8,14 @@ import ThemeProvider from '@/components/template/Theme/ThemeProvider'
 import { getNavigation } from '@/server/actions/navigation/getNavigation'
 import { getTheme } from '@/server/actions/theme'
 import '@/assets/styles/app.css'
+
+const inter = Inter({
+    subsets: ['latin'],
+    weight: 'variable',
+    display: 'swap',
+    fallback: ['ui-sans-serif', 'system-ui', 'Segoe UI', 'Arial', 'sans-serif'],
+    variable: '--font-inter',
+})
 
 export const metadata = {
     title: 'Author Website Analyzer | GrailHiiv',
@@ -27,7 +36,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
     return (
         <html
-            className={theme.mode === 'dark' ? 'dark' : 'light'}
+            className={`${inter.variable} ${theme.mode === 'dark' ? 'dark' : 'light'}`}
             lang={locale}
             dir={theme.direction}
             suppressHydrationWarning

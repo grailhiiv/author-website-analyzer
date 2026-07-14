@@ -19,6 +19,9 @@ const PRIORITY_PATHS = [
   "/subscribe",
   "/reader-list",
   "/contact",
+  "/privacy",
+  "/privacy-policy",
+  "/privacy-notice",
   "/blog",
   "/news",
   "/media",
@@ -118,6 +121,12 @@ function getPriorityScore(url: string) {
 
   if (path === "/home" || path.startsWith("/home/")) {
     return 9_000;
+  }
+
+  // An archive index is useful; its individual entries should not consume the
+  // bounded crawl budget before core author, book, contact, and policy pages.
+  if (/^\/(?:events|appearances|calendar)\/.+/.test(path)) {
+    return 12_000 + path.length;
   }
 
   const pageTypePriority: Record<PageType, number> = {

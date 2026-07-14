@@ -141,6 +141,7 @@ model PageScanned {
   imagesJson          Json?
   formsJson           Json?
   wordCount           Int?
+  renderedJson        Json?
   screenshotUrl       String?
   mobileScreenshotUrl String?
   createdAt           DateTime @default(now())

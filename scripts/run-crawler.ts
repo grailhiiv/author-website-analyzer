@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { crawlReportWebsite } from "@/lib/crawler/service.core";
+import { crawlReportWebsite } from "@/lib/crawler/service.persistence";
 import { prisma } from "@/lib/db/prisma.core";
 import { getWebsiteDomain, normalizeWebsiteUrl } from "@/lib/urls/normalize";
 import { validateUrlForScan } from "@/lib/urls/security";

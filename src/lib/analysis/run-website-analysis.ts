@@ -18,8 +18,9 @@ import {
   type AnalysisTimings,
 } from "@/lib/analysis/progress.core";
 import { updateAnalysisProgress } from "@/lib/analysis/progress";
-import { crawlReportWebsite } from "@/lib/crawler/service.core";
+import { crawlReportWebsite } from "@/lib/crawler/service.persistence";
 import { prisma } from "@/lib/db/prisma.core";
+import { DEFAULT_PAGESPEED_TIMEOUT_MS } from "@/lib/pagespeed/service.core";
 import { saveReportPageSpeedAudit } from "@/lib/pagespeed/service";
 import {
   captureReportHomepageScreenshots,
@@ -35,7 +36,6 @@ const SCREENSHOT_PIPELINE_FAILURE_TITLE = "Screenshot capture failed";
 const CRAWL_TIMEOUT_MS = 6_000;
 const SITEMAP_TIMEOUT_MS = 3_000;
 const SCREENSHOT_TIMEOUT_MS = 12_000;
-const PAGESPEED_TIMEOUT_MS = 12_000;
 const AI_ENRICHMENT_TIMEOUT_MS = 8_000;
 
 function errorMessage(error: unknown) {
@@ -166,7 +166,7 @@ async function safelyRunPageSpeed(reportId: string, homepageUrl: string) {
   try {
     await saveReportPageSpeedAudit(reportId, {
       homepageUrl,
-      timeoutMs: PAGESPEED_TIMEOUT_MS,
+      timeoutMs: DEFAULT_PAGESPEED_TIMEOUT_MS,
     });
   } catch {
     await savePipelineFinding({

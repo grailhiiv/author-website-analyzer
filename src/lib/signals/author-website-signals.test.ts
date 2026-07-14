@@ -251,6 +251,50 @@ test("detectAuthorWebsiteSignals recognizes externally hosted newsletter signup 
   assert.equal(signals.newsletter.subscribeForm.detected, true);
 });
 
+test("detectAuthorWebsiteSignals does not treat a YouTube subscription as a newsletter", () => {
+  const homepage = extractPageData(
+    `
+      <!doctype html>
+      <html>
+        <head><title>Jane Writer</title></head>
+        <body>
+          <h1>Jane Writer</h1>
+          <a href="https://www.youtube.com/@janewriter?sub_confirmation=1">Subscribe on YouTube</a>
+        </body>
+      </html>
+    `,
+    "https://author.test/",
+  );
+
+  const signals = detectAuthorWebsiteSignals([pageInput(homepage)]);
+
+  assert.equal(signals.newsletter.newsletterSignupForm.detected, false);
+  assert.equal(signals.newsletter.subscribeForm.detected, false);
+  assert.equal(signals.trust.socialLinks.detected, true);
+});
+
+test("detectAuthorWebsiteSignals does not treat event ticket sales as book purchase links", () => {
+  const events = extractPageData(
+    `
+      <!doctype html>
+      <html>
+        <head><title>Jane Writer Events</title></head>
+        <body>
+          <h1>Upcoming Events</h1>
+          <p>Join Jane for a live writing workshop.</p>
+          <a href="/events/coastal-workshop/tickets">Buy tickets</a>
+        </body>
+      </html>
+    `,
+    "https://author.test/events",
+  );
+
+  const signals = detectAuthorWebsiteSignals([pageInput(events)]);
+
+  assert.equal(signals.bookPromotion.buyLinks.detected, false);
+  assert.equal(signals.bookPromotion.bookTitles.detected, false);
+});
+
 test("detectAuthorWebsiteSignals accepts legacy seed-style scanned page JSON", () => {
   const signals = detectAuthorWebsiteSignals([
     {
@@ -280,4 +324,80 @@ test("detectAuthorWebsiteSignals accepts legacy seed-style scanned page JSON", (
   assert.equal(signals.newsletter.emailInput.detected, true);
   assert.equal(signals.retailers.kobo.detected, true);
   assert.equal(signals.retailers.publisherWebsites.detected, true);
+});
+
+test("detectAuthorWebsiteSignals uses content-derived roles for custom page slugs", () => {
+  const pages = [
+    extractPageData(
+      `<html><head><title>Meet Jane Writer</title></head><body><h1>Meet Jane Writer</h1><p>Jane writes historical mysteries.</p></body></html>`,
+      "https://author.test/meet-jane",
+    ),
+    extractPageData(
+      `<html><head><title>Reader Newsletter</title></head><body><h1>Reader Newsletter</h1><form action="/join"><label>Email <input type="email" name="email"></label><button>Submit</button></form></body></html>`,
+      "https://author.test/readers",
+    ),
+    extractPageData(
+      `<html><head><title>Get in Touch</title></head><body><h1>Get in Touch</h1><form action="/send"><label>Message <textarea name="message"></textarea></label><button>Send</button></form></body></html>`,
+      "https://author.test/hello",
+    ),
+    extractPageData(
+      `<html><head><title>Media Kit</title></head><body><h1>Media Kit</h1><p>Author photos and publicity resources.</p></body></html>`,
+      "https://author.test/resources",
+    ),
+    extractPageData(
+      `<html><head><title>Privacy Policy</title></head><body><h1>Privacy Policy</h1><p>How reader information is handled.</p></body></html>`,
+      "https://author.test/legal",
+    ),
+  ];
+
+  const signals = detectAuthorWebsiteSignals(pages.map(pageInput));
+
+  assert.equal(signals.authorBrand.aboutSectionOrPage.detected, true);
+  assert.equal(signals.trust.authorBio.detected, true);
+  assert.equal(signals.newsletter.newsletterSignupForm.detected, true);
+  assert.equal(signals.trust.contactForm.detected, true);
+  assert.equal(signals.trust.mediaKit.detected, true);
+  assert.equal(signals.trust.privacyPolicy.detected, true);
+  assert.ok(
+    signals.observations?.some(
+      (observation) =>
+        observation.pageRole === "NEWSLETTER" &&
+        observation.sourceUrl === "https://author.test/readers",
+    ),
+  );
+});
+
+test("detectAuthorWebsiteSignals does not treat failed page URLs as evidence", () => {
+  const signals = detectAuthorWebsiteSignals([
+    {
+      url: "https://author.test/",
+      pageType: "HOME",
+      statusCode: 200,
+      title: "Jane Writer",
+      h1: "Jane Writer",
+    },
+    {
+      url: "https://author.test/about",
+      pageType: "ABOUT",
+      statusCode: 404,
+      title: null,
+      h1: null,
+    },
+    {
+      url: "https://author.test/contact",
+      pageType: "CONTACT",
+      statusCode: 500,
+      title: null,
+      h1: null,
+    },
+  ]);
+
+  assert.equal(signals.pagesAnalyzed, 1);
+  assert.equal(signals.authorBrand.aboutSectionOrPage.detected, false);
+  assert.equal(signals.trust.authorBio.detected, false);
+  assert.equal(signals.trust.contactForm.detected, false);
+  assert.equal(
+    signals.pageRoles?.some(({ sourceUrl }) => sourceUrl.endsWith("/about")),
+    false,
+  );
 });

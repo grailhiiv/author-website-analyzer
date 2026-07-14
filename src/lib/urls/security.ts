@@ -6,7 +6,7 @@ import { normalizeWebsiteUrl } from "@/lib/urls/normalize";
 const DEFAULT_REDIRECT_LIMIT = 5;
 const DEFAULT_TIMEOUT_MS = 5000;
 
-type ResolveHostname = (hostname: string) => Promise<string[]>;
+export type ResolveHostname = (hostname: string) => Promise<string[]>;
 type FetchImplementation = (
   input: string,
   init: RequestInit
@@ -52,9 +52,13 @@ function isPrivateIpv4(address: string) {
     first === 0 ||
     first === 10 ||
     first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
     (first === 169 && second === 254) ||
     (first === 172 && second >= 16 && second <= 31) ||
-    (first === 192 && second === 168)
+    (first === 192 && second === 0) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    first >= 224
   );
 }
 
@@ -176,6 +180,43 @@ async function resolveAndValidateHostname(
   }
 }
 
+export type PublicHttpUrlValidationResult =
+  | { ok: true; url: string; hostname: string }
+  | { ok: false; message: string };
+
+/**
+ * DNS-only validation for browser requests. This does not fetch the URL; it is
+ * intended for Playwright request interception where every HTTP request must be
+ * checked immediately before Chromium is allowed to issue it.
+ */
+export async function validatePublicHttpUrl(
+  value: string,
+  options: { resolveHostname?: ResolveHostname } = {},
+): Promise<PublicHttpUrlValidationResult> {
+  const parsed = parseHttpUrl(value, { normalizeWebsiteInput: false });
+
+  if (!parsed.ok) {
+    return parsed;
+  }
+
+  if (parsed.url.username || parsed.url.password) {
+    return { ok: false, message: "Website URLs with credentials are not allowed." };
+  }
+
+  const hostnameError = await resolveAndValidateHostname(
+    parsed.url.hostname,
+    options.resolveHostname ?? defaultResolveHostname,
+  );
+
+  return hostnameError
+    ? { ok: false, message: hostnameError }
+    : {
+        ok: true,
+        url: parsed.url.toString(),
+        hostname: parsed.url.hostname,
+      };
+}
+
 async function fetchWithTimeout(
   fetchImplementation: FetchImplementation,
   url: string,
@@ -210,6 +251,10 @@ export async function validateUrlForScan(
 
   if (!parsed.ok) {
     return parsed;
+  }
+
+  if (parsed.url.username || parsed.url.password) {
+    return { ok: false, message: "Website URLs with credentials are not allowed." };
   }
 
   let currentUrl = parsed.url;
@@ -284,6 +329,13 @@ export async function validateUrlForScan(
     });
 
     if (!nextParsed.ok) {
+      return {
+        ok: false,
+        message: "That website redirects to an unsafe URL.",
+      };
+    }
+
+    if (nextParsed.url.username || nextParsed.url.password) {
       return {
         ok: false,
         message: "That website redirects to an unsafe URL.",

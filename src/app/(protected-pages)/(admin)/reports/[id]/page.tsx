@@ -3,11 +3,14 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
   TbArrowLeft,
+  TbDeviceDesktopFilled,
+  TbDeviceMobileFilled,
   TbExternalLink,
   TbFileAnalytics,
   TbPhoto,
 } from "react-icons/tb";
 
+import Alert from "@/components/ui/Alert";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Progress from "@/components/ui/Progress";
@@ -28,6 +31,12 @@ import {
 import { parseSerializedOutreachMessage } from "@/lib/ai/outreach-message.core";
 import { parseSerializedReportNarrative } from "@/lib/ai/report-narrative.core";
 import { prisma } from "@/lib/db/prisma";
+import type {
+  KeyLighthouseAudit,
+  KeyLighthouseData,
+  PageSpeedScores,
+  PageSpeedStrategy,
+} from "@/lib/pagespeed/service.core";
 import {
   getAdminReportPath,
   getReportPath,
@@ -66,10 +75,54 @@ function countJsonArray(value: unknown) {
   return Array.isArray(value) ? value.length : 0;
 }
 
-function getLighthouseSource(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const source = (value as { source?: unknown }).source;
-  return typeof source === "string" ? source : null;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function getLighthouseData(
+  value: unknown,
+  strategy: PageSpeedStrategy,
+): KeyLighthouseData | null {
+  if (!isRecord(value)) return null;
+
+  const data = value[strategy];
+
+  if (
+    !isRecord(data) ||
+    data.strategy !== strategy ||
+    !isRecord(data.categories) ||
+    !isRecord(data.audits)
+  ) {
+    return null;
+  }
+
+  return data as KeyLighthouseData;
+}
+
+function hasPageSpeedScore(scores: PageSpeedScores) {
+  return Object.values(scores).some((value) => value !== null);
+}
+
+function lighthouseScoreColor(score: number | null) {
+  if (score === null) return "text-gray-400";
+  if (score >= 90) return "text-success";
+  if (score >= 50) return "text-warning";
+  return "text-error";
+}
+
+function hasLighthouseMetricNeedingAttention(
+  scores: PageSpeedScores,
+  audits: KeyLighthouseData["audits"],
+) {
+  const categoryNeedsAttention = Object.values(scores).some(
+    (score) => score !== null && score < 50,
+  );
+  const labMetricNeedsAttention = Object.values(audits).some(
+    (audit) =>
+      audit?.score !== null && audit?.score !== undefined && audit.score < 50,
+  );
+
+  return categoryNeedsAttention || labMetricNeedsAttention;
 }
 
 function firstScreenshot<T extends { screenshotUrl: string | null }>(
@@ -127,6 +180,23 @@ function severityTagClass(severity: string) {
   return "border-0 bg-gray-100 text-gray-600";
 }
 
+function severityRank(severity: string) {
+  if (severity === "CRITICAL") return 0;
+  if (severity === "HIGH") return 1;
+  if (severity === "MEDIUM") return 2;
+  return 3;
+}
+
+function httpStatusTagClass(status: number | null) {
+  if (status !== null && status >= 200 && status < 400) {
+    return "border-0 bg-success-subtle text-success";
+  }
+  if (status !== null && status >= 400) {
+    return "border-0 bg-error-subtle text-error";
+  }
+  return "border-0 bg-gray-100 text-gray-600";
+}
+
 function SectionTitle({
   title,
   description,
@@ -136,8 +206,12 @@ function SectionTitle({
 }) {
   return (
     <div>
-      <h4>{title}</h4>
-      <p className="mt-1 text-sm font-normal text-gray-500">{description}</p>
+      <h3 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+        {title}
+      </h3>
+      <p className="mt-1.5 max-w-3xl text-sm font-normal leading-6 text-gray-500">
+        {description}
+      </p>
     </div>
   );
 }
@@ -145,35 +219,202 @@ function SectionTitle({
 function MetaItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <div className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
         {label}
       </div>
-      <div className="font-semibold text-gray-900 dark:text-gray-100">
+      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
         {value}
       </div>
     </div>
   );
 }
 
-function AuditMetric({
+function LighthouseCategoryMetric({
   label,
   value,
 }: {
   label: string;
   value: number | null;
 }) {
+  const colorClass = lighthouseScoreColor(value);
+
   return (
-    <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-700/40">
-      <div className="mb-3 flex items-end justify-between gap-3">
-        <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-          {label}
-        </span>
-        <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
-          {value === null ? "N/A" : value}
-        </span>
-      </div>
-      <Progress percent={value ?? 0} showInfo={false} size="sm" />
+    <div className="flex min-w-0 flex-col items-center text-center">
+      <Progress
+        className="!w-fit"
+        variant="circle"
+        percent={value ?? 0}
+        width={76}
+        strokeWidth={6}
+        customColorClass={colorClass}
+        customInfo={
+          <span
+            className={`text-base font-semibold tabular-nums ${colorClass}`}
+          >
+            {value ?? "N/A"}
+          </span>
+        }
+      />
+      <span className="mt-3 text-sm font-medium text-gray-700 dark:text-gray-200">
+        {label}
+      </span>
     </div>
+  );
+}
+
+function LighthouseLabMetric({
+  label,
+  audit,
+}: {
+  label: string;
+  audit: KeyLighthouseAudit | null;
+}) {
+  const colorClass = lighthouseScoreColor(audit?.score ?? null);
+  const displayValue = audit?.displayValue?.trim() || "N/A";
+  const isPassing =
+    audit?.score !== null && audit?.score !== undefined && audit.score >= 90;
+
+  return (
+    <div className="flex items-center justify-between gap-4 border-t border-gray-200 py-4 dark:border-gray-700">
+      <div className="flex min-w-0 items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
+        {audit?.score === null || audit?.score === undefined ? (
+          <span
+            aria-hidden="true"
+            className="h-2.5 w-2.5 shrink-0 rounded-full bg-gray-300 dark:bg-gray-600"
+          />
+        ) : isPassing ? (
+          <span
+            aria-hidden="true"
+            className="h-2.5 w-2.5 shrink-0 rounded-full bg-success"
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className={`w-2.5 shrink-0 text-center text-[11px] leading-none ${colorClass}`}
+          >
+            ▲
+          </span>
+        )}
+        <span>{label}</span>
+      </div>
+      <div
+        className={`shrink-0 text-xl font-medium tabular-nums ${colorClass}`}
+      >
+        {displayValue}
+      </div>
+    </div>
+  );
+}
+
+function LighthouseDevicePanel({
+  label,
+  scores,
+  audits,
+}: {
+  label: "Mobile" | "Desktop";
+  scores: PageSpeedScores;
+  audits: KeyLighthouseData["audits"];
+}) {
+  const needsAttention = hasLighthouseMetricNeedingAttention(scores, audits);
+  const DeviceIcon =
+    label === "Mobile" ? TbDeviceMobileFilled : TbDeviceDesktopFilled;
+
+  return (
+    <Card
+      className={`flex h-full flex-col overflow-hidden ${
+        needsAttention ? "border-error" : ""
+      }`}
+      bodyClass="flex flex-1 flex-col"
+      header={{
+        content: (
+          <div className="flex items-center gap-3">
+            <span
+              className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+                needsAttention
+                  ? "bg-error-subtle text-error"
+                  : "bg-primary-subtle text-primary"
+              }`}
+            >
+              <DeviceIcon aria-hidden="true" className="text-xl" />
+            </span>
+            <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              {label}
+            </h4>
+          </div>
+        ),
+      }}
+      footer={
+        needsAttention
+          ? {
+              bordered: false,
+              className: "p-3",
+              content: (
+                <Alert type="danger" showIcon>
+                  {label} performance needs attention. Visitors may experience
+                  slow loading, especially while the main page content appears.
+                </Alert>
+              ),
+            }
+          : undefined
+      }
+    >
+      <div>
+        <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+          {label} scores
+        </h4>
+        <p className="mt-1 text-sm text-gray-500">
+          Each category is scored from 0 to 100. Higher scores are better.
+        </p>
+      </div>
+
+      <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-7 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+        <LighthouseCategoryMetric
+          label="Performance"
+          value={scores.performance}
+        />
+        <LighthouseCategoryMetric
+          label="Accessibility"
+          value={scores.accessibility}
+        />
+        <LighthouseCategoryMetric
+          label="Best Practices"
+          value={scores.bestPractices}
+        />
+        <LighthouseCategoryMetric label="SEO" value={scores.seo} />
+      </div>
+
+      <div className="mt-8 border-t border-gray-200 pt-6 dark:border-gray-700">
+        <h4 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+          Loading experience
+        </h4>
+        <p className="mt-1 text-sm text-gray-500">
+          How quickly the homepage appears, responds, and remains visually
+          stable during testing.
+        </p>
+        <div className="mt-4">
+          <LighthouseLabMetric
+            label="First Contentful Paint"
+            audit={audits["first-contentful-paint"] ?? null}
+          />
+          <LighthouseLabMetric
+            label="Largest Contentful Paint"
+            audit={audits["largest-contentful-paint"] ?? null}
+          />
+          <LighthouseLabMetric
+            label="Total Blocking Time"
+            audit={audits["total-blocking-time"] ?? null}
+          />
+          <LighthouseLabMetric
+            label="Cumulative Layout Shift"
+            audit={audits["cumulative-layout-shift"] ?? null}
+          />
+          <LighthouseLabMetric
+            label="Speed Index"
+            audit={audits["speed-index"] ?? null}
+          />
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -218,7 +459,10 @@ export default async function AdminReportDetailPage({
     report.salesNote?.serviceFit?.trim() ||
     extractServiceFit(narrative?.finalRecommendation) ||
     "Not sure";
-  const topFinding = report.findings[0] ?? null;
+  const findingsBySeverity = [...report.findings].sort(
+    (a, b) => severityRank(a.severity) - severityRank(b.severity),
+  );
+  const topFinding = findingsBySeverity[0] ?? null;
   const outreachAngle = buildOutreachAngle({
     serviceFit,
     finalRecommendation: narrative?.finalRecommendation,
@@ -231,47 +475,84 @@ export default async function AdminReportDetailPage({
   const scoresByCategory = new Map(
     report.scores.map((score) => [score.category, score]),
   );
-  const lighthouseSource = getLighthouseSource(
+  const mobileLighthouse = getLighthouseData(
     report.technicalAudit?.lighthouseJson,
+    "mobile",
   );
+  const desktopLighthouse = getLighthouseData(
+    report.technicalAudit?.lighthouseJson,
+    "desktop",
+  );
+  const mobileScores: PageSpeedScores = {
+    performance: report.technicalAudit?.mobilePerformance ?? null,
+    accessibility: report.technicalAudit?.mobileAccessibility ?? null,
+    bestPractices: report.technicalAudit?.mobileBestPractices ?? null,
+    seo: report.technicalAudit?.mobileSeo ?? null,
+  };
+  const desktopScores: PageSpeedScores = {
+    performance: report.technicalAudit?.desktopPerformance ?? null,
+    accessibility: report.technicalAudit?.desktopAccessibility ?? null,
+    bestPractices: report.technicalAudit?.desktopBestPractices ?? null,
+    seo: report.technicalAudit?.desktopSeo ?? null,
+  };
+  const mobileLighthouseScores = mobileLighthouse?.categories ?? mobileScores;
+  const desktopLighthouseScores =
+    desktopLighthouse?.categories ?? desktopScores;
+  const mobileLighthouseAudits = mobileLighthouse?.audits ?? {};
+  const desktopLighthouseAudits = desktopLighthouse?.audits ?? {};
   const overallPercent = report.overallScore ?? 0;
+  const technicalMetricsUnavailable =
+    !hasPageSpeedScore(mobileLighthouseScores) &&
+    !hasPageSpeedScore(desktopLighthouseScores) &&
+    [mobileLighthouseAudits, desktopLighthouseAudits].every((audits) =>
+      [
+        "first-contentful-paint",
+        "largest-contentful-paint",
+        "total-blocking-time",
+        "cumulative-layout-shift",
+        "speed-index",
+      ].every((auditId) => !audits[auditId]?.displayValue),
+    );
 
   return (
-    <div className="flex w-full flex-col gap-4">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+    <div className="flex w-full flex-col gap-5 lg:gap-6">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex items-start gap-3">
           <Link href="/reports" className="mt-1">
             <Button asElement="div" size="sm" icon={<TbArrowLeft />} />
           </Link>
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <h2>{report.domain}</h2>
+              <h2 className="text-2xl font-semibold tracking-tight">
+                {report.domain}
+              </h2>
               <Tag className={statusTagClass(report.status)}>
                 {reportStatusLabels[report.status]}
               </Tag>
             </div>
-            <p className="text-gray-500">
-              Full author website audit and internal follow-up workspace.
+            <p className="max-w-2xl leading-6 text-gray-500">
+              Review the website audit, view the author-facing report, and
+              manage lead follow-up.
             </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 pl-12 xl:pl-0">
           <a href={report.normalizedUrl} target="_blank" rel="noreferrer">
             <Button asElement="div" icon={<TbExternalLink />}>
-              Visit website
+              Open website
             </Button>
           </a>
           <Link href={getReportPath(report.domain)}>
             <Button asElement="div" variant="solid" icon={<TbFileAnalytics />}>
-              Public report
+              View author report
             </Button>
           </Link>
         </div>
       </div>
 
-      <Card bodyClass="p-0 overflow-hidden">
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="grid gap-6 p-6 lg:grid-cols-[148px_minmax(0,1fr)] lg:items-center lg:p-8">
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Card bodyClass="p-0 overflow-hidden">
+          <div className="grid gap-6 p-6 sm:grid-cols-[148px_minmax(0,1fr)] sm:items-center lg:p-8">
             <Progress
               variant="circle"
               percent={overallPercent}
@@ -279,11 +560,11 @@ export default async function AdminReportDetailPage({
               strokeWidth={8}
               customInfo={
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  <div className="text-3xl font-bold tabular-nums text-gray-900 dark:text-gray-100">
                     {formatScore(report.overallScore)}
                   </div>
-                  <div className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Overall
+                  <div className="mt-1 text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                    Website score
                   </div>
                 </div>
               }
@@ -297,18 +578,18 @@ export default async function AdminReportDetailPage({
               </div>
               <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 <MetaItem
-                  label="Created"
+                  label="Report created"
                   value={formatDate(report.createdAt)}
                 />
-                <MetaItem label="Service fit" value={serviceFit} />
+                <MetaItem label="Recommended service" value={serviceFit} />
                 <MetaItem
-                  label="Sales priority"
+                  label="Follow-up priority"
                   value={formatPriority(report.salesNote?.priority)}
                 />
               </div>
             </div>
           </div>
-          <div className="border-t border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800 lg:border-l lg:border-t-0">
+          <div className="border-t border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
             {screenshotUrl ? (
               <Image
                 src={screenshotUrl}
@@ -316,7 +597,7 @@ export default async function AdminReportDetailPage({
                 width={800}
                 height={520}
                 unoptimized
-                className="h-full max-h-56 min-h-48 w-full rounded-xl object-cover object-top"
+                className="h-auto w-full rounded-xl object-contain object-top"
               />
             ) : (
               <div className="flex min-h-48 h-full flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 text-center text-gray-500 dark:border-gray-600">
@@ -325,18 +606,74 @@ export default async function AdminReportDetailPage({
               </div>
             )}
           </div>
-        </div>
-      </Card>
+        </Card>
 
-      <div className="flex flex-col gap-4 lg:flex-row">
-        <main className="min-w-0 flex-1 space-y-4">
+        <Card
+          header={{
+            content: (
+              <SectionTitle
+                title="Lead & follow-up"
+                description="Review lead details, qualify the opportunity, and prepare personalized outreach."
+              />
+            ),
+          }}
+        >
+          <ReportAdminWorkspace
+            reportId={report.id}
+            lead={
+              report.lead
+                ? {
+                    fullName: report.lead.fullName,
+                    email: report.lead.email,
+                    consent: report.lead.consent ? "Yes" : "No",
+                    captured: formatDate(report.lead.createdAt),
+                  }
+                : null
+            }
+            leadStatus={report.salesNote?.leadStatus ?? SalesLeadStatus.NEW}
+            leadStatusOptions={Object.values(SalesLeadStatus).map((status) => ({
+              label: salesLeadStatusLabels[status],
+              value: status,
+            }))}
+            serviceFit={serviceFit}
+            serviceFitOptions={serviceFitOptions.map((option) => ({
+              label: option,
+              value: option,
+            }))}
+            priority={String(report.salesNote?.priority ?? 3)}
+            priorityOptions={priorityOptions.map((option) => ({
+              label: option.label,
+              value: String(option.value),
+            }))}
+            manualNote={report.salesNote?.manualNote ?? ""}
+            outreachAngle={outreachAngle}
+            outreach={
+              savedOutreach
+                ? {
+                    sourceLabel:
+                      savedOutreach.source === "ai"
+                        ? "AI draft"
+                        : "Rule-based draft",
+                    generatedAt: savedOutreach.generatedAt
+                      ? formatDate(new Date(savedOutreach.generatedAt))
+                      : "recently",
+                    message: savedOutreach.message,
+                  }
+                : null
+            }
+          />
+        </Card>
+      </div>
+
+      <div>
+        <main className="min-w-0 flex-1 space-y-5 lg:space-y-6">
           <Card
             id="scores"
             header={{
               content: (
                 <SectionTitle
-                  title="Category scores"
-                  description="Deterministic score breakdown across the eight author website categories."
+                  title="Score breakdown"
+                  description="See how the website performed across all eight author website categories."
                 />
               ),
             }}
@@ -350,13 +687,13 @@ export default async function AdminReportDetailPage({
                 return (
                   <div
                     key={category}
-                    className="rounded-2xl border border-gray-200 p-5 dark:border-gray-700"
+                    className="rounded-2xl border border-gray-200 p-5 lg:p-6 dark:border-gray-700"
                   >
                     <div className="mb-3 flex items-center justify-between gap-4">
-                      <span className="font-semibold text-gray-900 dark:text-gray-100">
+                      <span className="text-base font-semibold text-gray-900 dark:text-gray-100">
                         {categoryLabels[category]}
                       </span>
-                      <span className="shrink-0 font-bold">
+                      <span className="shrink-0 font-bold tabular-nums">
                         {score ? `${score.score}/${score.maxScore}` : "N/A"}
                       </span>
                     </div>
@@ -377,20 +714,20 @@ export default async function AdminReportDetailPage({
             header={{
               content: (
                 <SectionTitle
-                  title="Prioritized findings"
-                  description="Issues are ordered by action priority, with recommendations and practical next steps together."
+                  title="Improvements by severity"
+                  description="Start with the most severe issues. Each finding includes a recommended fix and practical next steps."
                 />
               ),
               extra: (
                 <Tag className="border-0 bg-primary-subtle text-primary">
-                  {report.findings.length} findings
+                  {findingsBySeverity.length} findings
                 </Tag>
               ),
             }}
           >
-            {report.findings.length ? (
+            {findingsBySeverity.length ? (
               <Timeline>
-                {report.findings.map((finding) => {
+                {findingsBySeverity.map((finding) => {
                   const actions = parsePracticalActions(
                     finding.practicalActions,
                   );
@@ -398,27 +735,28 @@ export default async function AdminReportDetailPage({
                     <Timeline.Item
                       key={finding.id}
                       media={
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-900 text-sm font-bold text-white">
-                          {finding.priority}
+                        <div
+                          className={`flex h-9 min-w-20 items-center justify-center rounded-full px-3 text-xs font-bold uppercase tracking-wide ${severityTagClass(finding.severity)}`}
+                        >
+                          {findingSeverityLabels[finding.severity]}
                         </div>
                       }
                     >
-                      <div className="pb-7 pl-2">
-                        <div className="mb-3 flex flex-wrap items-center gap-2">
-                          <h5 className="mr-auto">{finding.title}</h5>
+                      <div className="pb-8 pl-3">
+                        <div className="mb-4 flex flex-wrap items-center gap-2">
+                          <h5 className="mr-auto text-base font-semibold">
+                            {finding.title}
+                          </h5>
                           <Tag className="border-0 bg-gray-100 text-gray-600">
                             {categoryLabels[finding.category]}
-                          </Tag>
-                          <Tag className={severityTagClass(finding.severity)}>
-                            {findingSeverityLabels[finding.severity]}
                           </Tag>
                         </div>
                         <p className="leading-7 text-gray-600 dark:text-gray-300">
                           {finding.finding}
                         </p>
-                        <div className="mt-4 rounded-2xl bg-gray-50 p-4 dark:bg-gray-700/40">
-                          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            Recommendation
+                        <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-700/40">
+                          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                            Recommended fix
                           </div>
                           <p className="text-sm leading-6 text-gray-700 dark:text-gray-200">
                             {finding.recommendation}
@@ -451,35 +789,31 @@ export default async function AdminReportDetailPage({
             header={{
               content: (
                 <SectionTitle
-                  title="Technical audit"
-                  description="Saved PageSpeed and Lighthouse homepage measurements."
+                  title="Website performance"
+                  description="Google Lighthouse scores and loading measurements for the homepage on mobile and desktop."
                 />
               ),
-              extra: lighthouseSource ? (
-                <Tag className="border-0 bg-gray-100 text-gray-600">
-                  {lighthouseSource}
-                </Tag>
-              ) : null,
             }}
           >
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <AuditMetric
-                label="Mobile performance"
-                value={report.technicalAudit?.mobilePerformance ?? null}
+            <div className="grid gap-5 lg:grid-cols-2">
+              <LighthouseDevicePanel
+                label="Mobile"
+                scores={mobileLighthouseScores}
+                audits={mobileLighthouseAudits}
               />
-              <AuditMetric
-                label="Desktop performance"
-                value={report.technicalAudit?.desktopPerformance ?? null}
-              />
-              <AuditMetric
-                label="Mobile accessibility"
-                value={report.technicalAudit?.mobileAccessibility ?? null}
-              />
-              <AuditMetric
-                label="Desktop accessibility"
-                value={report.technicalAudit?.desktopAccessibility ?? null}
+              <LighthouseDevicePanel
+                label="Desktop"
+                scores={desktopLighthouseScores}
+                audits={desktopLighthouseAudits}
               />
             </div>
+            {technicalMetricsUnavailable ? (
+              <Alert className="mt-5 leading-6" type="info" showIcon>
+                PageSpeed data could not be retrieved during this analysis. The
+                report remains available with its deterministic website
+                findings.
+              </Alert>
+            ) : null}
           </Card>
 
           <Card
@@ -488,8 +822,8 @@ export default async function AdminReportDetailPage({
             header={{
               content: (
                 <SectionTitle
-                  title="Pages scanned"
-                  description="Crawl records captured during the website analysis."
+                  title="Pages inspected"
+                  description="Pages reviewed during the analysis, including response status and captured content signals."
                 />
               ),
               extra: (
@@ -500,21 +834,21 @@ export default async function AdminReportDetailPage({
             }}
           >
             {report.pagesScanned.length ? (
-              <div className="overflow-x-auto">
+              <div>
                 <Table>
                   <Table.THead>
                     <Table.Tr>
-                      <Table.Th>Page</Table.Th>
-                      <Table.Th>Type</Table.Th>
-                      <Table.Th>Status</Table.Th>
-                      <Table.Th>Page details</Table.Th>
-                      <Table.Th>Content</Table.Th>
+                      <Table.Th className="py-4">Page URL</Table.Th>
+                      <Table.Th className="py-4">Page type</Table.Th>
+                      <Table.Th className="py-4">HTTP status</Table.Th>
+                      <Table.Th className="py-4">Title and heading</Table.Th>
+                      <Table.Th className="py-4">Content signals</Table.Th>
                     </Table.Tr>
                   </Table.THead>
                   <Table.TBody>
                     {report.pagesScanned.map((page) => (
                       <Table.Tr key={page.id}>
-                        <Table.Td className="min-w-60">
+                        <Table.Td className="min-w-60 py-5">
                           <a
                             href={page.url}
                             target="_blank"
@@ -524,9 +858,15 @@ export default async function AdminReportDetailPage({
                             {page.url}
                           </a>
                         </Table.Td>
-                        <Table.Td>{pageTypeLabel(page.pageType)}</Table.Td>
-                        <Table.Td>{page.statusCode ?? "N/A"}</Table.Td>
-                        <Table.Td className="min-w-64">
+                        <Table.Td className="py-5">
+                          {pageTypeLabel(page.pageType)}
+                        </Table.Td>
+                        <Table.Td className="py-5">
+                          <Tag className={httpStatusTagClass(page.statusCode)}>
+                            {page.statusCode ?? "N/A"}
+                          </Tag>
+                        </Table.Td>
+                        <Table.Td className="min-w-64 py-5">
                           <div className="font-semibold text-gray-900 dark:text-gray-100">
                             {page.title ?? "No title saved"}
                           </div>
@@ -534,7 +874,7 @@ export default async function AdminReportDetailPage({
                             H1: {page.h1 ?? "Not found"}
                           </div>
                         </Table.Td>
-                        <Table.Td className="whitespace-nowrap text-sm text-gray-500">
+                        <Table.Td className="whitespace-nowrap py-5 text-sm text-gray-500">
                           {page.wordCount ?? 0} words &middot;{" "}
                           {countJsonArray(page.linksJson)} links
                           <br />
@@ -545,6 +885,9 @@ export default async function AdminReportDetailPage({
                     ))}
                   </Table.TBody>
                 </Table>
+                <div className="border-t border-gray-200 px-6 py-4 text-sm text-gray-500 dark:border-gray-700">
+                  Showing all pages captured in this scan
+                </div>
               </div>
             ) : (
               <p className="p-6 text-sm text-gray-500">
@@ -553,66 +896,6 @@ export default async function AdminReportDetailPage({
             )}
           </Card>
         </main>
-
-        <aside className="w-full shrink-0 lg:w-[340px] xl:w-[400px]">
-          <Card
-            header={{
-              content: (
-                <SectionTitle
-                  title="Admin workspace"
-                  description="Lead context, internal notes, and outreach tools."
-                />
-              ),
-            }}
-          >
-            <ReportAdminWorkspace
-              reportId={report.id}
-              lead={
-                report.lead
-                  ? {
-                      fullName: report.lead.fullName,
-                      email: report.lead.email,
-                      consent: report.lead.consent ? "Yes" : "No",
-                      captured: formatDate(report.lead.createdAt),
-                    }
-                  : null
-              }
-              leadStatus={report.salesNote?.leadStatus ?? SalesLeadStatus.NEW}
-              leadStatusOptions={Object.values(SalesLeadStatus).map(
-                (status) => ({
-                  label: salesLeadStatusLabels[status],
-                  value: status,
-                }),
-              )}
-              serviceFit={serviceFit}
-              serviceFitOptions={serviceFitOptions.map((option) => ({
-                label: option,
-                value: option,
-              }))}
-              priority={String(report.salesNote?.priority ?? 3)}
-              priorityOptions={priorityOptions.map((option) => ({
-                label: option.label,
-                value: String(option.value),
-              }))}
-              manualNote={report.salesNote?.manualNote ?? ""}
-              outreachAngle={outreachAngle}
-              outreach={
-                savedOutreach
-                  ? {
-                      sourceLabel:
-                        savedOutreach.source === "ai"
-                          ? "AI draft"
-                          : "Rule-based draft",
-                      generatedAt: savedOutreach.generatedAt
-                        ? formatDate(new Date(savedOutreach.generatedAt))
-                        : "recently",
-                      message: savedOutreach.message,
-                    }
-                  : null
-              }
-            />
-          </Card>
-        </aside>
       </div>
     </div>
   );

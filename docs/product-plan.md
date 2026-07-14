@@ -60,6 +60,8 @@ Authors do not need an account in the initial release. The unlocked full report 
 
 The unlocked report includes the complete set of detected problems, quick wins, explanations, and prioritized recommendations. Every failed deterministic scoring check provides one fixed primary recommendation plus several fixed practical actions. These actions are stored with the finding and remain available when AI generation fails.
 
+User-facing finding lists use the severity levels `Critical`, `High`, `Medium`, and `Low`. Do not display numeric priority levels. An internal priority value may remain as a deterministic tie-breaker between findings with the same severity.
+
 AI failure must never prevent delivery of a usable report. Deterministic findings, priorities, primary recommendations, and practical actions provide the fallback. AI may clarify or personalize the supplied guidance and examples, but it must not invent unsupported fixes. Enhanced AI explanations may be regenerated later by an admin action or background process.
 
 ## Scan eligibility and failures
@@ -72,7 +74,7 @@ AI failure must never prevent delivery of a usable report. Deterministic finding
 ## Crawl coverage policy
 
 - Use a bounded, same-host HTML crawl rather than attempting to mirror an entire author website. Anchor the crawl to the homepage's validated final hostname; do not automatically trust sibling subdomains or a `www`/non-`www` variant that was not reached through a validated redirect.
-- Discover candidates from server-returned homepage links, `/sitemap.xml`, and sitemap locations declared in `robots.txt`. Keep Cheerio as the default crawler because the audit primarily needs inspectable HTML; JavaScript-browser fallback is a separate future decision, not the default for every scan.
+- Discover candidates from server-returned homepage links, `/sitemap.xml`, and sitemap locations declared in `robots.txt`. Keep Cheerio as the default crawler because the audit primarily needs inspectable HTML. Use a controlled Playwright fallback only when deterministic evidence indicates that a successfully fetched page is a thin JavaScript shell. The fallback may inspect at most two rendered pages per scan, may follow only the homepage's validated final hostname for page navigation, and must preserve trigger, attempt, adoption, discovery, and failure diagnostics. Browser rendering is not the default for every page.
 - Attempt at most 30 requests and save at most 10 successful, unique 2xx HTML pages. Redirects, failed requests, non-HTML responses, unsuccessful status pages, and duplicates do not consume the 10-page success budget.
 - Preserve discovered path shape, including trailing slashes, while requests are queued. After redirects resolve, identify saved pages by the final URL, canonical URL, and extracted-content fingerprint.
 - Prioritize the homepage, About/author page, book and series pages, newsletter signup, Contact, events, media/press, and blog/news before generic pages. Common root-level author slugs such as `about-the-author`, `the-example-saga`, and `the-example-trilogy` count as author-relevant candidates.

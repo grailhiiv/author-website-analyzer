@@ -1,0 +1,11 @@
+name = "routine_worker"
+description = "Use for routine coding, tests, documentation, and bounded implementation fixes."
+
+model = "gpt-5.6-sol"
+model_reasoning_effort = "medium"
+
+developer_instructions = """
+Implement the assigned task and verify the result.
+Keep the change bounded to the requested scope.
+Report the files changed and the verification performed.
+"""

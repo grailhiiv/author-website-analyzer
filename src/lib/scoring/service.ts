@@ -1,8 +1,17 @@
 import "server-only";
 
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma.core";
+import {
+  buildAnalyzerDiagnostics,
+  mergeAnalyzerDiagnostics,
+} from "@/lib/signals/analyzer-diagnostics";
 import { detectAuthorWebsiteSignals } from "@/lib/signals/author-website-signals";
 import { scoreAuthorWebsite } from "@/lib/scoring/engine";
+
+function toJson(value: unknown) {
+  return value as Prisma.InputJsonValue;
+}
 
 export async function scoreAndSaveReport(reportId: string) {
   const report = await prisma.report.findUnique({
@@ -25,6 +34,15 @@ export async function scoreAndSaveReport(reportId: string) {
     pagesScanned: report.pagesScanned,
     technicalAudit: report.technicalAudit,
   });
+  const analyzerDiagnostics = buildAnalyzerDiagnostics({
+    crawlDiagnostics: report.crawlDiagnostics,
+    pages: report.pagesScanned,
+    signals,
+  });
+  const crawlDiagnostics = mergeAnalyzerDiagnostics(
+    report.crawlDiagnostics,
+    analyzerDiagnostics,
+  );
 
   await prisma.$transaction([
     prisma.reportScore.deleteMany({
@@ -67,6 +85,7 @@ export async function scoreAndSaveReport(reportId: string) {
       },
       data: {
         overallScore: result.overallScore,
+        crawlDiagnostics: toJson(crawlDiagnostics),
       },
     }),
   ]);

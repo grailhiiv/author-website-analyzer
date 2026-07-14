@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { validateUrlForScan } from "@/lib/urls/security";
+import {
+  validatePublicHttpUrl,
+  validateUrlForScan,
+} from "@/lib/urls/security";
 
 function createOptions() {
   return {
@@ -154,6 +157,45 @@ test("blocks public domains that resolve to private IP addresses", async () => {
   }
 });
 
+test("blocks submitted website URLs with embedded credentials", async () => {
+  const result = await validateUrlForScan(
+    "https://user:secret@example.com/books",
+    createOptions(),
+  );
+
+  assert.equal(result.ok, false);
+
+  if (!result.ok) {
+    assert.match(result.message, /credentials are not allowed/i);
+  }
+});
+
+test("browser request validation checks DNS without issuing a fetch", async () => {
+  let resolved = 0;
+  const result = await validatePublicHttpUrl("https://example.com/app.js", {
+    resolveHostname: async () => {
+      resolved += 1;
+      return ["93.184.216.34"];
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(resolved, 1);
+});
+
+test("browser request validation blocks credentials and reserved networks", async () => {
+  const credentials = await validatePublicHttpUrl(
+    "https://user:secret@example.com/",
+    { resolveHostname: async () => ["93.184.216.34"] },
+  );
+  const carrierNat = await validatePublicHttpUrl("http://100.64.0.1/");
+  const multicast = await validatePublicHttpUrl("http://224.0.0.1/");
+
+  assert.equal(credentials.ok, false);
+  assert.equal(carrierNat.ok, false);
+  assert.equal(multicast.ok, false);
+});
+
 test("blocks URLs that exceed the redirect limit", async () => {
   const result = await validateUrlForScan("https://example.com", {
     ...createOptions(),
@@ -171,6 +213,25 @@ test("blocks URLs that exceed the redirect limit", async () => {
 
   if (!result.ok) {
     assert.match(result.message, /redirects too many times/i);
+  }
+});
+
+test("blocks redirects that introduce embedded credentials", async () => {
+  const result = await validateUrlForScan("https://example.com", {
+    ...createOptions(),
+    fetchImplementation: async () =>
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: "https://user:secret@example.com/private",
+        },
+      }),
+  });
+
+  assert.equal(result.ok, false);
+
+  if (!result.ok) {
+    assert.match(result.message, /unsafe URL/i);
   }
 });
 
