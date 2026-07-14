@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  FindingOrigin,
   FindingSeverity,
   PageType,
   ReportCategory,
@@ -111,6 +112,7 @@ async function savePipelineFinding({
       finding,
       recommendation,
       priority,
+      origin: FindingOrigin.SYSTEM_DIAGNOSTIC,
     },
   });
 }

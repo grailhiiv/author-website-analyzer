@@ -33,6 +33,18 @@ enum FindingSeverity {
   CRITICAL
 }
 
+enum FindingOrigin {
+  DETERMINISTIC_SCORE
+  SYSTEM_DIAGNOSTIC
+}
+
+enum CheckResultState {
+  PASS
+  FAIL
+  UNKNOWN
+  NOT_APPLICABLE
+}
+
 enum ReportCategory {
   BRAND_CLARITY
   BOOK_VISIBILITY
@@ -81,6 +93,7 @@ model Report {
   pagesScanned   PageScanned[]
   scores         ReportScore[]
   findings       ReportFinding[]
+  checkResults   ReportCheckResult[]
   technicalAudit TechnicalAudit?
   salesNote      ReportSalesNote?
   analysisJob    AnalysisJob?
@@ -175,12 +188,37 @@ model ReportFinding {
   recommendation String
   practicalActions Json?
   priority       Int
+  checkId        String?
+  origin         FindingOrigin    @default(SYSTEM_DIAGNOSTIC)
   createdAt      DateTime        @default(now())
 
   @@index([reportId])
   @@index([category])
   @@index([severity])
   @@index([priority])
+  @@index([checkId])
+  @@index([origin])
+}
+
+model ReportCheckResult {
+  id                 String           @id @default(cuid())
+  reportId           String
+  report             Report           @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  checkId            String
+  checkVersion       Int
+  registryVersion    Int
+  category           ReportCategory
+  state              CheckResultState
+  availablePoints    Float
+  earnedPoints       Float
+  reasonCode         String
+  evidenceReferences Json?
+  createdAt          DateTime         @default(now())
+
+  @@unique([reportId, checkId])
+  @@index([checkId])
+  @@index([category])
+  @@index([state])
 }
 
 model TechnicalAudit {

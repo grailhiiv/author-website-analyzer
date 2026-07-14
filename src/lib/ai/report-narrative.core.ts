@@ -421,6 +421,7 @@ export function buildFallbackReportNarrative(
     findings: input.findings,
     quickWins: input.quickWins,
     serviceFitLabel: input.serviceFitLabel,
+    checkResults: [],
   };
   const orderedFindings = topFindings(input.findings, 5);
   const strongest = strongestScores(input.categoryScores);

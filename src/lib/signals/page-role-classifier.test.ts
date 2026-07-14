@@ -184,6 +184,49 @@ test("does not promote a footer email form on a privacy page", () => {
   assert.equal(result.primaryRole, "PRIVACY");
 });
 
+test("does not classify an unrelated page from contact wording in repeated page chrome", () => {
+  const result = classifyPageRole({
+    url: "https://author.test/videos.html",
+    title: "Videos | Casey Rowan",
+    h1: "Videos",
+    headings: [
+      "For rights inquiries, contact the agency. Read the privacy policy. Contact Casey.",
+    ],
+  });
+
+  assert.equal(result.primaryRole, "UNKNOWN");
+  assert.equal(
+    result.candidates.some((candidate) => candidate.role === "CONTACT"),
+    false,
+  );
+});
+
+test("classifies What's New with multiple purchase destinations as a books index", () => {
+  const result = classifyPageRole({
+    url: "https://author.test/whats-new.html",
+    title: "What's New | Casey Rowan",
+    h1: "What's New",
+    headings: ["Harbor Lights", "Summer Skies"],
+    links: [
+      {
+        href: "https://www.amazon.com/dp/0000000001",
+        text: "Buy Harbor Lights",
+      },
+      {
+        href: "https://www.amazon.com/dp/0000000002",
+        text: "Buy Summer Skies",
+      },
+    ],
+  });
+
+  assert.equal(result.primaryRole, "BOOKS_INDEX");
+  assert.ok(
+    result.observations.some(
+      (observation) => observation.pageRole === "BOOKS_INDEX",
+    ),
+  );
+});
+
 test("keeps ambiguous pages unknown instead of guessing", () => {
   const result = classifyPageRole({
     url: "https://author.test/a-short-note",

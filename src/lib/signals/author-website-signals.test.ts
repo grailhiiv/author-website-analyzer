@@ -21,6 +21,7 @@ function pageInput(page: ExtractedPageData): ScannedPageSignalInput {
       h3: page.headings.h3,
       bodyText: page.bodyText,
       jsonLd: page.jsonLd,
+      semanticArticle: page.semantics.article,
       canonicalUrl: page.seo.canonicalUrl,
       robots: page.seo.robots,
     },
@@ -191,6 +192,64 @@ test("detectAuthorWebsiteSignals reports only supported SEO issues from sparse s
   assert.equal(signals.trust.contactEmail.detected, false);
 });
 
+test("detectAuthorWebsiteSignals recognizes portrait CDN transformation dimensions in book context", () => {
+  const page = extractPageData(
+    `
+      <main>
+        <h1>River Quill</h1>
+        <h2>Historical fiction</h2>
+        <a href="https://amazon.com/dp/example">View the books</a>
+        <img
+          data-src="https://cdn.author.test/Glass_Harbor.fill-600x800-1920w.jpg"
+          alt=""
+        >
+        <img
+          data-src="https://cdn.author.test/Lantern_Cove.fill-600x800-1920w.jpg"
+          alt=""
+        >
+        <img
+          data-src="https://cdn.author.test/book+2.fill-600x800-1920w.jpg"
+          alt=""
+        >
+      </main>
+    `,
+    "https://author.test/",
+  );
+
+  const signals = detectAuthorWebsiteSignals([pageInput(page)]);
+
+  assert.equal(signals.bookPromotion.bookCoverImages.detected, true);
+});
+
+test("detectAuthorWebsiteSignals rejects an author portrait with CDN transformation dimensions as a book cover", () => {
+  const page = extractPageData(
+    `
+      <main>
+        <h1>River Quill</h1>
+        <h2>Historical fiction</h2>
+        <a href="https://amazon.com/dp/example">View the books</a>
+        <img
+          data-src="https://cdn.author.test/author-headshot.fill-600x800-1920w.jpg"
+          alt=""
+        >
+        <img
+          data-src="https://cdn.author.test/reader-portrait.fill-600x800-1920w.jpg"
+          alt=""
+        >
+        <img
+          data-src="https://cdn.author.test/book+2.fill-600x800-1920w.jpg"
+          alt=""
+        >
+      </main>
+    `,
+    "https://author.test/",
+  );
+
+  const signals = detectAuthorWebsiteSignals([pageInput(page)]);
+
+  assert.equal(signals.bookPromotion.bookCoverImages.detected, false);
+});
+
 test("detectAuthorWebsiteSignals finds uppercase author names and homepage book titles", () => {
   const homepage = extractPageData(
     `
@@ -228,6 +287,77 @@ test("detectAuthorWebsiteSignals finds uppercase author names and homepage book 
     /Swept Away/i,
   );
   assert.equal(signals.bookPromotion.bookCoverImages.detected, true);
+});
+
+test("detectAuthorWebsiteSignals does not treat an author name alone as a clear homepage headline", () => {
+  const homepage = extractPageData(
+    `
+      <!doctype html>
+      <html>
+        <head>
+          <title>River Quill | Author and Storyteller</title>
+          <script type="application/ld+json">
+            {"@context":"https://schema.org","@type":"Person","name":"River Quill"}
+          </script>
+        </head>
+        <body>
+          <h1>River Quill</h1>
+          <p>River writes books and essays about myth, place, and belonging.</p>
+        </body>
+      </html>
+    `,
+    "https://author.test/",
+  );
+
+  const signals = detectAuthorWebsiteSignals([pageInput(homepage)]);
+
+  assert.equal(signals.authorBrand.authorNameVisible.detected, true);
+  assert.equal(signals.authorBrand.clearHomepageHeadline.detected, false);
+});
+
+test("detectAuthorWebsiteSignals recognizes a concise homepage positioning statement without an H1", () => {
+  const homepage = extractPageData(
+    `
+      <!doctype html>
+      <html>
+        <head><title>Casey Rowan | Contemporary Romance Author</title></head>
+        <body>
+          <nav>Home About Books Series Newsletter Contact Reviews Events Media Shop</nav><p>USA Today bestselling author Casey Rowan writes contemporary romance filled with close-knit families and lasting friendships.</p>
+        </body>
+      </html>
+    `,
+    "https://author.test/",
+  );
+
+  const signals = detectAuthorWebsiteSignals([pageInput(homepage)]);
+
+  assert.equal(signals.authorBrand.clearHomepageHeadline.detected, true);
+  assert.match(
+    signals.authorBrand.clearHomepageHeadline.evidence.join(" "),
+    /positioning statement/i,
+  );
+});
+
+test("detectAuthorWebsiteSignals accepts only an exact plain author alt as photo evidence", () => {
+  const positivePage = extractPageData(
+    `<main><h1>Romantic suspense with heart</h1><img src="/images/profile.jpg" alt="author"></main>`,
+    "https://author.test/",
+  );
+  const negativePage = extractPageData(
+    `<main><h1>Romantic suspense with heart</h1><img src="/images/logo.jpg" alt="author website logo"></main>`,
+    "https://author.test/",
+  );
+
+  assert.equal(
+    detectAuthorWebsiteSignals([pageInput(positivePage)]).trust.authorPhoto
+      .detected,
+    true,
+  );
+  assert.equal(
+    detectAuthorWebsiteSignals([pageInput(negativePage)]).trust.authorPhoto
+      .detected,
+    false,
+  );
 });
 
 test("detectAuthorWebsiteSignals recognizes externally hosted newsletter signup links", () => {

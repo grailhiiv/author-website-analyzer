@@ -7,6 +7,7 @@ import {
   ClockIcon,
   Loader2Icon,
   MonitorIcon,
+  PaletteIcon,
   SmartphoneIcon,
 } from "lucide-react";
 import Image from "next/image";
@@ -66,6 +67,13 @@ import {
 } from "@/lib/reports/category-display";
 import { getReportPageState } from "@/lib/reports/report-page-state";
 import { parsePracticalActions } from "@/lib/reports/practical-actions";
+import { isScoredVisualObservation } from "@/lib/scoring/check-registry";
+import {
+  getVisualDesignAnalysis,
+  visualDesignManualReviewPrompts,
+  visualDesignPillarLabels,
+  type VisualDesignPillar,
+} from "@/lib/screenshots/visual-design";
 import type { ReportNarrative } from "@/lib/ai/report-narrative.core";
 import type { ServiceFitLabel } from "@/lib/scoring/engine";
 
@@ -85,6 +93,12 @@ const severityLabels: Record<FindingSeverity, string> = {
   HIGH: "High",
   CRITICAL: "Critical",
 };
+
+const visualDesignPillars: VisualDesignPillar[] = [
+  "information_architecture",
+  "ui_ux",
+  "conversion_design",
+];
 
 function PracticalActions({ actions }: { actions: unknown }) {
   const items = parsePracticalActions(actions);
@@ -337,11 +351,10 @@ function findNarrativeCategoryCritique(
   narrative: ReportNarrative | null,
   labels: readonly string[],
 ) {
-  return narrative?.categoryCritiques.find(
-    (critique) =>
-      labels.some(
-        (label) => critique.category.toLowerCase() === label.toLowerCase(),
-      ),
+  return narrative?.categoryCritiques.find((critique) =>
+    labels.some(
+      (label) => critique.category.toLowerCase() === label.toLowerCase(),
+    ),
   );
 }
 
@@ -474,6 +487,11 @@ export default async function ReportPage({
   const interpretation = scoreInterpretation(report.overallScore);
   const reportDate = report.completedAt ?? report.createdAt;
   const screenshotUrl = firstScreenshot(report.pagesScanned);
+  const visualDesignAnalysis = getVisualDesignAnalysis(report.crawlDiagnostics);
+  const visualDesignReviewCount =
+    visualDesignAnalysis?.observations.filter(
+      (observation) => observation.status === "needs_review",
+    ).length ?? 0;
   const serviceFitLabel =
     extractServiceFitFromNarrative(narrative) ??
     deriveServiceFitLabel(scoresByCategory);
@@ -615,7 +633,9 @@ export default async function ReportPage({
                       <CategoryScoreCard
                         key={category}
                         label={reportCategoryDisplay[category].title}
-                        description={reportCategoryDisplay[category].description}
+                        description={
+                          reportCategoryDisplay[category].description
+                        }
                       />
                     ))}
                   </div>
@@ -1173,6 +1193,145 @@ export default async function ReportPage({
                     )}
                   </CardContent>
                 </Card>
+
+                {visualDesignAnalysis ? (
+                  <Card>
+                    <CardHeader>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <PaletteIcon className="size-5 text-muted-foreground" />
+                        <CardTitle>Design & reader experience</CardTitle>
+                        <Badge variant="outline">Rendered evidence</Badge>
+                        <Badge variant="secondary">3 checks scored</Badge>
+                      </div>
+                      <CardDescription>
+                        Primary navigation contributes to Site Usability. Mobile
+                        viewport fit and text contrast contribute to Mobile
+                        Performance. The remaining observations are advisory.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="flex flex-wrap gap-2">
+                        <Badge
+                          variant={
+                            visualDesignReviewCount > 0
+                              ? "secondary"
+                              : "outline"
+                          }
+                        >
+                          {visualDesignReviewCount} automated item
+                          {visualDesignReviewCount === 1 ? "" : "s"} to review
+                        </Badge>
+                        <Badge variant="outline">
+                          {visualDesignAnalysis.viewports.length} viewport
+                          {visualDesignAnalysis.viewports.length === 1
+                            ? ""
+                            : "s"}{" "}
+                          inspected
+                        </Badge>
+                        {visualDesignAnalysis.status === "partial" ? (
+                          <Badge variant="outline">Partial evidence</Badge>
+                        ) : null}
+                      </div>
+
+                      {visualDesignPillars.map((pillar) => {
+                        const observations =
+                          visualDesignAnalysis.observations.filter(
+                            (observation) =>
+                              observation.pillar === pillar &&
+                              observation.status !== "passed",
+                          );
+
+                        return (
+                          <section key={pillar} className="space-y-3">
+                            <h3 className="text-sm font-semibold">
+                              {visualDesignPillarLabels[pillar]}
+                            </h3>
+                            {observations.length > 0 ? (
+                              <div className="grid gap-3 lg:grid-cols-2">
+                                {observations.map((observation) => (
+                                  <div
+                                    key={
+                                      observation.viewport +
+                                      "-" +
+                                      observation.id
+                                    }
+                                    className="rounded-lg border border-slate-200 bg-muted/20 p-4"
+                                  >
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Badge
+                                        variant={
+                                          observation.status === "needs_review"
+                                            ? "secondary"
+                                            : "outline"
+                                        }
+                                      >
+                                        {observation.status === "needs_review"
+                                          ? "Review"
+                                          : "Not measured"}
+                                      </Badge>
+                                      <Badge variant="outline">
+                                        {isScoredVisualObservation(observation)
+                                          ? "Score check"
+                                          : "Advisory"}
+                                      </Badge>
+                                      <p className="text-sm font-medium">
+                                        {observation.title}
+                                      </p>
+                                    </div>
+                                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                                      {observation.summary}
+                                    </p>
+                                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                                      Evidence: {observation.evidence}
+                                    </p>
+                                    {observation.recommendation ? (
+                                      <p className="mt-3 text-sm leading-6">
+                                        <span className="font-medium">
+                                          Recommendation:{" "}
+                                        </span>
+                                        {observation.recommendation}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                No measurable issue was flagged for this pillar.
+                              </p>
+                            )}
+                          </section>
+                        );
+                      })}
+
+                      <div className="border-t border-slate-200 pt-5">
+                        <h3 className="text-sm font-semibold">
+                          Quick manual checklist
+                        </h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          These judgments still need a person because a snapshot
+                          cannot reliably determine design intent or the full
+                          multi-page journey.
+                        </p>
+                        <ul className="mt-3 space-y-3">
+                          {visualDesignManualReviewPrompts.map((item) => (
+                            <li
+                              key={item.pillar}
+                              className="rounded-lg border border-slate-200 p-4"
+                            >
+                              <p className="text-sm font-medium">
+                                {visualDesignPillarLabels[item.pillar]}
+                              </p>
+                              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                                {item.prompt}
+                              </p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
 
                 <Card>
                   <CardHeader>

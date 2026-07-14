@@ -239,6 +239,48 @@ async function fetchWithTimeout(
   }
 }
 
+const TLS_CERTIFICATE_ERROR_CODES = new Set([
+  "CERT_HAS_EXPIRED",
+  "DEPTH_ZERO_SELF_SIGNED_CERT",
+  "ERR_TLS_CERT_ALTNAME_INVALID",
+  "ERR_TLS_CERT_SIGNATURE_ALGORITHM_UNSUPPORTED",
+  "SELF_SIGNED_CERT_IN_CHAIN",
+  "UNABLE_TO_GET_ISSUER_CERT_LOCALLY",
+  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+]);
+
+function getErrorProperty(error: unknown, property: "cause" | "code" | "name") {
+  if (typeof error !== "object" || error === null || !(property in error)) {
+    return undefined;
+  }
+
+  return (error as Record<string, unknown>)[property];
+}
+
+function classifyFetchFailure(error: unknown) {
+  let currentError: unknown = error;
+
+  // Node's fetch wraps network and TLS failures in one or more `cause`
+  // objects. Inspect only stable machine-readable properties and never expose
+  // the raw error, hostname, certificate, or socket details to the user.
+  for (let depth = 0; depth < 4 && currentError; depth += 1) {
+    const code = getErrorProperty(currentError, "code");
+    const name = getErrorProperty(currentError, "name");
+
+    if (typeof code === "string" && TLS_CERTIFICATE_ERROR_CODES.has(code)) {
+      return "That website's HTTPS security certificate is invalid or does not match its address. The site owner needs to repair the certificate before it can be scanned securely.";
+    }
+
+    if (name === "AbortError") {
+      return "We could not reach that website quickly enough. Check the URL and try again.";
+    }
+
+    currentError = getErrorProperty(currentError, "cause");
+  }
+
+  return "We could not establish a secure connection to that website. Check the URL and try again.";
+}
+
 export async function validateUrlForScan(
   value: string,
   options: UrlSecurityOptions = {}
@@ -282,11 +324,10 @@ export async function validateUrlForScan(
         currentUrl.toString(),
         timeoutMs
       );
-    } catch {
+    } catch (error) {
       return {
         ok: false,
-        message:
-          "We could not reach that website quickly enough. Check the URL and try again.",
+        message: classifyFetchFailure(error),
       };
     }
 

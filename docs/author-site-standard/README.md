@@ -23,7 +23,7 @@ The app evaluates observable website output. It does not ask the author to decla
 - [`page-standards.md`](./page-standards.md): expected content and reader outcomes for each page role.
 - [`sitewide.md`](./sitewide.md): navigation, accessibility, search, mobile, performance, security, and trust requirements that cross page boundaries.
 - [`detection-evidence.md`](./detection-evidence.md): evidence states, confidence, page classification, false-positive safeguards, and crawl coverage.
-- [`check-registry.md`](./check-registry.md): the proposed durable interface between a written standard and executable scoring checks.
+- [`check-registry.md`](./check-registry.md): the implemented durable interface between a written standard and executable scoring checks.
 - [`benchmark-corpus.md`](./benchmark-corpus.md): the versioned fixture corpus, regression metrics, and workflow for adding confirmed misses.
 - [`live-site-validation.md`](./live-site-validation.md): the approved, privacy-safe workflow for measuring the analyzer against real sites.
 - [`sources.md`](./sources.md): authoritative external references and the claims they support.

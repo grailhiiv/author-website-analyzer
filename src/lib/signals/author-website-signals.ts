@@ -145,6 +145,7 @@ type NormalizedPage = {
   images: ImageLike[];
   forms: FormLike[];
   jsonLd: unknown[];
+  semanticArticle: boolean;
   canonicalUrl: string | null;
   robots: string | null;
   bodyText: string;
@@ -179,7 +180,11 @@ const READER_MAGNET_TERMS =
   /\b(reader magnet|free chapter|bonus scene|free book|free novella|free short story|download a sample)\b/i;
 const BIO_TERMS =
   /\b(author bio|biography|about the author|meet the author)\b/i;
-const PHOTO_TERMS = /\b(author photo|author portrait|headshot|portrait)\b/i;
+const PHOTO_TERMS =
+  /\b(author[\s_-]+(?:photo|portrait|headshot|image|img)|headshot|portrait)\b/i;
+const AUTHOR_CONTEXT_PHOTO_ALT =
+  /^(?:(?:the )?author|(?:about|meet) the author)$/i;
+const WRITING_ACTION_TERMS = /\b(?:writes?|writing)\b/i;
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 
 function isBookPurchaseAction(value: string) {
@@ -255,6 +260,34 @@ const RETAILERS: Record<RetailerKey, { label: string; patterns: RegExp[] }> = {
 
 function compact(value: string | null | undefined) {
   return value?.replace(/\s+/g, " ").trim() || "";
+}
+
+function findAnchoredHomepagePositioningStatements(bodyText: string) {
+  const statements: string[] = [];
+  const authorTermPattern = new RegExp(AUTHOR_TERMS.source, "gi");
+
+  for (const match of bodyText.matchAll(authorTermPattern)) {
+    const authorIndex = match.index ?? 0;
+    const prefixStart = Math.max(0, authorIndex - 80);
+    const prefix = bodyText.slice(prefixStart, authorIndex);
+    const credentialPrefix = prefix.match(
+      /(?:\b(?:usa today|new york times|wall street journal|international)\s+)?(?:best[- ]selling|bestselling|award[- ]winning)\s+$/i,
+    );
+    const statementStart = credentialPrefix
+      ? authorIndex - credentialPrefix[0].length
+      : authorIndex;
+    const boundedText = bodyText.slice(statementStart, statementStart + 281);
+    const punctuationIndex = boundedText.search(/[.!?]/);
+    const statement = compact(
+      punctuationIndex >= 0
+        ? boundedText.slice(0, punctuationIndex + 1)
+        : boundedText,
+    );
+
+    statements.push(statement);
+  }
+
+  return statements;
 }
 
 function detection(evidence: string[]): SignalDetection {
@@ -497,6 +530,7 @@ function normalizePage(page: ScannedPageSignalInput): NormalizedPage {
     images,
     forms,
     jsonLd: normalizeJsonLd(page.headingsJson),
+    semanticArticle: headings?.semanticArticle === true,
     canonicalUrl,
     robots,
     bodyText: compact(bodyText || page.contentText),
@@ -808,10 +842,138 @@ function detectedBookHeadings(pages: NormalizedPage[], personNames: string[]) {
   });
 }
 
+function normalizeIdentityText(value: string) {
+  return compact(value)
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+function isStandaloneAuthorIdentityHeadline(
+  headline: string,
+  title: string | null,
+  personNames: readonly string[],
+) {
+  if (!looksLikePersonName(headline)) {
+    return false;
+  }
+
+  const normalizedHeadline = normalizeIdentityText(headline);
+  const matchesStructuredPerson = [...personNames].some(
+    (name) => normalizeIdentityText(name) === normalizedHeadline,
+  );
+
+  if (matchesStructuredPerson) {
+    return true;
+  }
+
+  return compact(title)
+    .split(/\s*(?:\||[–—]| - |:)\s*/u)
+    .some((segment) => {
+      const normalizedSegment = normalizeIdentityText(segment);
+      return (
+        normalizedSegment === normalizedHeadline ||
+        /^(?:dr|mr|mrs|ms|miss|professor)\s+/u
+          .test(normalizedSegment) &&
+          normalizedSegment.replace(
+            /^(?:dr|mr|mrs|ms|miss|professor)\s+/u,
+            "",
+          ) === normalizedHeadline
+      );
+    });
+}
+
+function getImageDimensions(image: ImageLike) {
+  const width = Number(image.width);
+  const height = Number(image.height);
+
+  if (width > 0 && height > 0) {
+    return { width, height, source: "markup" as const };
+  }
+
+  try {
+    const pathname = decodeURIComponent(new URL(image.src).pathname);
+    const transformedDimensions = pathname.match(
+      /(?:^|[._-])fill[-_](\d{2,5})x(\d{2,5})(?=[._-]|$)/i,
+    );
+
+    if (!transformedDimensions) {
+      return null;
+    }
+
+    return {
+      width: Number(transformedDimensions[1]),
+      height: Number(transformedDimensions[2]),
+      source: "cdn-transform" as const,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function hasStrongBookAssetHint(image: ImageLike) {
+  try {
+    const pathname = decodeURIComponent(new URL(image.src).pathname);
+    return (
+      /(?:^|[/_.+-])books?(?=[/_.+\d-]|$)/i.test(pathname) ||
+      /(?:^|\D)(?:97[89])?\d{9}[\dX](?:\D|$)/i.test(pathname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isTitleLikeCdnAsset(image: ImageLike, page: NormalizedPage) {
+  try {
+    const filename = decodeURIComponent(new URL(image.src).pathname)
+      .split("/")
+      .at(-1);
+
+    if (!filename) {
+      return false;
+    }
+
+    const authorNameWords = new Set(
+      (page.h1 ?? "")
+        .toLocaleLowerCase()
+        .split(/[^\p{L}\p{N}]+/u)
+        .filter((word) => word.length >= 3),
+    );
+    const meaningfulWords = filename
+      .toLocaleLowerCase()
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter(
+        (word) =>
+          word.length >= 3 &&
+          !authorNameWords.has(word) &&
+          !/^(?:website|image|photo|cover|book|author|profile|avatar|headshot|portrait|logo|icon|banner|hero|background|thumbnail|fill|webp|jpe?g|png)$/i.test(
+            word,
+          ) &&
+          !/^\d+$/.test(word) &&
+          !/^[\da-f]{8,}$/i.test(word),
+      );
+
+    return new Set(meaningfulWords).size >= 2;
+  } catch {
+    return false;
+  }
+}
+
+function hasPortraitDimensions(image: ImageLike) {
+  const dimensions = getImageDimensions(image);
+
+  return (
+    dimensions !== null &&
+    dimensions.height / dimensions.width >= 1.2 &&
+    dimensions.height / dimensions.width <= 2.2
+  );
+}
+
 function isLikelyBookCover(
   image: ImageLike,
   page: NormalizedPage,
   bookTitles: string[],
+  allowCdnDimensions: boolean,
 ) {
   const imageText = `${image.alt ?? ""} ${image.src}`;
 
@@ -837,11 +999,13 @@ function isLikelyBookCover(
       meaningfulWords.every((word) => normalizedImageText.includes(word))
     );
   });
-  const width = Number(image.width);
-  const height = Number(image.height);
+  const dimensions = getImageDimensions(image);
   const portraitRatio =
-    width > 0 && height > 0
-      ? height / width >= 1.2 && height / width <= 2.2
+    dimensions !== null
+      ? (dimensions.source === "markup" || allowCdnDimensions) &&
+        !PHOTO_TERMS.test(imageText) &&
+        dimensions.height / dimensions.width >= 1.2 &&
+        dimensions.height / dimensions.width <= 2.2
       : false;
 
   return matchesTitle || portraitRatio;
@@ -870,6 +1034,7 @@ export function detectAuthorWebsiteSignals(
         images: page.images,
         forms: page.forms,
         jsonLd: page.jsonLd,
+        semanticArticle: page.semanticArticle,
       }),
     }));
   const homepage =
@@ -901,9 +1066,38 @@ export function detectAuthorWebsiteSignals(
     .filter((retailer) => retailer.detected)
     .flatMap((retailer) => retailer.evidence);
 
-  const homepageHeadline =
-    homepage?.h1 && homepage.h1.length >= 3 && homepage.h1.length <= 120
+  const h1HomepageHeadline =
+    homepage?.h1 &&
+    homepage.h1.length >= 3 &&
+    homepage.h1.length <= 120 &&
+    !isStandaloneAuthorIdentityHeadline(
+      homepage.h1,
+      homepage.title,
+      personNames,
+    )
       ? [`Homepage headline: ${homepage.h1}`]
+      : [];
+  const homepagePositioningStatement = [
+    ...(homepage?.bodyText.split(/(?<=[.!?])\s+/) ?? []),
+    ...findAnchoredHomepagePositioningStatements(homepage?.bodyText ?? ""),
+  ]
+    .map(compact)
+    .find((sentence) => {
+      const wordCount = sentence.split(/\s+/).length;
+
+      return (
+        wordCount >= 5 &&
+        wordCount <= 40 &&
+        sentence.length <= 280 &&
+        AUTHOR_TERMS.test(sentence) &&
+        WRITING_ACTION_TERMS.test(sentence) &&
+        GENRE_TERMS.test(sentence)
+      );
+    });
+  const homepageHeadline = h1HomepageHeadline.length
+    ? h1HomepageHeadline
+    : homepagePositioningStatement
+      ? [`Homepage positioning statement: ${homepagePositioningStatement}`]
       : [];
   const emailInputEvidence = pages.flatMap((page) =>
     page.forms
@@ -984,13 +1178,31 @@ export function detectAuthorWebsiteSignals(
     },
     bookPromotion: {
       bookCoverImages: detection(
-        pages.flatMap((page) =>
-          page.images
+        pages.flatMap((page) => {
+          const titleLikeTransformedPortraits = page.images.filter((image) => {
+            const dimensions = getImageDimensions(image);
+            return (
+              dimensions?.source === "cdn-transform" &&
+              hasPortraitDimensions(image) &&
+              isTitleLikeCdnAsset(image, page) &&
+              !PHOTO_TERMS.test(`${image.alt ?? ""} ${image.src}`)
+            );
+          });
+          const allowCdnDimensions =
+            titleLikeTransformedPortraits.length >= 2 &&
+            page.images.some(hasStrongBookAssetHint);
+
+          return page.images
             .filter((image) =>
-              isLikelyBookCover(image, page, [...bookHeadings, ...bookNames]),
+              isLikelyBookCover(
+                image,
+                page,
+                [...bookHeadings, ...bookNames],
+                allowCdnDimensions,
+              ),
             )
-            .map((image) => `Book cover image: ${image.alt || image.src}`),
-        ),
+            .map((image) => `Book cover image: ${image.alt || image.src}`);
+        }),
       ),
       bookTitles: detection([
         ...bookHeadings.map((heading) => `Book heading: ${heading}`),
@@ -1106,7 +1318,8 @@ export function detectAuthorWebsiteSignals(
         pages.flatMap((page) =>
           page.images
             .filter((image) =>
-              PHOTO_TERMS.test(`${image.alt ?? ""} ${image.src}`),
+              PHOTO_TERMS.test(`${image.alt ?? ""} ${image.src}`) ||
+              AUTHOR_CONTEXT_PHOTO_ALT.test(compact(image.alt)),
             )
             .map((image) => `Author photo: ${image.alt || image.src}`),
         ),

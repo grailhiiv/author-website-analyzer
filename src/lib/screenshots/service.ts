@@ -2,7 +2,9 @@ import "server-only";
 
 import {
   FindingSeverity,
+  FindingOrigin,
   PageType,
+  Prisma,
   ReportCategory,
 } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma.core";
@@ -25,6 +27,42 @@ type SaveReportScreenshotsOptions = {
 export type CapturedReportHomepageScreenshots = {
   result: HomepageScreenshotResult;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+async function saveVisualDesignAnalysis(
+  reportId: string,
+  analysis: HomepageScreenshotResult["visualDesignAnalysis"],
+) {
+  if (!analysis) {
+    return;
+  }
+
+  const report = await prisma.report.findUnique({
+    where: { id: reportId },
+    select: { crawlDiagnostics: true },
+  });
+
+  if (!report) {
+    throw new Error("Report not found.");
+  }
+
+  const currentDiagnostics = isRecord(report.crawlDiagnostics)
+    ? report.crawlDiagnostics
+    : {};
+
+  await prisma.report.update({
+    where: { id: reportId },
+    data: {
+      crawlDiagnostics: {
+        ...currentDiagnostics,
+        visualDesignAnalysis: analysis,
+      } as Prisma.InputJsonValue,
+    },
+  });
+}
 
 async function saveScreenshotFailureFinding(
   reportId: string,
@@ -55,6 +93,7 @@ async function saveScreenshotFailureFinding(
       recommendation:
         "Try running the analysis again later. This does not necessarily mean the website is broken.",
       priority: 9,
+      origin: FindingOrigin.SYSTEM_DIAGNOSTIC,
     },
   });
 }
@@ -168,6 +207,7 @@ export async function persistReportHomepageScreenshots(
     mobileScreenshotUrl,
   );
 
+  await saveVisualDesignAnalysis(reportId, result.visualDesignAnalysis);
   await saveScreenshotFailureFinding(reportId, result);
 
   return {

@@ -3,7 +3,7 @@ import { PageType } from "@/generated/prisma/client";
 import * as cheerio from "cheerio";
 import type { Element } from "domhandler";
 
-export const CRAWLER_EXTRACTION_VERSION = "1.2.0";
+export const CRAWLER_EXTRACTION_VERSION = "1.4.0";
 
 const MAX_IMAGE_CANDIDATE_SOURCES = 12;
 
@@ -29,7 +29,12 @@ const AUTHOR_PAGE_PATTERNS: Array<{ pageType: PageType; patterns: RegExp[] }> =
     },
     {
       pageType: PageType.CONTACT,
-      patterns: [/^\/contact\/?$/, /^\/contact-me\/?$/],
+      patterns: [
+        /^\/contact\/?$/,
+        /^\/contact-me\/?$/,
+        /^\/contact-us\/?$/,
+        /^\/get-in-touch\/?$/,
+      ],
     },
     {
       pageType: PageType.NEWSLETTER,
@@ -61,6 +66,8 @@ const AUTHOR_PAGE_PATTERNS: Array<{ pageType: PageType; patterns: RegExp[] }> =
 
 const CTA_TEXT_PATTERN =
   /\b(buy|order|pre-?order|subscribe|newsletter|join|sign up|get updates|download|contact|book me|read more|learn more|start|request|schedule)\b/i;
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const SOCIAL_HOST_PATTERNS = [
   "facebook.com",
@@ -162,6 +169,9 @@ export type ExtractedPageData = {
   images: ExtractedImage[];
   forms: ExtractedForm[];
   jsonLd: unknown[];
+  semantics: {
+    article: boolean;
+  };
   seo: {
     canonicalUrl: string | null;
     robots: string | null;
@@ -216,6 +226,28 @@ function isHostMatch(href: string, hostPatterns: string[]) {
   return hostPatterns.some((pattern) => hostname.includes(pattern));
 }
 
+function decodeCloudflareEmail(encoded: string | undefined) {
+  const value = encoded?.trim() ?? "";
+
+  if (value.length < 4 || value.length % 2 !== 0 || !/^[\da-f]+$/i.test(value)) {
+    return null;
+  }
+
+  const key = Number.parseInt(value.slice(0, 2), 16);
+  let decoded = "";
+
+  for (let index = 2; index < value.length; index += 2) {
+    decoded += String.fromCharCode(
+      Number.parseInt(value.slice(index, index + 2), 16) ^ key,
+    );
+  }
+
+  const email = decoded.trim().toLowerCase();
+  return !/[\x00-\x1f\x7f]/.test(email) && EMAIL_PATTERN.test(email)
+    ? email
+    : null;
+}
+
 function extractLinks(
   $: cheerio.CheerioAPI,
   pageUrl: string,
@@ -228,6 +260,16 @@ function extractLinks(
   const emails = new Set<string>();
   const ctas: ExtractedCta[] = [];
 
+  $("[data-cfemail]")
+    .filter((_, element) => $(element).closest("a[href]").length === 0)
+    .each((_, element) => {
+      const email = decodeCloudflareEmail($(element).attr("data-cfemail"));
+
+      if (email) {
+        emails.add(email);
+      }
+    });
+
   $("a[href]").each((_, element) => {
     const rawHref = $(element).attr("href") ?? "";
     const rawHrefLower = rawHref.toLowerCase();
@@ -239,7 +281,7 @@ function extractLinks(
         .trim()
         .toLowerCase();
 
-      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (EMAIL_PATTERN.test(email)) {
         emails.add(email);
       }
 
@@ -247,6 +289,35 @@ function extractLinks(
     }
 
     const href = safeHttpUrl(rawHref, pageUrl);
+
+    if (href) {
+      const protectedEmailUrl = new URL(href);
+
+      if (protectedEmailUrl.pathname === "/cdn-cgi/l/email-protection") {
+        const encodedAttributes = [
+          $(element).attr("data-cfemail"),
+          ...$(element)
+            .find("[data-cfemail]")
+            .map((_, protectedElement) =>
+              $(protectedElement).attr("data-cfemail"),
+            )
+            .get(),
+        ];
+        const attributeEmail = encodedAttributes
+          .map(decodeCloudflareEmail)
+          .find((email): email is string => email !== null);
+        const fragmentEmail = decodeCloudflareEmail(
+          new URL(rawHref, pageUrl).hash.slice(1),
+        );
+        const email = attributeEmail ?? fragmentEmail;
+
+        if (email) {
+          emails.add(email);
+        }
+
+        return;
+      }
+    }
 
     if (!href) {
       return;
@@ -562,7 +633,11 @@ function countWords(text: string) {
 
 export function detectPageType(url: string) {
   const parsed = new URL(url);
-  const path = parsed.pathname.toLowerCase().replace(/\/+$/, "") || "/";
+  const path =
+    parsed.pathname
+      .toLowerCase()
+      .replace(/\.html?$/i, "")
+      .replace(/\/+$/, "") || "/";
 
   if (path === "/") {
     return PageType.HOME;
@@ -585,6 +660,15 @@ export function extractPageData(
   const $ = cheerio.load(html);
   const title = normalizeWhitespace($("title").first().text());
   const bodyText = extractBodyText($);
+  const semanticArticle = $("article")
+    .toArray()
+    .some((element) => {
+      const className = $(element).attr("class") ?? "";
+      return (
+        /(?:^|\s)type-post(?:\s|$)/i.test(className) ||
+        $(element).find("time[datetime]").length > 0
+      );
+    });
 
   return {
     url: pageUrl,
@@ -621,6 +705,9 @@ export function extractPageData(
     images: extractImages($, pageUrl),
     forms: extractForms($, pageUrl),
     jsonLd: extractJsonLd($),
+    semantics: {
+      article: semanticArticle,
+    },
     seo: extractSeo($, pageUrl),
   };
 }

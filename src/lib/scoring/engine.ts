@@ -4,6 +4,12 @@ import type {
   ScannedPageSignalInput,
   SignalDetection,
 } from "@/lib/signals/author-website-signals";
+import type { VisualDesignAnalysis } from "@/lib/screenshots/visual-design";
+import {
+  getScoringCheck,
+  SCORING_CHECK_REGISTRY_VERSION,
+  type ScoringCheckId,
+} from "@/lib/scoring/check-registry";
 import { getPracticalActions } from "@/lib/scoring/recommendation-actions";
 
 export type TechnicalAuditScoreInput = {
@@ -25,6 +31,7 @@ export type ScoringInput = {
   signals: AuthorWebsiteSignals;
   pagesScanned: ScoringPageInput[];
   technicalAudit?: TechnicalAuditScoreInput | null;
+  visualDesignAnalysis?: VisualDesignAnalysis | null;
 };
 
 export type ScoringFinding = {
@@ -35,6 +42,25 @@ export type ScoringFinding = {
   recommendation: string;
   practicalActions: string[];
   priority: number;
+  checkId?: ScoringCheckId;
+};
+
+export type ScoringCheckState =
+  | "pass"
+  | "fail"
+  | "unknown"
+  | "not_applicable";
+
+export type ScoringCheckResult = {
+  registryVersion: number;
+  checkId: ScoringCheckId;
+  checkVersion: number;
+  category: ReportCategory;
+  state: ScoringCheckState;
+  availablePoints: number;
+  earnedPoints: number;
+  reasonCode: string;
+  evidenceReferences: Record<string, unknown>;
 };
 
 export type CategoryScoreResult = {
@@ -55,6 +81,7 @@ export type ScoringResult = {
   findings: ScoringFinding[];
   quickWins: ScoringFinding[];
   serviceFitLabel: ServiceFitLabel;
+  checkResults: ScoringCheckResult[];
 };
 
 export type ServiceFitLabel =
@@ -73,6 +100,9 @@ type ScoreRule = {
   recommendation: string;
   severity: FindingSeverity;
   priority: number;
+  checkId: ScoringCheckId;
+  reasonCode?: string;
+  evidenceReferences?: Record<string, unknown>;
 };
 
 export type DeterministicScoringCategory = {
@@ -169,10 +199,24 @@ function scoreSummary(score: number) {
 function scoreCategory(
   config: DeterministicScoringCategory,
   rules: ScoreRule[],
-): { score: CategoryScoreResult; findings: ScoringFinding[] } {
+): {
+  score: CategoryScoreResult;
+  findings: ScoringFinding[];
+  checkResults: ScoringCheckResult[];
+} {
   // Validate every rule, including passing rules, so a new scoring check cannot
   // ship without its deterministic recommendation actions.
-  rules.forEach((rule) => getPracticalActions(rule.recommendation));
+  rules.forEach((rule) => {
+    const check = getScoringCheck(rule.checkId);
+
+    if (check.category !== config.category || check.points !== rule.points) {
+      throw new Error(
+        `Scoring rule ${rule.checkId} does not match its registered category or points.`,
+      );
+    }
+
+    getPracticalActions(rule.recommendation);
+  });
 
   const availablePoints = rules.reduce((sum, rule) => sum + rule.points, 0);
   const earnedPoints = rules.reduce(
@@ -206,7 +250,36 @@ function scoreCategory(
       recommendation: rule.recommendation,
       practicalActions: getPracticalActions(rule.recommendation),
       priority: rule.priority,
+      checkId: rule.checkId,
     }));
+  const checkResults = rules.map<ScoringCheckResult>((rule) => {
+    const check = getScoringCheck(rule.checkId);
+    const state: ScoringCheckState =
+      rule.passed === true
+        ? "pass"
+        : rule.passed === false
+          ? "fail"
+          : "unknown";
+
+    return {
+      registryVersion: SCORING_CHECK_REGISTRY_VERSION,
+      checkId: check.id,
+      checkVersion: check.version,
+      category: check.category,
+      state,
+      availablePoints: rule.points,
+      earnedPoints:
+        state === "pass" ? rule.points : state === "unknown" ? rule.points / 2 : 0,
+      reasonCode:
+        rule.reasonCode ??
+        (state === "pass"
+          ? "deterministic_evidence_passed"
+          : state === "fail"
+            ? "deterministic_evidence_failed"
+            : "required_evidence_missing"),
+      evidenceReferences: rule.evidenceReferences ?? {},
+    };
+  });
 
   return {
     score: {
@@ -221,6 +294,7 @@ function scoreCategory(
       summary: scoreSummary(percentageScore),
     },
     findings,
+    checkResults,
   };
 }
 
@@ -293,11 +367,68 @@ function hasFailedPages(pages: ScoringPageInput[]) {
   return pages.some((page) => !successfulPage(page));
 }
 
-function hasScreenshot(pages: ScoringPageInput[]) {
-  return pages.some(
-    (page) =>
-      typeof page.screenshotUrl === "string" && page.screenshotUrl.length > 0,
+function buildVisualCheckRule(
+  checkId: ScoringCheckId,
+  analysis: VisualDesignAnalysis | null | undefined,
+): ScoreRule {
+  const check = getScoringCheck(checkId);
+  if (check.source !== "rendered") {
+    throw new Error(`Scoring check ${checkId} is not a rendered check.`);
+  }
+  const matchingObservations = analysis?.observations.filter(
+    (observation) =>
+      observation.id === check.requiredObservationId &&
+      check.requiredViewports.includes(observation.viewport as never),
   );
+  const observationsByViewport = new Map(
+    matchingObservations?.map((observation) => [observation.viewport, observation]) ?? [],
+  );
+  const requiredObservations = check.requiredViewports.map((viewport) =>
+    observationsByViewport.get(viewport),
+  );
+  const hasConfirmedFailure = requiredObservations.some(
+    (observation) => observation?.status === "needs_review",
+  );
+  const hasMissingEvidence = requiredObservations.some(
+    (observation) => !observation,
+  );
+  const hasInsufficientEvidence = requiredObservations.some(
+    (observation) => observation?.status === "unknown",
+  );
+  const passed = hasConfirmedFailure
+    ? false
+    : hasMissingEvidence || hasInsufficientEvidence
+      ? null
+      : true;
+
+  return {
+    points: check.points,
+    passed,
+    title: check.findingTitle,
+    finding: check.finding,
+    recommendation: check.recommendation,
+    severity: check.severity,
+    priority: check.priority,
+    checkId,
+    reasonCode: hasConfirmedFailure
+      ? "rendered_evidence_failed"
+      : hasMissingEvidence
+        ? "required_viewport_evidence_missing"
+        : hasInsufficientEvidence
+          ? "evidence_coverage_insufficient"
+          : "rendered_evidence_passed",
+    evidenceReferences: {
+      analysisVersion: analysis?.version ?? null,
+      observationId: check.requiredObservationId,
+      requiredViewports: [...check.requiredViewports],
+      observations: requiredObservations.filter(Boolean).map((observation) => ({
+        viewport: observation?.viewport,
+        status: observation?.status,
+        evidence: observation?.evidence,
+      })),
+      errors: analysis?.errors ?? [],
+    },
+  };
 }
 
 function hasUsefulInternalLinks(pages: ScoringPageInput[]) {
@@ -403,6 +534,7 @@ function buildBrandRules(input: ScoringInput): ScoreRule[] {
 
   return [
     {
+      checkId: "brand.author_name",
       points: 4,
       passed: has(signals.authorBrand.authorNameVisible),
       title: "Author name is not clear",
@@ -414,6 +546,7 @@ function buildBrandRules(input: ScoringInput): ScoreRule[] {
       priority: 1,
     },
     {
+      checkId: "brand.genre_positioning",
       points: 3,
       passed: has(signals.authorBrand.genreOrCategoryMentioned),
       title: "Writing category is unclear",
@@ -425,6 +558,7 @@ function buildBrandRules(input: ScoringInput): ScoreRule[] {
       priority: 2,
     },
     {
+      checkId: "brand.homepage_headline",
       points: 4,
       passed: has(signals.authorBrand.clearHomepageHeadline),
       title: "Homepage headline needs clarity",
@@ -436,6 +570,7 @@ function buildBrandRules(input: ScoringInput): ScoreRule[] {
       priority: 2,
     },
     {
+      checkId: "brand.about_path",
       points: 3,
       passed: has(signals.authorBrand.aboutSectionOrPage),
       title: "About path is hard to confirm",
@@ -447,6 +582,7 @@ function buildBrandRules(input: ScoringInput): ScoreRule[] {
       priority: 4,
     },
     {
+      checkId: "brand.homepage_content_depth",
       points: 1,
       passed: Boolean(
         home && successfulPage(home) && (home.wordCount ?? 0) >= 50,
@@ -467,6 +603,7 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
 
   return [
     {
+      checkId: "books.cover_visibility",
       points: 4,
       passed: has(signals.bookPromotion.bookCoverImages),
       title: "Book cover was not detected",
@@ -477,6 +614,7 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       priority: 1,
     },
     {
+      checkId: "books.title_visibility",
       points: 3,
       passed: has(signals.bookPromotion.bookTitles),
       title: "Book title was not detected",
@@ -488,6 +626,7 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       priority: 1,
     },
     {
+      checkId: "books.description",
       points: 4,
       passed: has(signals.bookPromotion.bookDescriptionOrBlurb),
       title: "Book description is missing or unclear",
@@ -499,6 +638,7 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       priority: 2,
     },
     {
+      checkId: "books.purchase_links",
       points: 4,
       passed: has(signals.bookPromotion.buyLinks),
       title: "Buy links were not detected",
@@ -510,6 +650,7 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       priority: 1,
     },
     {
+      checkId: "books.retailer_options",
       points: 2,
       passed: multipleRetailers(signals),
       title: "Multiple retailer options were not detected",
@@ -521,6 +662,7 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       priority: 4,
     },
     {
+      checkId: "books.reader_proof",
       points: 2,
       passed: has(signals.bookPromotion.reviewsOrPraise),
       title: "Reader proof was not detected",
@@ -532,6 +674,7 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       priority: 5,
     },
     {
+      checkId: "books.featured_book",
       points: 1,
       passed: has(signals.bookPromotion.featuredBookSection),
       title: "Featured book section was not detected",
@@ -560,6 +703,7 @@ function buildNewsletterRules(input: ScoringInput): ScoreRule[] {
 
   return [
     {
+      checkId: "engagement.newsletter_signup",
       points: 5,
       passed: hasForm,
       title: "Newsletter signup was not detected",
@@ -571,6 +715,7 @@ function buildNewsletterRules(input: ScoringInput): ScoreRule[] {
       priority: 1,
     },
     {
+      checkId: "engagement.homepage_signup",
       points: 3,
       passed: homepageNewsletterDetected(signals, pagesScanned),
       title: "Newsletter is not visible on the homepage",
@@ -581,6 +726,7 @@ function buildNewsletterRules(input: ScoringInput): ScoreRule[] {
       priority: 3,
     },
     {
+      checkId: "engagement.reader_magnet",
       points: 4,
       passed: has(signals.newsletter.readerMagnetPhrases),
       title: "Reader magnet was not detected",
@@ -592,6 +738,7 @@ function buildNewsletterRules(input: ScoringInput): ScoreRule[] {
       priority: 4,
     },
     {
+      checkId: "engagement.subscriber_benefit",
       points: 3,
       passed: hasReaderBenefit,
       title: "Subscriber benefit is unclear",
@@ -611,6 +758,7 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
 
   return [
     {
+      checkId: "search.title_tag",
       points: 2,
       passed: has(signals.seo.titleTagExists),
       title: "Title tag is missing",
@@ -622,6 +770,7 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
       priority: 2,
     },
     {
+      checkId: "search.author_title_format",
       points: 3,
       passed: titleIncludesAuthorOrBrand(signals, pagesScanned),
       title: "Title does not clearly support the author brand",
@@ -633,6 +782,7 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
       priority: 3,
     },
     {
+      checkId: "search.meta_description",
       points: 3,
       passed: has(signals.seo.metaDescriptionExists),
       title: "Meta description is missing",
@@ -644,6 +794,7 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
       priority: 4,
     },
     {
+      checkId: "search.single_h1",
       points: 2,
       passed: oneH1,
       title: "Main heading structure needs cleanup",
@@ -655,6 +806,7 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
       priority: 4,
     },
     {
+      checkId: "search.h1_clarity",
       points: 3,
       passed: h1GivesAuthorClarity(signals, pagesScanned),
       title: "H1 does not clearly orient readers",
@@ -666,6 +818,7 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
       priority: 4,
     },
     {
+      checkId: "search.indexability",
       points: 3,
       passed: pageAppearsIndexable(signals),
       title: "Indexability may be blocked",
@@ -677,6 +830,7 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
       priority: 1,
     },
     {
+      checkId: "search.internal_links",
       points: 2,
       passed: hasUsefulInternalLinks(pagesScanned),
       title: "Useful internal links are limited",
@@ -691,11 +845,12 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
 }
 
 function buildMobileRules(input: ScoringInput): ScoreRule[] {
-  const { signals, pagesScanned, technicalAudit } = input;
+  const { signals, pagesScanned, technicalAudit, visualDesignAnalysis } = input;
   const home = homepage(pagesScanned);
 
   return [
     {
+      checkId: "mobile.pagespeed_performance",
       points: 4,
       passed: scoreAtLeast(technicalAudit?.mobilePerformance, 70),
       title: "Mobile performance score is below target",
@@ -707,7 +862,8 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
       priority: 3,
     },
     {
-      points: 2,
+      checkId: "mobile.pagespeed_accessibility",
+      points: 1,
       passed: scoreAtLeast(technicalAudit?.mobileAccessibility, 90),
       title: "Mobile accessibility score needs attention",
       finding:
@@ -717,7 +873,9 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
       severity: FindingSeverity.MEDIUM,
       priority: 4,
     },
+    buildVisualCheckRule("mobile.text_contrast", visualDesignAnalysis),
     {
+      checkId: "mobile.pagespeed_seo",
       points: 1,
       passed: scoreAtLeast(technicalAudit?.mobileSeo, 90),
       title: "Mobile search audit score needs attention",
@@ -729,6 +887,7 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
       priority: 6,
     },
     {
+      checkId: "mobile.image_alt_text",
       points: 1,
       passed: !has(signals.seo.missingAltText),
       title: "Images are missing alt text",
@@ -739,6 +898,7 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
       priority: 4,
     },
     {
+      checkId: "mobile.homepage_structure",
       points: 1,
       passed: Boolean(
         home && successfulPage(home) && has(signals.seo.h1Exists),
@@ -751,16 +911,7 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
       severity: FindingSeverity.LOW,
       priority: 6,
     },
-    {
-      points: 1,
-      passed: hasScreenshot(pagesScanned),
-      title: "Mobile visual check is limited",
-      finding: "The scan did not include a saved screenshot for visual review.",
-      recommendation:
-        "Capture screenshots during analysis so mobile layout issues can be reviewed more confidently.",
-      severity: FindingSeverity.LOW,
-      priority: 7,
-    },
+    buildVisualCheckRule("mobile.viewport_fit", visualDesignAnalysis),
   ];
 }
 
@@ -770,6 +921,7 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
 
   return [
     {
+      checkId: "technical.desktop_performance",
       points: 2,
       passed: scoreAtLeast(technicalAudit?.desktopPerformance, 70),
       title: "Desktop performance score is below target",
@@ -781,6 +933,7 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
       priority: 4,
     },
     {
+      checkId: "technical.mobile_best_practices",
       points: 2,
       passed: scoreAtLeast(technicalAudit?.mobileBestPractices, 90),
       title: "Mobile best practices score needs attention",
@@ -792,6 +945,7 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
       priority: 5,
     },
     {
+      checkId: "technical.desktop_best_practices",
       points: 1,
       passed: scoreAtLeast(technicalAudit?.desktopBestPractices, 90),
       title: "Desktop best practices score needs attention",
@@ -803,6 +957,7 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
       priority: 6,
     },
     {
+      checkId: "technical.desktop_accessibility",
       points: 1,
       passed: scoreAtLeast(technicalAudit?.desktopAccessibility, 90),
       title: "Desktop accessibility score needs attention",
@@ -814,6 +969,7 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
       priority: 6,
     },
     {
+      checkId: "technical.https",
       points: 1,
       passed: /^https:\/\//i.test(home?.url ?? ""),
       title: "Secure HTTPS was not confirmed",
@@ -824,6 +980,7 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
       priority: 2,
     },
     {
+      checkId: "technical.page_responses",
       points: 1,
       passed: Boolean(
         home && successfulPage(home) && !hasFailedPages(pagesScanned),
@@ -837,6 +994,7 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
       priority: 5,
     },
     {
+      checkId: "technical.indexability",
       points: 1,
       passed: pageAppearsIndexable(signals),
       title: "Search engine access may be blocked",
@@ -848,6 +1006,7 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
       priority: 2,
     },
     {
+      checkId: "technical.canonical_or_schema",
       points: 1,
       passed:
         has(signals.seo.canonicalUrl) ||
@@ -871,6 +1030,7 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
 
   return [
     {
+      checkId: "trust.author_bio",
       points: 2,
       passed: has(signals.trust.authorBio),
       title: "Author bio was not detected",
@@ -881,6 +1041,7 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       priority: 3,
     },
     {
+      checkId: "trust.author_photo",
       points: 2,
       passed: has(signals.trust.authorPhoto),
       title: "Author photo was not detected",
@@ -892,6 +1053,7 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       priority: 4,
     },
     {
+      checkId: "trust.contact_path",
       points: 2,
       passed: hasContact,
       title: "Contact path was not detected",
@@ -902,6 +1064,7 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       priority: 3,
     },
     {
+      checkId: "trust.social_profiles",
       points: 1,
       passed: has(signals.trust.socialLinks),
       title: "Social profile links were not detected",
@@ -912,6 +1075,7 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       priority: 6,
     },
     {
+      checkId: "trust.media_kit",
       points: 1,
       passed: has(signals.trust.mediaKit),
       title: "Media kit was not detected",
@@ -922,6 +1086,7 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       priority: 7,
     },
     {
+      checkId: "trust.privacy_policy",
       points: 1,
       passed: has(signals.trust.privacyPolicy),
       title: "Privacy policy was not detected",
@@ -932,6 +1097,7 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       priority: 5,
     },
     {
+      checkId: "trust.reader_proof",
       points: 1,
       passed:
         has(signals.bookPromotion.reviewsOrPraise) ||
@@ -949,22 +1115,13 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
 }
 
 function buildMaintenanceRules(input: ScoringInput): ScoreRule[] {
-  const { signals, pagesScanned } = input;
+  const { signals, pagesScanned, visualDesignAnalysis } = input;
   const outdated = oldCopyrightYear(pagesScanned);
 
   return [
+    buildVisualCheckRule("usability.primary_navigation", visualDesignAnalysis),
     {
-      points: 1,
-      passed: pagesScanned.length >= 2,
-      title: "Only limited crawl data is available",
-      finding:
-        "The analyzer did not scan multiple pages, so site usability is harder to judge.",
-      recommendation:
-        "Make sure important pages are linked clearly from the homepage so they can be reviewed.",
-      severity: FindingSeverity.LOW,
-      priority: 7,
-    },
-    {
+      checkId: "usability.page_responses",
       points: 1,
       passed: !hasFailedPages(pagesScanned),
       title: "A scanned page returned an unsuccessful status",
@@ -976,6 +1133,7 @@ function buildMaintenanceRules(input: ScoringInput): ScoreRule[] {
       priority: 5,
     },
     {
+      checkId: "usability.privacy_policy",
       points: 1,
       passed: has(signals.trust.privacyPolicy),
       title: "Privacy policy is missing from the scan",
@@ -987,6 +1145,7 @@ function buildMaintenanceRules(input: ScoringInput): ScoreRule[] {
       priority: 5,
     },
     {
+      checkId: "usability.canonical_or_schema",
       points: 1,
       passed:
         has(signals.seo.canonicalUrl) ||
@@ -1001,6 +1160,7 @@ function buildMaintenanceRules(input: ScoringInput): ScoreRule[] {
       priority: 6,
     },
     {
+      checkId: "usability.freshness",
       points: 1,
       passed: !outdated,
       title: "Site content may be out of date",
@@ -1108,6 +1268,7 @@ export function scoreAuthorWebsite(input: ScoringInput): ScoringResult {
   const overallScore = clampScore(
     categoryScores.reduce((sum, categoryScore) => sum + categoryScore.score, 0),
   );
+  const checkResults = categoryResults.flatMap((result) => result.checkResults);
 
   return {
     overallScore,
@@ -1115,5 +1276,6 @@ export function scoreAuthorWebsite(input: ScoringInput): ScoringResult {
     findings,
     quickWins: buildQuickWins(findings),
     serviceFitLabel: serviceFitLabel(categoryScores, input.pagesScanned),
+    checkResults,
   };
 }

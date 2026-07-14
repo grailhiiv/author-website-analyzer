@@ -244,6 +244,21 @@ const PRACTICAL_ACTIONS: Readonly<Record<string, readonly string[]>> = {
     "Check book availability, event dates, biography details, and external links.",
     "Schedule a recurring content review so the site continues to look maintained.",
   ],
+  "Make the primary menu easy to find and give readers direct paths to Books, About, newsletter signup, and contact information.": [
+    "Keep the primary menu visible on desktop and provide a clearly labeled menu control on smaller screens.",
+    "Verify that opening the mobile menu reveals working internal links to the most important reader destinations.",
+    "Test Books, About, newsletter, and Contact paths at desktop, tablet, and mobile widths.",
+  ],
+  "Remove mobile horizontal overflow so readers can use the page without sideways scrolling or clipped content.": [
+    "Identify the element extending beyond the mobile viewport, such as an image, slider, form, or fixed-width container.",
+    "Use responsive widths and wrapping while containing intentionally clipped carousel or off-canvas content.",
+    "Retest the homepage at a phone width and confirm it no longer scrolls sideways.",
+  ],
+  "Increase mobile text contrast so important author and book content remains readable.": [
+    "Review the flagged text and its rendered background color at the mobile breakpoint.",
+    "Adjust text, overlay, or background colors to meet the baseline contrast ratio without losing the author brand.",
+    "Recheck buttons, links, headings, and body copy in normal and interactive states.",
+  ],
 };
 
 export function getPracticalActions(recommendation: string): string[] {

@@ -19,9 +19,11 @@ const PRIORITY_PATHS = [
   "/subscribe",
   "/reader-list",
   "/contact",
+  "/contact-us",
   "/privacy",
   "/privacy-policy",
   "/privacy-notice",
+  "/privacy-disclosure",
   "/blog",
   "/news",
   "/media",
@@ -117,7 +119,12 @@ function isSameHostname(url: string, homepageUrl: string) {
 
 function getPriorityScore(url: string) {
   const parsed = new URL(url);
-  const path = parsed.pathname.toLowerCase().replace(/\/+$/, "") || "/";
+  const path =
+    parsed.pathname
+      .toLowerCase()
+      .replace(/\.html?$/i, "")
+      .replace(/-{2,}/g, "-")
+      .replace(/\/+$/, "") || "/";
 
   if (path === "/home" || path.startsWith("/home/")) {
     return 9_000;
@@ -154,7 +161,21 @@ function getPriorityScore(url: string) {
         ? PRIORITY_PATHS.length + prefixIndex
         : PRIORITY_PATHS.length * 2;
 
-  return pageTypePriority[pageType] * 1_000 + pathPriority;
+  if (/\/privacy(?:-(?:policy|notice|disclosure))?$/.test(path)) {
+    return 4_500 + pathPriority;
+  }
+
+  const nestedBookDetailPenalty =
+    pageType === PageType.BOOKS &&
+    path.split("/").filter(Boolean).length > 1
+      ? 3_000
+      : 0;
+
+  return (
+    pageTypePriority[pageType] * 1_000 +
+    nestedBookDetailPenalty +
+    pathPriority
+  );
 }
 
 export function prioritizeCrawlUrls({

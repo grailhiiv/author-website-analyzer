@@ -45,6 +45,7 @@ async function saveCrawledPages(reportId: string, pages: CrawledPageResult[]) {
           h3: page.extracted.headings.h3,
           bodyText: page.extracted.bodyText,
           jsonLd: page.extracted.jsonLd,
+          semanticArticle: page.extracted.semantics.article,
           canonicalUrl: page.extracted.seo.canonicalUrl,
           robots: page.extracted.seo.robots,
         }),

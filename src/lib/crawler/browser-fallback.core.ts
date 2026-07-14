@@ -194,6 +194,10 @@ export function mergeRenderedExtraction(
         [...staticData.jsonLd, ...renderedData.jsonLd],
         (value) => JSON.stringify(value),
       ),
+      semantics: {
+        article:
+          staticData.semantics.article || renderedData.semantics.article,
+      },
       // Canonical and robots remain response/static-authoritative.
       seo: staticData.seo,
     },

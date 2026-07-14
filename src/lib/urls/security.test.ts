@@ -157,6 +157,55 @@ test("blocks public domains that resolve to private IP addresses", async () => {
   }
 });
 
+test("reports request timeouts separately from other connection failures", async () => {
+  const result = await validateUrlForScan("https://example.com", {
+    ...createOptions(),
+    fetchImplementation: async () => {
+      throw new DOMException("The request was aborted", "AbortError");
+    },
+  });
+
+  assert.equal(result.ok, false);
+
+  if (!result.ok) {
+    assert.match(result.message, /quickly enough/i);
+  }
+});
+
+test("reports wrapped TLS certificate failures with an actionable diagnosis", async () => {
+  const certificateError = Object.assign(new Error("certificate mismatch"), {
+    code: "ERR_TLS_CERT_ALTNAME_INVALID",
+  });
+  const result = await validateUrlForScan("https://example.com", {
+    ...createOptions(),
+    fetchImplementation: async () => {
+      throw new TypeError("fetch failed", { cause: certificateError });
+    },
+  });
+
+  assert.equal(result.ok, false);
+
+  if (!result.ok) {
+    assert.match(result.message, /certificate is invalid or does not match/i);
+    assert.match(result.message, /site owner needs to repair/i);
+  }
+});
+
+test("uses a secure connection message for non-timeout network failures", async () => {
+  const result = await validateUrlForScan("https://example.com", {
+    ...createOptions(),
+    fetchImplementation: async () => {
+      throw new TypeError("fetch failed");
+    },
+  });
+
+  assert.equal(result.ok, false);
+
+  if (!result.ok) {
+    assert.match(result.message, /establish a secure connection/i);
+  }
+});
+
 test("blocks submitted website URLs with embedded credentials", async () => {
   const result = await validateUrlForScan(
     "https://user:secret@example.com/books",

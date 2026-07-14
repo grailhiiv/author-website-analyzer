@@ -1,0 +1,67 @@
+[
+  {
+    "id": "working-collapsed-mobile-menu",
+    "viewport": "mobile",
+    "observationId": "navigation-availability",
+    "expectedStatus": "passed",
+    "overrides": {
+      "visibleNavigationCount": 0,
+      "visibleNavigationControlCount": 1,
+      "navigationLinkCount": 0,
+      "navigationControlActivationAttempted": true,
+      "navigationControlRevealedLinkCount": 4,
+      "navigationControlSamples": ["Menu"],
+      "navigationControlRevealedLinkSamples": ["Books", "About", "Contact"]
+    }
+  },
+  {
+    "id": "dead-mobile-menu-control",
+    "viewport": "mobile",
+    "observationId": "navigation-availability",
+    "expectedStatus": "needs_review",
+    "overrides": {
+      "visibleNavigationCount": 0,
+      "visibleNavigationControlCount": 1,
+      "navigationLinkCount": 0,
+      "navigationControlActivationAttempted": true,
+      "navigationControlRevealedLinkCount": 0,
+      "navigationControlSamples": ["Menu"]
+    }
+  },
+  {
+    "id": "intentionally-clipped-book-carousel",
+    "viewport": "mobile",
+    "observationId": "horizontal-overflow",
+    "expectedStatus": "passed",
+    "overrides": {
+      "documentWidth": 430,
+      "horizontalOverflowElementCount": 0,
+      "horizontalOverflowElementSamples": []
+    }
+  },
+  {
+    "id": "genuine-page-level-overflow",
+    "viewport": "mobile",
+    "observationId": "horizontal-overflow",
+    "expectedStatus": "needs_review",
+    "overrides": {
+      "documentWidth": 430,
+      "horizontalOverflowElementCount": 1,
+      "horizontalOverflowElementSamples": [
+        { "label": "Promotional banner", "width": 430, "height": 80 }
+      ]
+    }
+  },
+  {
+    "id": "insufficient-contrast-coverage",
+    "viewport": "mobile",
+    "observationId": "text-contrast",
+    "expectedStatus": "unknown",
+    "overrides": {
+      "textElementCount": 20,
+      "contrastTextCount": 15,
+      "lowContrastTextCount": 0,
+      "lowContrastTextSamples": []
+    }
+  }
+]

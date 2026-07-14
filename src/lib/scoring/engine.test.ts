@@ -3,12 +3,21 @@ import test from "node:test";
 
 import { FindingSeverity, ReportCategory } from "@/generated/prisma/client";
 import {
+  SCORING_CHECK_REGISTRY,
+  type ScoringCheckId,
+} from "@/lib/scoring/check-registry";
+import {
   DETERMINISTIC_SCORING_CATEGORIES,
   DETERMINISTIC_SCORING_TOTAL,
   scoreAuthorWebsite,
   type ScoringInput,
   type ScoringPageInput,
 } from "@/lib/scoring/engine";
+import {
+  buildVisualDesignAnalysis,
+  type VisualViewportEvidence,
+  type VisualViewportVariant,
+} from "@/lib/screenshots/visual-design";
 import type {
   AuthorWebsiteSignals,
   SignalDetection,
@@ -169,6 +178,67 @@ function strongPages(): ScoringPageInput[] {
   ];
 }
 
+function visualViewport(
+  variant: VisualViewportVariant,
+  overrides: Partial<VisualViewportEvidence> = {},
+): VisualViewportEvidence {
+  const dimensions = {
+    desktop: { width: 1440, height: 1200 },
+    tablet: { width: 768, height: 1024 },
+    mobile: { width: 390, height: 844 },
+  }[variant];
+
+  return {
+    variant,
+    viewportWidth: dimensions.width,
+    viewportHeight: dimensions.height,
+    documentWidth: dimensions.width,
+    documentHeight: 1600,
+    visibleHeadingCount: 1,
+    headingsAboveFoldCount: 1,
+    visibleNavigationCount: 1,
+    visibleNavigationControlCount: 0,
+    navigationLinkCount: 4,
+    navigationControlActivationAttempted: false,
+    navigationControlRevealedLinkCount: 0,
+    navigationControlSamples: [],
+    navigationLinkSamples: ["Books", "About", "Contact"],
+    navigationControlRevealedLinkSamples: [],
+    visibleCtaCount: 2,
+    ctasAboveFoldCount: 1,
+    ctaSamples: ["Buy the book"],
+    visibleFormCount: 1,
+    formsWithManyFieldsCount: 0,
+    largestFormFieldCount: 2,
+    formSamples: ["Newsletter (2 fields)"],
+    interactiveElementCount: 4,
+    undersizedInteractiveCount: 0,
+    undersizedInteractiveSamples: [],
+    textElementCount: 20,
+    undersizedTextCount: 0,
+    undersizedTextSamples: [],
+    contrastTextCount: 20,
+    lowContrastTextCount: 0,
+    lowContrastTextSamples: [],
+    horizontalOverflowElementCount: 0,
+    horizontalOverflowElementSamples: [],
+    obstructiveOverlayCount: 0,
+    largestOverlayCoverage: 0,
+    ...overrides,
+  };
+}
+
+function passingVisualDesignAnalysis() {
+  const analysis = buildVisualDesignAnalysis([
+    visualViewport("desktop"),
+    visualViewport("tablet"),
+    visualViewport("mobile"),
+  ]);
+
+  assert.ok(analysis);
+  return analysis;
+}
+
 function scoreInput(overrides: Partial<ScoringInput> = {}): ScoringInput {
   return {
     signals: signalSet(true),
@@ -183,9 +253,101 @@ function scoreInput(overrides: Partial<ScoringInput> = {}): ScoringInput {
       mobileBestPractices: 94,
       desktopBestPractices: 96,
     },
+    visualDesignAnalysis: passingVisualDesignAnalysis(),
     ...overrides,
   };
 }
+
+function sparseScoreInput(): ScoringInput {
+  const sparseSignals = signalSet(false);
+
+  sparseSignals.seo.multipleH1Issue = detected(["Multiple H1 tags: 2"]);
+  sparseSignals.seo.missingAltText = detected(["Missing image alt text"]);
+
+  return scoreInput({
+    signals: sparseSignals,
+    pagesScanned: [
+      {
+        url: "https://thin.test/",
+        pageType: "HOME",
+        statusCode: 200,
+        title: null,
+        metaDescription: null,
+        h1: null,
+        headingsJson: { h1Count: 2, robots: "noindex" },
+        linksJson: { internal: [] },
+        imagesJson: [{ src: "/photo.jpg", alt: null }],
+        formsJson: [],
+        wordCount: 10,
+        contentText: "Welcome.",
+      },
+    ],
+    technicalAudit: null,
+  });
+}
+
+test("scoreAuthorWebsite preserves the pre-registry strong, sparse, and unknown baselines", () => {
+  const strong = scoreAuthorWebsite(scoreInput());
+  const sparse = scoreAuthorWebsite(sparseScoreInput());
+  const unknown = scoreAuthorWebsite(
+    scoreInput({ technicalAudit: null, visualDesignAnalysis: null }),
+  );
+  const categoryScores = (result: ReturnType<typeof scoreAuthorWebsite>) =>
+    result.categoryScores.map((category) => category.score);
+
+  assert.deepEqual(
+    {
+      overallScore: strong.overallScore,
+      categoryScores: categoryScores(strong),
+      findingCount: strong.findings.length,
+      serviceFitLabel: strong.serviceFitLabel,
+    },
+    {
+      overallScore: 100,
+      categoryScores: [15, 20, 15, 15, 10, 10, 10, 5],
+      findingCount: 0,
+      serviceFitLabel: "Website optimization",
+    },
+  );
+  assert.deepEqual(
+    {
+      overallScore: sparse.overallScore,
+      categoryScores: categoryScores(sparse),
+      findingCount: sparse.findings.length,
+      quickWinTitles: sparse.quickWins.map((finding) => finding.title),
+      serviceFitLabel: sparse.serviceFitLabel,
+    },
+    {
+      overallScore: 13,
+      categoryScores: [0, 0, 0, 0, 5, 5, 0, 3],
+      findingCount: 36,
+      quickWinTitles: [
+        "Author name is not clear",
+        "Book cover was not detected",
+        "Book title was not detected",
+        "Buy links were not detected",
+        "Newsletter signup was not detected",
+      ],
+      serviceFitLabel: "New author website",
+    },
+  );
+  assert.deepEqual(
+    {
+      overallScore: unknown.overallScore,
+      categoryScores: categoryScores(unknown),
+      findingCount: unknown.findings.length,
+      unknownCheckCount: unknown.checkResults.filter(
+        (check) => check.state === "unknown",
+      ).length,
+    },
+    {
+      overallScore: 93,
+      categoryScores: [15, 20, 15, 15, 6, 7, 10, 5],
+      findingCount: 0,
+      unknownCheckCount: 10,
+    },
+  );
+});
 
 test("scoreAuthorWebsite awards full deterministic scores for a complete author site", () => {
   const result = scoreAuthorWebsite(scoreInput());
@@ -264,34 +426,142 @@ test("scoreAuthorWebsite uses the fixed 100-point category model", () => {
   );
 });
 
-test("scoreAuthorWebsite creates findings for every reduced category score", () => {
-  const sparseSignals = signalSet(false);
+test("scoreAuthorWebsite records one stable result for every registered check", () => {
+  const result = scoreAuthorWebsite(scoreInput());
 
-  sparseSignals.seo.multipleH1Issue = detected(["Multiple H1 tags: 2"]);
-  sparseSignals.seo.missingAltText = detected(["Missing image alt text"]);
+  assert.deepEqual(
+    new Set(result.checkResults.map((check) => check.checkId)),
+    new Set(SCORING_CHECK_REGISTRY.map((check) => check.id)),
+  );
+  assert.equal(result.checkResults.length, SCORING_CHECK_REGISTRY.length);
+  assert.equal(
+    result.checkResults.every(
+      (check) =>
+        check.state === "pass" &&
+        check.earnedPoints === check.availablePoints,
+    ),
+    true,
+  );
+});
 
-  const result = scoreAuthorWebsite(
-    scoreInput({
-      signals: sparseSignals,
-      pagesScanned: [
+test("scoreAuthorWebsite lowers Site Usability for confirmed navigation failure", () => {
+  const visualDesignAnalysis = buildVisualDesignAnalysis([
+    visualViewport("desktop", {
+      visibleNavigationCount: 0,
+      navigationLinkCount: 0,
+      navigationLinkSamples: [],
+    }),
+    visualViewport("tablet"),
+    visualViewport("mobile"),
+  ]);
+  const result = scoreAuthorWebsite(scoreInput({ visualDesignAnalysis }));
+  const siteUsability = result.categoryScores.find(
+    (score) => score.category === ReportCategory.SITE_USABILITY,
+  );
+  const check = result.checkResults.find(
+    (candidate) => candidate.checkId === "usability.primary_navigation",
+  );
+
+  assert.equal(siteUsability?.score, 4);
+  assert.equal(check?.state, "fail");
+  assert.equal(check?.earnedPoints, 0);
+  assert.ok(
+    result.findings.some(
+      (finding) =>
+        finding.checkId === "usability.primary_navigation" &&
+        finding.title ===
+          "Primary navigation is unavailable in a tested viewport",
+    ),
+  );
+});
+
+test("scoreAuthorWebsite lowers Mobile Performance for confirmed viewport overflow", () => {
+  const visualDesignAnalysis = buildVisualDesignAnalysis([
+    visualViewport("desktop"),
+    visualViewport("tablet"),
+    visualViewport("mobile", {
+      documentWidth: 430,
+      horizontalOverflowElementCount: 1,
+      horizontalOverflowElementSamples: [
+        { label: "Featured-book carousel", width: 430, height: 80 },
+      ],
+    }),
+  ]);
+  const result = scoreAuthorWebsite(scoreInput({ visualDesignAnalysis }));
+  const mobile = result.categoryScores.find(
+    (score) => score.category === ReportCategory.MOBILE_PERFORMANCE,
+  );
+
+  assert.equal(mobile?.score, 9);
+  assert.equal(
+    result.checkResults.find(
+      (check) => check.checkId === "mobile.viewport_fit",
+    )?.state,
+    "fail",
+  );
+});
+
+test("scoreAuthorWebsite lowers Mobile Performance for confirmed low contrast", () => {
+  const visualDesignAnalysis = buildVisualDesignAnalysis([
+    visualViewport("desktop"),
+    visualViewport("tablet"),
+    visualViewport("mobile", {
+      lowContrastTextCount: 1,
+      lowContrastTextSamples: [
         {
-          url: "https://thin.test/",
-          pageType: "HOME",
-          statusCode: 200,
-          title: null,
-          metaDescription: null,
-          h1: null,
-          headingsJson: { h1Count: 2, robots: "noindex" },
-          linksJson: { internal: [] },
-          imagesJson: [{ src: "/photo.jpg", alt: null }],
-          formsJson: [],
-          wordCount: 10,
-          contentText: "Welcome.",
+          label: "Newsletter helper text",
+          width: 180,
+          height: 16,
+          fontSize: 14,
+          contrastRatio: 2.8,
         },
       ],
-      technicalAudit: null,
     }),
+  ]);
+  const result = scoreAuthorWebsite(scoreInput({ visualDesignAnalysis }));
+  const mobile = result.categoryScores.find(
+    (score) => score.category === ReportCategory.MOBILE_PERFORMANCE,
   );
+
+  assert.equal(mobile?.score, 9);
+  assert.equal(
+    result.checkResults.find(
+      (check) => check.checkId === "mobile.text_contrast",
+    )?.state,
+    "fail",
+  );
+});
+
+test("scoreAuthorWebsite treats unavailable rendered evidence as unknown without findings", () => {
+  const result = scoreAuthorWebsite(
+    scoreInput({ visualDesignAnalysis: null }),
+  );
+  const renderedCheckIds = new Set<ScoringCheckId>(
+    SCORING_CHECK_REGISTRY.filter((check) => check.source === "rendered").map(
+      (check) => check.id,
+    ),
+  );
+  const renderedChecks = result.checkResults.filter((check) =>
+    renderedCheckIds.has(check.checkId),
+  );
+
+  assert.equal(renderedChecks.length, 3);
+  assert.equal(
+    renderedChecks.every(
+      (check) =>
+        check.state === "unknown" &&
+        check.earnedPoints === check.availablePoints / 2,
+    ),
+    true,
+  );
+  assert.equal(
+    result.findings.some((finding) => finding.checkId?.includes(".")),
+    false,
+  );
+});
+
+test("scoreAuthorWebsite creates findings for every reduced category score", () => {
+  const result = scoreAuthorWebsite(sparseScoreInput());
 
   assert.equal(result.serviceFitLabel, "New author website");
   assert.ok(result.overallScore < 40);

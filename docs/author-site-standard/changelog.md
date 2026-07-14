@@ -1,5 +1,24 @@
 # Author website quality standard changelog
 
+## 0.8 - 2026-07-14
+
+- Approved and implemented the first stable-ID rendered scoring checks: `usability.primary_navigation`, `mobile.viewport_fit`, and `mobile.text_contrast`.
+- Replaced three existing proxy points without changing the eight category maxima or 100-point total.
+- Added interactive collapsed-menu inspection, unclipped overflow-source detection, contrast measurement coverage thresholds, versioned per-check persistence, finding origins, fixed recommendations, and anonymized regression fixtures.
+- Distinguished invalid or hostname-mismatched HTTPS certificates from request timeouts so unreachable sites receive the correct owner-facing repair guidance.
+- Kept all subjective design judgments and the remaining Site Structure, Visual Design, and Conversion Design observations advisory.
+
+**Scoring impact:** confirmed failures can now reduce one existing Site Usability raw point and two existing Mobile Performance raw points. Missing or insufficient rendered evidence remains `unknown`, receives half credit, and creates no failure finding. Category maxima, conditional applicability, and `not_applicable` behavior are unchanged.
+
+## 0.7 - 2026-07-14
+
+- Completed a third operator-approved calibration batch across three live author sites, with 3/3 bounded crawls and 7/7 explicit regression expectations passing on the final run.
+- Added production recognition for semantic WordPress posts and common author-portrait filename and alt-text conventions.
+- Kept homepage and privacy routes as the primary page role when strong embedded newsletter, article, or contact evidence is also present.
+- Expanded the anonymized offline regression corpus to 31 cases and 41 scanned pages.
+
+**Scoring impact:** numeric weights, conditional-check applicability, and `not_applicable` behavior are unchanged. These changes improve deterministic extraction and classification only.
+
 ## 0.6 - 2026-07-14
 
 - Added an operator-approved live-site validation workflow that invokes the production crawler and deterministic analyzer without creating reports or changing scores.

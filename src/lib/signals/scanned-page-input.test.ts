@@ -37,6 +37,7 @@ test("maps extracted crawler data into the shared analyzer signal input", () => 
     h3: [],
     bodyText: extracted.bodyText,
     jsonLd: [],
+    semanticArticle: false,
     canonicalUrl: "https://author.test/books/",
     robots: null,
   });

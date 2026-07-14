@@ -43,6 +43,8 @@ Tech stack:
 Important rule:
 Use deterministic scoring for numeric scores. Use AI only to explain findings in clear author-friendly language.
 
+Organize the report's `Design & reader experience` review under Site Structure, Visual Design, and Conversion Design. Only the registered objective checks `usability.primary_navigation`, `mobile.viewport_fit`, and `mobile.text_contrast` affect existing Site Usability or Mobile Performance points. All other rendered observations are advisory. Keep subjective judgments such as genre fit, professionalism, emotional tone, and visual taste in a guided manual checklist. Do not add a ninth score category or change category maxima, applicability, or `not_applicable` behavior without an explicit approved product decision.
+
 ## Ecme template priority
 
 When creating, updating, or redesigning any application interface, use the existing Ecme template as the primary implementation and design source. This applies to both public/frontend pages and protected admin/backend pages so the entire product retains one consistent visual language and interaction model.

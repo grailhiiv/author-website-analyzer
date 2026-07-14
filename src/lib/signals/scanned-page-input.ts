@@ -18,6 +18,7 @@ export function extractedPageToScannedPageSignalInput(
       h3: extracted.headings.h3,
       bodyText: extracted.bodyText,
       jsonLd: extracted.jsonLd,
+      semanticArticle: extracted.semantics.article,
       canonicalUrl: extracted.seo.canonicalUrl,
       robots: extracted.seo.robots,
     },

@@ -41,6 +41,18 @@ test("detectPageType maps author website paths", () => {
   );
   assert.equal(detectPageType("https://author.test/contact"), PageType.CONTACT);
   assert.equal(
+    detectPageType("https://author.test/contact-us/"),
+    PageType.CONTACT,
+  );
+  assert.equal(
+    detectPageType("https://author.test/contact.html"),
+    PageType.CONTACT,
+  );
+  assert.equal(
+    detectPageType("https://author.test/about.html"),
+    PageType.ABOUT,
+  );
+  assert.equal(
     detectPageType("https://author.test/newsletter"),
     PageType.NEWSLETTER,
   );
@@ -149,6 +161,60 @@ test("extractPageData extracts images, forms, and links with normalized URLs", (
   assert.equal(page.links.external[0].href, "https://retailer.example/book");
 });
 
+test("extractPageData decodes valid Cloudflare-protected email evidence", () => {
+  const page = extractPageData(
+    `
+      <a href="/cdn-cgi/l/email-protection#127a777e7e7d52607b64776063677b7e7e3c66776166">
+        <span
+          class="__cf_email__"
+          data-cfemail="127a777e7e7d52607b64776063677b7e7e3c66776166"
+        >[email protected]</span>
+      </a>
+    `,
+    "https://author.test/contact",
+  );
+
+  assert.deepEqual(page.links.emails, ["hello@riverquill.test"]);
+  assert.deepEqual(page.links.internal, []);
+});
+
+test("extractPageData decodes Cloudflare email fragments when no data attribute exists", () => {
+  const page = extractPageData(
+    `<a href="/cdn-cgi/l/email-protection#1277767b667d60527367667a7d603c66776166">Protected email</a>`,
+    "https://author.test/contact",
+  );
+
+  assert.deepEqual(page.links.emails, ["editor@author.test"]);
+  assert.deepEqual(page.links.internal, []);
+});
+
+test("extractPageData prefers Cloudflare data attributes over href fragments", () => {
+  const page = extractPageData(
+    `
+      <a href="/cdn-cgi/l/email-protection#1277767b667d60527367667a7d603c66776166">
+        <span data-cfemail="127a777e7e7d52607b64776063677b7e7e3c66776166">Protected email</span>
+      </a>
+    `,
+    "https://author.test/contact",
+  );
+
+  assert.deepEqual(page.links.emails, ["hello@riverquill.test"]);
+});
+
+test("extractPageData ignores malformed and non-email Cloudflare values", () => {
+  const page = extractPageData(
+    `
+      <span data-cfemail="123">odd length</span>
+      <span data-cfemail="12not-hex">not hex</span>
+      <span data-cfemail="127c7d66527f735b7e">not an email</span>
+      <a href="/cdn-cgi/l/email-protection#123">malformed protection URL</a>
+    `,
+    "https://author.test/contact",
+  );
+
+  assert.deepEqual(page.links.emails, []);
+});
+
 test("extractPageData separates main headings and forms from repeated page chrome", () => {
   const page = extractPageData(
     `
@@ -250,7 +316,7 @@ test("prioritizeCrawlUrls keeps homepage first and limits important pages", () =
     "https://author.test/books",
     "https://author.test/newsletter",
     "https://author.test/contact",
-    "https://author.test/blog",
+    "https://author.test/privacy",
   ]);
 });
 
@@ -331,11 +397,34 @@ test("prioritizeCrawlUrls keeps event archive entries behind core pages", () => 
     "https://author.test/books",
     "https://author.test/newsletter",
     "https://author.test/contact",
+    "https://author.test/privacy-notice",
     "https://author.test/events",
     "https://author.test/blog",
-    "https://author.test/privacy-notice",
   ]);
   assert.equal(urls.filter((url) => url.includes("/events/")).length, 2);
+});
+
+test("prioritizeCrawlUrls keeps legacy contact and privacy routes ahead of nested book pages", () => {
+  const nestedBookPages = Array.from(
+    { length: 12 },
+    (_, index) => `https://author.test/books/title-${index + 1}/`,
+  );
+  const urls = prioritizeCrawlUrls({
+    homepageUrl: "https://author.test/",
+    homepageInternalLinks: [
+      ...nestedBookPages,
+      "https://author.test/contact-us/",
+      "https://author.test/privacy--disclosure.html",
+    ],
+    limit: 10,
+  });
+
+  assert.equal(urls.includes("https://author.test/contact-us/"), true);
+  assert.equal(
+    urls.includes("https://author.test/privacy--disclosure.html"),
+    true,
+  );
+  assert.equal(urls.includes("https://author.test/books/title-12/"), false);
 });
 
 test("parseRobotsSitemapUrls discovers absolute and relative Sitemap directives", () => {

@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   FindingSeverity,
+  FindingOrigin,
   Prisma,
   ReportCategory,
 } from "@/generated/prisma/client";
@@ -103,6 +104,7 @@ async function saveFailureFinding(reportId: string, result: PageSpeedAuditResult
       recommendation:
         "Try running the analysis again later. This does not necessarily mean the website has a performance problem.",
       priority: 8,
+      origin: FindingOrigin.SYSTEM_DIAGNOSTIC,
     },
   });
 }

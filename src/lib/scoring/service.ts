@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Prisma } from "@/generated/prisma/client";
+import { FindingOrigin, Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db/prisma.core";
 import {
   buildAnalyzerDiagnostics,
@@ -8,6 +8,11 @@ import {
 } from "@/lib/signals/analyzer-diagnostics";
 import { detectAuthorWebsiteSignals } from "@/lib/signals/author-website-signals";
 import { scoreAuthorWebsite } from "@/lib/scoring/engine";
+import {
+  buildReportCheckResultRows,
+  deterministicFindingScope,
+} from "@/lib/scoring/persistence.core";
+import { getVisualDesignAnalysis } from "@/lib/screenshots/visual-design";
 
 function toJson(value: unknown) {
   return value as Prisma.InputJsonValue;
@@ -29,10 +34,14 @@ export async function scoreAndSaveReport(reportId: string) {
   }
 
   const signals = detectAuthorWebsiteSignals(report.pagesScanned);
+  const visualDesignAnalysis = getVisualDesignAnalysis(
+    report.crawlDiagnostics,
+  );
   const result = scoreAuthorWebsite({
     signals,
     pagesScanned: report.pagesScanned,
     technicalAudit: report.technicalAudit,
+    visualDesignAnalysis,
   });
   const analyzerDiagnostics = buildAnalyzerDiagnostics({
     crawlDiagnostics: report.crawlDiagnostics,
@@ -51,11 +60,11 @@ export async function scoreAndSaveReport(reportId: string) {
       },
     }),
     prisma.reportFinding.deleteMany({
+      where: deterministicFindingScope(reportId),
+    }),
+    prisma.reportCheckResult.deleteMany({
       where: {
         reportId,
-        priority: {
-          lte: 7,
-        },
       },
     }),
     prisma.reportScore.createMany({
@@ -77,7 +86,12 @@ export async function scoreAndSaveReport(reportId: string) {
         recommendation: finding.recommendation,
         practicalActions: finding.practicalActions,
         priority: finding.priority,
+        checkId: finding.checkId,
+        origin: FindingOrigin.DETERMINISTIC_SCORE,
       })),
+    }),
+    prisma.reportCheckResult.createMany({
+      data: buildReportCheckResultRows(reportId, result.checkResults),
     }),
     prisma.report.update({
       where: {

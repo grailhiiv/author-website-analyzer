@@ -377,6 +377,177 @@
       }
     },
     {
+      "id": "lazy-cdn-book-cover",
+      "description": "A lazy-loaded cover with intrinsic CDN transformation dimensions is recognized despite missing alt text and HTML dimensions.",
+      "tags": ["positive", "live-regression", "lazy-image", "cdn"],
+      "baseUrl": "https://river-covers.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/lazy-cdn-book-cover.html", "expectedPrimaryRole": "HOME" }
+      ],
+      "expectedSignals": {
+        "bookPromotion.bookCoverImages": true,
+        "bookPromotion.bookTitles": false,
+        "bookPromotion.retailerLinks": true
+      },
+      "expectedOutcomes": {
+        "books.cover_image": "present"
+      }
+    },
+    {
+      "id": "cloudflare-protected-contact-email",
+      "description": "A Cloudflare-protected contact address is decoded as email evidence without requiring visible plain text.",
+      "tags": ["positive", "live-regression", "contact", "obfuscated-email"],
+      "baseUrl": "https://river-contact.author.test/",
+      "pages": [
+        { "path": "/hello", "fixture": "fixtures/cloudflare-protected-contact.html", "expectedPrimaryRole": "CONTACT" }
+      ],
+      "expectedSignals": {
+        "trust.contactEmail": true,
+        "trust.contactForm": false
+      },
+      "expectedOutcomes": {
+        "trust.contact_route": "present"
+      }
+    },
+    {
+      "id": "cdn-portrait-gallery-trap",
+      "description": "Portrait-shaped author and event images remain distinct from book covers even beside a retailer link.",
+      "tags": ["negative", "live-regression", "image-trap", "cdn"],
+      "baseUrl": "https://river-portraits.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/cdn-portrait-gallery-trap.html", "expectedPrimaryRole": "HOME" }
+      ],
+      "expectedSignals": {
+        "bookPromotion.bookCoverImages": false,
+        "bookPromotion.retailerLinks": true
+      },
+      "expectedOutcomes": {
+        "books.cover_image": "unknown"
+      }
+    },
+    {
+      "id": "malformed-cloudflare-contact",
+      "description": "Malformed Cloudflare protection values do not fabricate contact email evidence or a contact route.",
+      "tags": ["negative", "live-regression", "contact", "malformed"],
+      "baseUrl": "https://river-malformed-contact.author.test/",
+      "pages": [
+        { "path": "/contact", "fixture": "fixtures/malformed-cloudflare-contact.html", "expectedPrimaryRole": "CONTACT" }
+      ],
+      "expectedSignals": {
+        "trust.contactEmail": false,
+        "trust.contactForm": false
+      },
+      "expectedOutcomes": {
+        "trust.contact_route": "absent"
+      }
+    },
+    {
+      "id": "author-name-only-headline",
+      "description": "An author name used by itself as the homepage H1 establishes identity but does not satisfy a clear descriptive homepage headline.",
+      "tags": ["negative", "live-regression", "homepage", "headline"],
+      "baseUrl": "https://river-headline.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/author-name-only-headline.html", "expectedPrimaryRole": "HOME" }
+      ],
+      "expectedSignals": {
+        "authorBrand.authorNameVisible": true,
+        "authorBrand.clearHomepageHeadline": false
+      }
+    },
+    {
+      "id": "body-positioning-statement",
+      "description": "A concise homepage positioning statement identifies the author, market credential, writing action, and genre without relying on an H1.",
+      "tags": ["positive", "live-regression", "homepage", "headline"],
+      "baseUrl": "https://rowan-positioning.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/body-positioning-statement.html", "expectedPrimaryRole": "HOME" }
+      ],
+      "expectedSignals": {
+        "authorBrand.authorNameVisible": true,
+        "authorBrand.genreOrCategoryMentioned": true,
+        "authorBrand.clearHomepageHeadline": true
+      }
+    },
+    {
+      "id": "plain-author-alt-portrait",
+      "description": "An author portrait with the concise accessible label author is recognized without relying on its generated filename.",
+      "tags": ["positive", "live-regression", "image", "author-photo"],
+      "baseUrl": "https://vale-image.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/plain-author-alt-portrait.html", "expectedPrimaryRole": "HOME" }
+      ],
+      "expectedSignals": {
+        "trust.authorPhoto": true
+      }
+    },
+    {
+      "id": "repeated-footer-contact-trap",
+      "description": "Contact wording embedded in a long repeated footer heading does not turn an unrelated videos page into a contact page.",
+      "tags": ["negative", "live-regression", "page-role", "footer"],
+      "baseUrl": "https://rowan-footer.author.test/",
+      "pages": [
+        { "path": "/videos.html", "fixture": "fixtures/repeated-footer-contact-trap.html", "expectedPrimaryRole": "UNKNOWN" }
+      ],
+      "forbiddenObservations": [
+        { "signalId": "page.role.contact", "path": "/videos.html", "sourceKind": "text" }
+      ]
+    },
+    {
+      "id": "multi-book-whats-new-index",
+      "description": "A What's New page presenting multiple separately purchasable books functions as a books index rather than a single-book detail page.",
+      "tags": ["positive", "live-regression", "page-role", "multi-book"],
+      "baseUrl": "https://rowan-new-books.author.test/",
+      "pages": [
+        { "path": "/whats-new.html", "fixture": "fixtures/multi-book-whats-new.html", "expectedPrimaryRole": "BOOKS_INDEX" }
+      ],
+      "expectedSignals": {
+        "bookPromotion.bookTitles": true,
+        "bookPromotion.buyLinks": true
+      }
+    },
+    {
+      "id": "live-batch-3-page-role-regressions",
+      "description": "Root-page purpose, canonical privacy intent, and semantic post markup remain authoritative when generic forms or schema compete with the page's actual role.",
+      "tags": ["positive", "live-regression", "page-role", "batch-3"],
+      "baseUrl": "https://elena-role.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/homepage-with-primary-newsletter-form.html", "expectedPrimaryRole": "HOME", "expectedSecondaryRoles": ["NEWSLETTER"] },
+        { "path": "/privacy-policy/", "fixture": "fixtures/privacy-with-article-schema.html", "expectedPrimaryRole": "PRIVACY", "expectedSecondaryRoles": ["ARTICLE"] },
+        { "path": "/adaptation-release-news/", "fixture": "fixtures/semantic-article-release-news.html", "expectedPrimaryRole": "ARTICLE" },
+        { "path": "/excerpt-from-the-next-novel/", "fixture": "fixtures/semantic-article-excerpt.html", "expectedPrimaryRole": "ARTICLE" }
+      ]
+    },
+    {
+      "id": "hyphenated-author-photo-filename",
+      "description": "A visible author portrait is recognized when an empty-alt image uses a hyphenated author-photo filename.",
+      "tags": ["positive", "live-regression", "image", "author-photo", "batch-3"],
+      "baseUrl": "https://nora-photo.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/hyphenated-author-photo.html", "expectedPrimaryRole": "HOME" }
+      ],
+      "expectedSignals": { "trust.authorPhoto": true }
+    },
+    {
+      "id": "author-image-filename",
+      "description": "A visible portrait is recognized when its empty-alt filename uses the concise author-img convention.",
+      "tags": ["positive", "live-regression", "image", "author-photo", "batch-3"],
+      "baseUrl": "https://micah-image.author.test/",
+      "pages": [
+        { "path": "/about/", "fixture": "fixtures/author-image-filename.html", "expectedPrimaryRole": "ABOUT" }
+      ],
+      "expectedSignals": { "trust.authorPhoto": true }
+    },
+    {
+      "id": "about-the-author-photo-alt",
+      "description": "A visible portrait is recognized when its concise accessible label is About the Author and its filename is generic.",
+      "tags": ["positive", "live-regression", "image", "author-photo", "batch-3"],
+      "baseUrl": "https://sienna-alt.author.test/",
+      "pages": [
+        { "path": "/", "fixture": "fixtures/about-the-author-photo-alt.html", "expectedPrimaryRole": "HOME" }
+      ],
+      "expectedSignals": { "trust.authorPhoto": true }
+    },
+    {
       "id": "malformed-jsonld",
       "description": "Malformed structured data is ignored without fabricating book evidence or failing extraction.",
       "tags": ["negative", "malformed", "resilience"],

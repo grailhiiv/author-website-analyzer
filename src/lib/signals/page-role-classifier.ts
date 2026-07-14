@@ -1,5 +1,5 @@
-export const PAGE_ROLE_CLASSIFIER_VERSION = "1.2.0";
-export const EVIDENCE_OBSERVATION_VERSION = "1.2.0";
+export const PAGE_ROLE_CLASSIFIER_VERSION = "1.4.0";
+export const EVIDENCE_OBSERVATION_VERSION = "1.4.0";
 
 export type PageRole =
   | "HOME"
@@ -71,6 +71,7 @@ export type PageRoleClassifierInput = {
   images?: Array<{ src: string; alt?: string | null }>;
   forms?: PageRoleClassifierForm[];
   jsonLd?: unknown[];
+  semanticArticle?: boolean;
   observedAt?: string | null;
 };
 
@@ -254,22 +255,40 @@ export function classifyPageRole(
   }
 
   const pathRules: Array<[ClassifiedRole, RegExp]> = [
-    ["ABOUT", /\/(?:about|about-me|bio|biography|meet-[^/]+)$/i],
-    ["BOOKS_INDEX", /\/(?:books?|novels?|works|bibliography|titles)$/i],
+    [
+      "ABOUT",
+      /\/(?:about|about-me|bio|biography|meet-[^/]+?)(?:\.html?)?$/i,
+    ],
+    [
+      "BOOKS_INDEX",
+      /\/(?:books?|novels?|works|bibliography|titles)(?:\.html?)?$/i,
+    ],
     [
       "SERIES",
-      /\/(?:series|reading-order|[^/]*(?:series|saga|trilogy)[^/]*)$/i,
+      /\/(?:series|reading-order|[^/]*(?:series|saga|trilogy)[^/]*?)(?:\.html?)?$/i,
     ],
-    ["NEWSLETTER", /\/(?:newsletter|subscribe|reader-list|readers|sign-up)$/i],
-    ["CONTACT", /\/(?:contact|contact-me|get-in-touch)$/i],
-    ["EVENTS", /\/(?:events|appearances|speaking|calendar)$/i],
-    ["MEDIA_KIT", /\/(?:media|press|press-kit|media-kit|publicity)$/i],
-    ["BLOG_INDEX", /\/(?:blog|news|articles|journal)$/i],
-    ["PRIVACY", /\/(?:privacy|privacy-policy|data-policy)$/i],
-    ["STORE", /\/(?:store|shop)$/i],
+    [
+      "NEWSLETTER",
+      /\/(?:newsletter|subscribe|reader-list|readers|sign-up)(?:\.html?)?$/i,
+    ],
+    [
+      "CONTACT",
+      /\/(?:contact|contact-me|contact-us|get-in-touch)(?:\.html?)?$/i,
+    ],
+    ["EVENTS", /\/(?:events|appearances|speaking|calendar)(?:\.html?)?$/i],
+    [
+      "MEDIA_KIT",
+      /\/(?:media|press|press-kit|media-kit|publicity)(?:\.html?)?$/i,
+    ],
+    ["BLOG_INDEX", /\/(?:blog|news|articles|journal)(?:\.html?)?$/i],
+    [
+      "PRIVACY",
+      /\/privacy(?:[-_]+(?:policy|notice|disclosure))?(?:\.html?)?$/i,
+    ],
+    ["STORE", /\/(?:store|shop)(?:\.html?)?$/i],
     [
       "UTILITY",
-      /\/(?:login|account|cart|checkout|search|tags?|categories|404)$/i,
+      /\/(?:login|account|cart|checkout|search|tags?|categories|404)(?:\.html?)?$/i,
     ],
   ];
 
@@ -312,7 +331,17 @@ export function classifyPageRole(
   ];
 
   prominentRules.forEach(([role, pattern]) => {
-    const matchingValue = prominentValues.find((value) => pattern.test(value));
+    const matchingValue = prominentValues.find((value) =>
+      role === "CONTACT"
+        ? /^(?:contact (?:me|the author|[\p{L}'’-]+(?:\s+[\p{L}'’-]+){0,2})|get in touch)$/iu.test(
+            value,
+          )
+        : role === "PRIVACY"
+          ? /^(?:privacy policy|data policy|privacy notice)(?:\s*[|—–-].*)?$/i.test(
+              value,
+            )
+        : pattern.test(value),
+    );
 
     if (matchingValue) {
       add(role, 4, {
@@ -426,6 +455,35 @@ export function classifyPageRole(
         strength: "supporting",
       });
     }
+
+    const distinctPurchaseDestinations = new Set(
+      purchaseLinks.map((link) => link.href),
+    );
+    const isWhatsNewCollection =
+      distinctPurchaseDestinations.size >= 2 &&
+      prominentValues.some((value) =>
+        /^what(?:'|’)?s new(?:\s*[|—–-].*)?$/i.test(value),
+      );
+
+    if (isWhatsNewCollection) {
+      add("BOOKS_INDEX", 5, {
+        scope: "main",
+        sourceKind: "link",
+        selectorOrProperty: "multiple purchase links + What's New heading",
+        normalizedValue: `${distinctPurchaseDestinations.size} purchase destinations`,
+        strength: "strong",
+      });
+    }
+  }
+
+  if (input.semanticArticle) {
+    add("ARTICLE", 6, {
+      scope: "main",
+      sourceKind: "dom",
+      selectorOrProperty: "article.type-post, article time[datetime]",
+      normalizedValue: "Published article structure",
+      strength: "strong",
+    });
   }
 
   if (BOOK_DESCRIPTION_PATTERN.test(bodyText)) {
@@ -542,13 +600,33 @@ export function classifyPageRole(
       return ROLE_ORDER.indexOf(left.role) - ROLE_ORDER.indexOf(right.role);
     });
   const winner = candidates[0];
-  const primaryRole = winner && winner.points >= 3 ? winner.role : "UNKNOWN";
+  const routePreferredRole =
+    path === "/"
+      ? "HOME"
+      : /\/privacy(?:[-_]+(?:policy|notice|disclosure))?(?:\.html?)?$/i.test(
+            path,
+          )
+        ? "PRIVACY"
+        : null;
+  const routePreferredCandidate = routePreferredRole
+    ? candidates.find((candidate) => candidate.role === routePreferredRole)
+    : undefined;
+  const primaryRole =
+    routePreferredCandidate && routePreferredCandidate.points >= 3
+      ? routePreferredCandidate.role
+      : winner && winner.points >= 3
+        ? winner.role
+        : "UNKNOWN";
+  const primaryCandidate = candidates.find(
+    (candidate) => candidate.role === primaryRole,
+  );
+  const comparisonPoints = primaryCandidate?.points ?? winner?.points ?? 0;
   const secondaryRoles = candidates
     .filter(
       (candidate) =>
         candidate.role !== primaryRole &&
         candidate.points >= 3 &&
-        (!winner || candidate.points >= winner.points - 4),
+        candidate.points >= comparisonPoints - 4,
     )
     .map((candidate) => candidate.role);
   const observations = candidates
@@ -563,7 +641,7 @@ export function classifyPageRole(
     sourceUrl: input.url,
     primaryRole,
     secondaryRoles,
-    confidence: confidenceFor(winner?.points ?? 0),
+    confidence: confidenceFor(comparisonPoints),
     candidates,
     observations,
     classifierVersion: PAGE_ROLE_CLASSIFIER_VERSION,
