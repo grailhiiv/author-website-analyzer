@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { getLocale, getMessages } from 'next-intl/server'
-import { Inter } from 'next/font/google'
+import localFont from 'next/font/local'
 
 import LocaleProvider from '@/components/template/LocaleProvider'
 import NavigationProvider from '@/components/template/Navigation/NavigationProvider'
@@ -9,12 +9,12 @@ import { getNavigation } from '@/server/actions/navigation/getNavigation'
 import { getTheme } from '@/server/actions/theme'
 import '@/assets/styles/app.css'
 
-const inter = Inter({
-    subsets: ['latin'],
-    weight: 'variable',
+const lazzer = localFont({
+    src: './fonts/LazzerVF.woff2',
+    weight: '100 900',
     display: 'swap',
     fallback: ['ui-sans-serif', 'system-ui', 'Segoe UI', 'Arial', 'sans-serif'],
-    variable: '--font-inter',
+    variable: '--font-lazzer',
 })
 
 export const metadata = {
@@ -36,7 +36,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
     return (
         <html
-            className={`${inter.variable} ${theme.mode === 'dark' ? 'dark' : 'light'}`}
+            className={`${lazzer.variable} ${theme.mode === 'dark' ? 'dark' : 'light'}`}
             lang={locale}
             dir={theme.direction}
             suppressHydrationWarning

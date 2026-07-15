@@ -101,7 +101,7 @@ Use a clean sans-serif typeface for the application UI.
 
 Recommended options:
 
-- **Inter** — preferred for modern SaaS UI
+- **Lazzer VF** — primary variable font for the public and admin interfaces
 - **Source Sans 3** — good editorial feel
 - **Manrope** — modern and friendly
 

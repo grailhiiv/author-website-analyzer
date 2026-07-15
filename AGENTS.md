@@ -100,3 +100,29 @@ release-readiness work.
 Use no more than one subagent by default. Use multiple subagents only when the
 tasks are genuinely independent. Numeric analyzer scores must always remain
 deterministic; AI may explain findings but must not determine scores.
+
+## Prompt coaching and confirmation
+
+The user wants help turning informal requests into effective prompts.
+
+For every new task, do not immediately begin planning, inspecting files, calling
+tools, or implementing changes. First restate the request as a concise improved
+task brief containing:
+
+- Goal: the result the user wants.
+- Scope: the areas, files, or behavior included.
+- Preserve: anything that must remain unchanged.
+- Deliverable: what will be created, changed, reviewed, or explained.
+- Validation: how completion will be checked.
+- Assumptions or open questions: only when they materially affect the result.
+
+Preserve the user's exact wording, values, and product decisions when supplied.
+Do not silently broaden or reinterpret the request.
+
+End the task brief by asking the user to confirm or correct it. Wait for explicit
+confirmation before beginning the task.
+
+If the user corrects or expands the brief, revise it and ask for confirmation
+again. After confirmation, complete all safe, in-scope work without repeatedly
+asking for approval. Reconfirm only if new information would materially change
+the agreed scope, outcome, constraints, or deliverable.
