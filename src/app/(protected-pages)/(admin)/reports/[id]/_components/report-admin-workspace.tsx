@@ -66,7 +66,7 @@ function FieldLabel({
 
 function Detail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-gray-50 p-4 dark:bg-gray-700/40">
+    <div className="rounded bg-gray-50 p-4 dark:bg-gray-700/40">
       <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
         {label}
       </div>
@@ -83,7 +83,7 @@ function DraftBlock({ label, value }: { label: string; value: string }) {
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
         {label}
       </div>
-      <div className="whitespace-pre-wrap rounded-xl bg-gray-50 p-4 text-sm leading-6 text-gray-700 dark:bg-gray-700/40 dark:text-gray-200">
+      <div className="whitespace-pre-wrap rounded bg-gray-50 p-4 text-sm leading-6 text-gray-700 dark:bg-gray-700/40 dark:text-gray-200">
         {value}
       </div>
     </div>
@@ -105,7 +105,7 @@ export default function ReportAdminWorkspace({
 }: ReportAdminWorkspaceProps) {
   return (
     <Tabs defaultValue="qualification" variant="pill">
-      <Tabs.TabList className="mb-5 grid grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-700">
+      <Tabs.TabList className="mb-5 grid grid-cols-3 gap-1 rounded bg-gray-100 p-1 dark:bg-gray-700">
         <Tabs.TabNav value="lead">Lead</Tabs.TabNav>
         <Tabs.TabNav value="qualification">Qualification</Tabs.TabNav>
         <Tabs.TabNav value="outreach">Outreach</Tabs.TabNav>
@@ -120,7 +120,7 @@ export default function ReportAdminWorkspace({
             <Detail label="Captured" value={lead.captured} />
           </div>
         ) : (
-          <div className="rounded-xl bg-gray-50 p-5 text-sm text-gray-500 dark:bg-gray-700/40">
+          <div className="rounded bg-gray-50 p-5 text-sm text-gray-500 dark:bg-gray-700/40">
             No lead has unlocked this report yet.
           </div>
         )}
@@ -189,7 +189,7 @@ export default function ReportAdminWorkspace({
 
       <Tabs.TabContent value="outreach">
         <div className="space-y-5">
-          <div className="rounded-xl bg-primary-subtle p-4">
+          <div className="rounded bg-primary-subtle p-4">
             <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
               Suggested angle
             </div>

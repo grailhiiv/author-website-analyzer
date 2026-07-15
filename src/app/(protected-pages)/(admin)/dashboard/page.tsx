@@ -18,28 +18,30 @@ import { getAdminReportPath } from "@/lib/reports/domain";
 import classNames from "@/utils/classNames";
 
 type StatisticCardProps = {
-  className: string;
+  iconClassName: string;
   icon: ReactNode;
   title: string;
   value: number;
 };
 
-function StatisticCard({ className, icon, title, value }: StatisticCardProps) {
+function StatisticCard({
+  iconClassName,
+  icon,
+  title,
+  value,
+}: StatisticCardProps) {
   return (
-    <div
-      className={classNames(
-        "flex flex-col justify-center rounded-2xl p-4",
-        className,
-      )}
-    >
-      <div className="relative flex items-center justify-between">
-        <div>
-          <div className="mb-4 font-bold text-gray-900">{title}</div>
-          <h1 className="mb-1 text-gray-900">{value}</h1>
-        </div>
-        <div className="flex max-h-12 min-h-12 min-w-12 max-w-12 items-center justify-center rounded-full bg-gray-900 text-2xl text-white">
+    <div className="flex min-h-24 flex-col justify-center rounded border border-gray-200 bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:border-gray-700 dark:bg-gray-800">
+      <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
+        {title}
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <span className={classNames("text-xl", iconClassName)} aria-hidden="true">
           {icon}
-        </div>
+        </span>
+        <span className="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+          {value}
+        </span>
       </div>
     </div>
   );
@@ -139,22 +141,22 @@ export default async function AdminDashboardPage() {
           <h4>Overview</h4>
           <ViewAllButton href="/reports" label="All reports" />
         </div>
-        <div className="mt-4 grid grid-cols-1 gap-4 rounded-2xl md:grid-cols-3">
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
           <StatisticCard
             title="All reports"
-            className="bg-sky-100 dark:bg-opacity-75"
+            iconClassName="text-sky-600 dark:text-sky-400"
             value={reportCount}
             icon={<TbProgressBolt />}
           />
           <StatisticCard
             title="Completed"
-            className="bg-emerald-100 dark:bg-opacity-75"
+            iconClassName="text-emerald-600 dark:text-emerald-400"
             value={completeCount}
             icon={<TbCopyCheck />}
           />
           <StatisticCard
             title="Report leads"
-            className="bg-purple-100 dark:bg-opacity-75"
+            iconClassName="text-purple-600 dark:text-purple-400"
             value={leadCount}
             icon={<TbArrowDownToArc />}
           />

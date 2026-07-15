@@ -329,7 +329,7 @@ function LighthouseDevicePanel({
         content: (
           <div className="flex items-center gap-3">
             <span
-              className={`flex h-9 w-9 items-center justify-center rounded-lg ${
+              className={`flex h-9 w-9 items-center justify-center rounded ${
                 needsAttention
                   ? "bg-error-subtle text-error"
                   : "bg-primary-subtle text-primary"
@@ -597,10 +597,10 @@ export default async function AdminReportDetailPage({
                 width={800}
                 height={520}
                 unoptimized
-                className="h-auto w-full rounded-xl object-contain object-top"
+                className="h-auto w-full rounded object-contain object-top"
               />
             ) : (
-              <div className="flex min-h-48 h-full flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 text-center text-gray-500 dark:border-gray-600">
+              <div className="flex min-h-48 h-full flex-col items-center justify-center rounded border border-dashed border-gray-300 text-center text-gray-500 dark:border-gray-600">
                 <TbPhoto className="mb-2 text-3xl" />
                 <span className="text-sm">No screenshot captured</span>
               </div>
@@ -687,7 +687,7 @@ export default async function AdminReportDetailPage({
                 return (
                   <div
                     key={category}
-                    className="rounded-2xl border border-gray-200 p-5 lg:p-6 dark:border-gray-700"
+                    className="rounded border border-gray-200 p-5 lg:p-6 dark:border-gray-700"
                   >
                     <div className="mb-3 flex items-center justify-between gap-4">
                       <span className="text-base font-semibold text-gray-900 dark:text-gray-100">
@@ -736,7 +736,7 @@ export default async function AdminReportDetailPage({
                       key={finding.id}
                       media={
                         <div
-                          className={`flex h-9 min-w-20 items-center justify-center rounded-full px-3 text-xs font-bold uppercase tracking-wide ${severityTagClass(finding.severity)}`}
+                          className={`flex h-9 min-w-20 items-center justify-center rounded px-3 text-xs font-bold uppercase tracking-wide ${severityTagClass(finding.severity)}`}
                         >
                           {findingSeverityLabels[finding.severity]}
                         </div>
@@ -754,7 +754,7 @@ export default async function AdminReportDetailPage({
                         <p className="leading-7 text-gray-600 dark:text-gray-300">
                           {finding.finding}
                         </p>
-                        <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-700/40">
+                        <div className="mt-5 rounded border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-700/40">
                           <div className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
                             Recommended fix
                           </div>

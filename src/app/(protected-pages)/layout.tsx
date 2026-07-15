@@ -7,6 +7,7 @@ import PostLoginLayout from '@/components/layouts/PostLoginLayout'
 import { isAllowedAdminEmail } from '@/lib/auth/admin'
 import { auth } from '@/lib/auth/server'
 import { ReactNode } from 'react'
+import styles from './backend-surface.module.css'
 
 const Layout = async ({ children }: { children: ReactNode }) => {
     const session = await auth.api.getSession({
@@ -29,7 +30,9 @@ const Layout = async ({ children }: { children: ReactNode }) => {
 
     return (
         <AuthProvider session={appSession}>
-            <PostLoginLayout>{children}</PostLoginLayout>
+            <PostLoginLayout>
+                <div className={styles.backendSurface}>{children}</div>
+            </PostLoginLayout>
         </AuthProvider>
     )
 }

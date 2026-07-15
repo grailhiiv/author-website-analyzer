@@ -1,16 +1,14 @@
 import {
   AlertCircleIcon,
+  CheckCircle2Icon,
   DownloadIcon,
   ExternalLinkIcon,
-  ImageIcon,
-  CheckCircle2Icon,
   ClockIcon,
   Loader2Icon,
   MonitorIcon,
   PaletteIcon,
   SmartphoneIcon,
 } from "lucide-react";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { GridSection } from "@/components/layout/grid-section";
@@ -36,21 +34,13 @@ import {
   CardTitle,
 } from "@/components/report/report-ui";
 import { Progress, Skeleton } from "@/components/report/report-ui";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/report/report-ui";
+import EcmeProgress from "@/components/ui/Progress";
 import {
   FindingSeverity,
   ReportCategory,
   ReportStatus,
 } from "@/generated/prisma/client";
-import {
-  getExecutiveSummaryFromReportSummary,
-  parseSerializedReportNarrative,
-} from "@/lib/ai/report-narrative.core";
+import { parseSerializedReportNarrative } from "@/lib/ai/report-narrative.core";
 import {
   getAnalysisStageLabel,
   normalizeAnalysisProgress,
@@ -67,12 +57,13 @@ import {
 } from "@/lib/reports/category-display";
 import { getReportPageState } from "@/lib/reports/report-page-state";
 import { parsePracticalActions } from "@/lib/reports/practical-actions";
-import { isScoredVisualObservation } from "@/lib/scoring/check-registry";
 import {
   getVisualDesignAnalysis,
   visualDesignManualReviewPrompts,
   visualDesignPillarLabels,
+  type VisualDesignObservation,
   type VisualDesignPillar,
+  type VisualViewportVariant,
 } from "@/lib/screenshots/visual-design";
 import type { ReportNarrative } from "@/lib/ai/report-narrative.core";
 import type { ServiceFitLabel } from "@/lib/scoring/engine";
@@ -100,8 +91,16 @@ const visualDesignPillars: VisualDesignPillar[] = [
   "conversion_design",
 ];
 
-function PracticalActions({ actions }: { actions: unknown }) {
-  const items = parsePracticalActions(actions);
+function PracticalActions({
+  actions,
+  label = "Practical actions",
+  limit,
+}: {
+  actions: unknown;
+  label?: string;
+  limit?: number;
+}) {
+  const items = parsePracticalActions(actions).slice(0, limit);
 
   if (items.length === 0) {
     return null;
@@ -109,7 +108,7 @@ function PracticalActions({ actions }: { actions: unknown }) {
 
   return (
     <div className="mt-3">
-      <p className="text-sm font-medium">Practical actions</p>
+      <p className="text-sm font-medium">{label}</p>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-muted-foreground">
         {items.map((action) => (
           <li key={action}>{action}</li>
@@ -164,7 +163,11 @@ function getLighthouseSource(value: unknown) {
   return typeof source === "string" ? source : null;
 }
 
-function scoreInterpretation(score: number | null) {
+function scoreInterpretation(score: number | null, weakestLabel?: string) {
+  const nextFocus = weakestLabel
+    ? ` Focus next on ${weakestLabel.toLowerCase()}.`
+    : "";
+
   if (score === null) {
     return {
       label: "Not scored",
@@ -175,16 +178,14 @@ function scoreInterpretation(score: number | null) {
   if (score >= 90) {
     return {
       label: "Strong",
-      description:
-        "The website is already doing many important author-site jobs well.",
+      description: `Most author-site essentials are working well.${nextFocus}`,
     };
   }
 
   if (score >= 75) {
     return {
-      label: "Good foundation",
-      description:
-        "The website has useful pieces in place, with a few clear improvements to make next.",
+      label: "Strong foundation",
+      description: `The website performs well overall, with a few clear improvements available.${nextFocus}`,
     };
   }
 
@@ -253,18 +254,6 @@ function selectQuickWins<
     .slice(0, 5);
 }
 
-function countJsonArray(value: unknown) {
-  return Array.isArray(value) ? value.length : 0;
-}
-
-function firstScreenshot<
-  T extends {
-    screenshotUrl: string | null;
-  },
->(pages: T[]) {
-  return pages.find((page) => page.screenshotUrl)?.screenshotUrl ?? null;
-}
-
 function extractServiceFitFromNarrative(
   narrative: ReportNarrative | null,
 ): ServiceFitLabel | null {
@@ -328,25 +317,6 @@ function deriveServiceFitLabel(
   return "Website optimization";
 }
 
-function ctaForServiceFit(serviceFitLabel: ServiceFitLabel) {
-  const ctas: Record<ServiceFitLabel, string> = {
-    "Website redesign":
-      "Your site has the foundation, but the reader journey could be much clearer. GrailHiiv can help redesign it into a professional author website built around your books.",
-    "Website management":
-      "Your site may benefit from ongoing care, updates, monitoring, and backups. GrailHiiv can help keep your author website maintained.",
-    "Newsletter setup":
-      "Your site could do more to turn visitors into readers. GrailHiiv can help add a clear newsletter signup path.",
-    "SEO improvement":
-      "Your site has author-site pieces to build on, and GrailHiiv can help improve the basics that make books, pages, and author information easier to discover.",
-    "New author website":
-      "Your site may need a clearer foundation. GrailHiiv can help plan and build a professional author website around your books, bio, reader links, and ongoing updates.",
-    "Website optimization":
-      "Your site has useful pieces in place. GrailHiiv can help polish the reader journey, improve clarity, and keep the website easier to manage.",
-  };
-
-  return ctas[serviceFitLabel];
-}
-
 function findNarrativeCategoryCritique(
   narrative: ReportNarrative | null,
   labels: readonly string[],
@@ -369,29 +339,135 @@ function deterministicSummary({
   weakestLabel?: string;
   topFindingTitle?: string;
 }) {
-  const parts = [
-    `This report uses saved scan data to evaluate how well the website supports the author's books, reader trust, newsletter growth, and technical health.`,
-  ];
+  const parts: string[] = [];
 
   if (overallScore !== null) {
-    parts.push(`The current score is ${overallScore}/100.`);
+    parts.push(`Your website scores ${overallScore}/100.`);
   }
 
   if (strongestLabel) {
-    parts.push(`The strongest area is ${strongestLabel.toLowerCase()}.`);
+    parts.push(`It performs best in ${strongestLabel.toLowerCase()}.`);
   }
 
   if (weakestLabel) {
-    parts.push(
-      `The clearest area to improve is ${weakestLabel.toLowerCase()}.`,
-    );
+    parts.push(`The clearest opportunity is ${weakestLabel.toLowerCase()}.`);
   }
 
   if (topFindingTitle) {
-    parts.push(`Start with: ${topFindingTitle}.`);
+    parts.push(`Start by addressing ${topFindingTitle.toLowerCase()}.`);
   }
 
   return parts.join(" ");
+}
+
+function actionPlanTitle(checkId: string | null | undefined, fallback: string) {
+  const titles: Record<string, string> = {
+    "usability.primary_navigation": "Make navigation work on every screen",
+    "mobile.pagespeed_performance": "Speed up the homepage on mobile",
+    "engagement.reader_magnet": "Give readers a reason to subscribe",
+    "engagement.subscriber_benefit":
+      "Explain what newsletter subscribers will receive",
+    "mobile.image_alt_text": "Add alt text to important images",
+  };
+
+  return (checkId ? titles[checkId] : undefined) ?? fallback;
+}
+
+function ctaForServiceFit(serviceFitLabel: ServiceFitLabel) {
+  const descriptions: Record<ServiceFitLabel, string> = {
+    "Website redesign":
+      "Turn the findings into a clearer website structure, stronger visual hierarchy, and a more useful path for readers.",
+    "Website management":
+      "Get ongoing help prioritizing updates, maintaining the website, and improving it over time.",
+    "SEO improvement":
+      "Use the search findings to improve how readers discover the author and books through search.",
+    "Newsletter setup":
+      "Build a clearer signup path and give readers a stronger reason to join the author newsletter.",
+    "New author website":
+      "Use the report as a practical brief for an author website built around books, readers, and long-term growth.",
+    "Website optimization":
+      "Work through the highest-impact fixes first, then refine the website’s speed, clarity, and reader journey.",
+  };
+
+  return descriptions[serviceFitLabel];
+}
+
+function visualObservationTitle(title: string) {
+  const normalizedTitle = title.toLowerCase();
+
+  if (
+    normalizedTitle.includes("main heading") ||
+    normalizedTitle.includes("main-heading") ||
+    normalizedTitle.includes("h1")
+  ) {
+    return "The main heading was not visible without scrolling";
+  }
+
+  if (
+    normalizedTitle.includes("primary action") ||
+    normalizedTitle.includes("primary-action")
+  ) {
+    return "Readers are not shown a clear next step before scrolling";
+  }
+
+  if (normalizedTitle.includes("navigation")) {
+    return "Navigation was not detected";
+  }
+
+  if (
+    normalizedTitle.includes("tap target") ||
+    normalizedTitle.includes("tap-target")
+  ) {
+    return "Some links or controls may be difficult to tap";
+  }
+
+  return title;
+}
+
+function performanceSummary(
+  mobilePerformance: number | null,
+  desktopPerformance: number | null,
+) {
+  if (mobilePerformance === null && desktopPerformance === null) {
+    return "Homepage speed data was not available for this scan.";
+  }
+
+  if (mobilePerformance !== null && desktopPerformance !== null) {
+    if (desktopPerformance - mobilePerformance >= 15) {
+      return `Mobile speed needs the most attention: ${mobilePerformance}/100 compared with ${desktopPerformance}/100 on desktop.`;
+    }
+
+    return `Homepage performance scored ${mobilePerformance}/100 on mobile and ${desktopPerformance}/100 on desktop.`;
+  }
+
+  return mobilePerformance !== null
+    ? `Homepage performance scored ${mobilePerformance}/100 on mobile.`
+    : `Homepage performance scored ${desktopPerformance}/100 on desktop.`;
+}
+
+const viewportLabels: Record<VisualViewportVariant, string> = {
+  desktop: "Desktop",
+  tablet: "Tablet",
+  mobile: "Mobile",
+};
+
+function consolidateVisualObservations(
+  observations: VisualDesignObservation[],
+) {
+  const groups = new Map<string, VisualDesignObservation[]>();
+
+  observations
+    .filter((observation) => observation.status === "needs_review")
+    .forEach((observation) => {
+      const existing = groups.get(observation.id) ?? [];
+      existing.push(observation);
+      groups.set(observation.id, existing);
+    });
+
+  return [...groups.values()].map((group) => ({
+    ...group[0],
+    viewports: [...new Set(group.map((observation) => observation.viewport))],
+  }));
 }
 
 export default async function ReportPage({
@@ -447,9 +523,6 @@ export default async function ReportPage({
     },
     [],
   );
-  const workingScores = orderedScores
-    .filter((score) => score.score >= Math.round(score.maxScore * 0.8))
-    .slice(0, 4);
   const strongestScore = [...orderedScores].sort(
     (a, b) =>
       scorePercent(b.score, b.maxScore) - scorePercent(a.score, a.maxScore) ||
@@ -460,10 +533,10 @@ export default async function ReportPage({
       scorePercent(a.score, a.maxScore) - scorePercent(b.score, b.maxScore) ||
       a.category.localeCompare(b.category),
   )[0];
-  const priorityFindings = report.findings.slice(0, 5);
+  const priorityFindings = report.findings.slice(0, 3);
   const quickWins = selectQuickWins(report.findings);
-  const previewFindings = report.findings.slice(0, 3);
-  const previewQuickWins = quickWins.slice(0, 3);
+  const previewFindings = report.findings.slice(0, 1);
+  const previewQuickWins = quickWins.slice(0, 1);
   const serializedNarrative = parseSerializedReportNarrative(report.summary);
   const narrative = serializedNarrative?.narrative ?? null;
   const isFullReportUnlocked = Boolean(report.lead?.email);
@@ -471,27 +544,25 @@ export default async function ReportPage({
     status: report.status,
     hasLeadEmail: isFullReportUnlocked,
   });
-  const executiveSummary =
-    narrative?.executiveSummary ??
-    getExecutiveSummaryFromReportSummary(report.summary) ??
-    deterministicSummary({
-      overallScore: report.overallScore,
-      strongestLabel: strongestScore
-        ? reportCategoryDisplay[strongestScore.category].title
-        : undefined,
-      weakestLabel: weakestScore
-        ? reportCategoryDisplay[weakestScore.category].title
-        : undefined,
-      topFindingTitle: priorityFindings[0]?.title,
-    });
-  const interpretation = scoreInterpretation(report.overallScore);
+  const weakestLabel = weakestScore
+    ? reportCategoryDisplay[weakestScore.category].title
+    : undefined;
+  const executiveSummary = deterministicSummary({
+    overallScore: report.overallScore,
+    strongestLabel: strongestScore
+      ? reportCategoryDisplay[strongestScore.category].title
+      : undefined,
+    weakestLabel,
+    topFindingTitle: priorityFindings[0]
+      ? actionPlanTitle(priorityFindings[0].checkId, priorityFindings[0].title)
+      : undefined,
+  });
+  const interpretation = scoreInterpretation(report.overallScore, weakestLabel);
   const reportDate = report.completedAt ?? report.createdAt;
-  const screenshotUrl = firstScreenshot(report.pagesScanned);
   const visualDesignAnalysis = getVisualDesignAnalysis(report.crawlDiagnostics);
-  const visualDesignReviewCount =
-    visualDesignAnalysis?.observations.filter(
-      (observation) => observation.status === "needs_review",
-    ).length ?? 0;
+  const consolidatedVisualObservations = visualDesignAnalysis
+    ? consolidateVisualObservations(visualDesignAnalysis.observations)
+    : [];
   const serviceFitLabel =
     extractServiceFitFromNarrative(narrative) ??
     deriveServiceFitLabel(scoresByCategory);
@@ -503,30 +574,40 @@ export default async function ReportPage({
     (total, page) => total + (page.wordCount ?? 0),
     0,
   );
-  const internalLinkCount = report.pagesScanned.reduce(
-    (total, page) => total + countJsonArray(page.linksJson),
-    0,
-  );
-  const imageCount = report.pagesScanned.reduce(
-    (total, page) => total + countJsonArray(page.imagesJson),
-    0,
-  );
-  const formCount = report.pagesScanned.reduce(
-    (total, page) => total + countJsonArray(page.formsJson),
-    0,
-  );
 
   return (
     <GridSection>
-      <div className="py-10 sm:px-4 lg:px-6">
+      <div className="py-8 sm:py-10 lg:py-12">
         <PageHeader
-          eyebrow={`Report for ${report.domain}`}
-          title="Author Website Scorecard"
-          description={report.normalizedUrl}
+          eyebrow={
+            pageState.showFullReport ? undefined : `Report for ${report.domain}`
+          }
+          title={
+            pageState.showFullReport
+              ? `Website report for ${getDisplayDomain(report.domain)}`
+              : "Author Website Scorecard"
+          }
+          description={
+            pageState.showFullReport
+              ? `Analyzed ${formatReportDate(reportDate)}`
+              : report.normalizedUrl
+          }
           actions={
-            <Badge variant={statusVariant(report.status)}>
-              {statusLabels[report.status]}
-            </Badge>
+            pageState.showFullReport ? (
+              <a href={`${getReportPath(report.domain)}/pdf`}>
+                <Button
+                  asElement="div"
+                  size="sm"
+                  icon={<DownloadIcon aria-hidden="true" />}
+                >
+                  Download PDF report
+                </Button>
+              </a>
+            ) : (
+              <Badge variant={statusVariant(report.status)}>
+                {statusLabels[report.status]}
+              </Badge>
+            )
           }
         />
 
@@ -539,30 +620,34 @@ export default async function ReportPage({
           />
         ) : null}
 
-        <div className="mb-6 grid gap-3 md:grid-cols-2">
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle>Website</CardTitle>
-              <CardDescription>
-                <a
-                  href={report.normalizedUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 hover:underline"
-                >
-                  {getDisplayDomain(report.domain)}
-                  <ExternalLinkIcon className="size-3" aria-hidden="true" />
-                </a>
-              </CardDescription>
-            </CardHeader>
-          </Card>
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle>Report date</CardTitle>
-              <CardDescription>{formatReportDate(reportDate)}</CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
+        {!pageState.showFullReport ? (
+          <div className="mb-6 grid gap-3 md:grid-cols-2">
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>Website</CardTitle>
+                <CardDescription>
+                  <a
+                    href={report.normalizedUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 hover:underline"
+                  >
+                    {getDisplayDomain(report.domain)}
+                    <ExternalLinkIcon className="size-3" aria-hidden="true" />
+                  </a>
+                </CardDescription>
+              </CardHeader>
+            </Card>
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>Report date</CardTitle>
+                <CardDescription>
+                  {formatReportDate(reportDate)}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </div>
+        ) : null}
 
         {pageState.showAnalyzingState ? (
           <AnalyzingReport
@@ -578,131 +663,150 @@ export default async function ReportPage({
         ) : null}
 
         {pageState.showCompleteState ? (
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6 lg:gap-8">
             <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-              <Card>
+              <Card bodyClass="flex flex-col gap-5 p-6 lg:p-8">
                 <CardHeader>
-                  <CardTitle>Overall score</CardTitle>
-                  <CardDescription className="break-all">
-                    {report.url}
-                  </CardDescription>
+                  <CardTitle className="text-lg tracking-tight">
+                    Overall score
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
-                  <div>
-                    <div className="flex flex-wrap items-end gap-3">
-                      <span className="text-5xl font-semibold">
-                        {report.overallScore ?? "--"}
-                      </span>
-                      <span className="pb-1 text-lg text-muted-foreground">
-                        /100
-                      </span>
+                  {pageState.showFullReport ? (
+                    <div className="flex justify-center py-2">
+                      <EcmeProgress
+                        variant="circle"
+                        percent={report.overallScore ?? 0}
+                        width={148}
+                        strokeWidth={8}
+                        customInfo={
+                          <div className="text-center">
+                            <div className="text-3xl font-bold tabular-nums text-slate-950">
+                              {report.overallScore ?? "--"}
+                            </div>
+                            <div className="mt-1 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                              Website score
+                            </div>
+                          </div>
+                        }
+                      />
                     </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary">{interpretation.label}</Badge>
-                      <p className="text-sm text-muted-foreground">
-                        {interpretation.description}
-                      </p>
+                  ) : (
+                    <div>
+                      <div className="flex flex-wrap items-end gap-3">
+                        <span className="text-5xl font-semibold">
+                          {report.overallScore ?? "--"}
+                        </span>
+                        <span className="pb-1 text-lg text-muted-foreground">
+                          /100
+                        </span>
+                      </div>
                     </div>
-                    <p className="mt-3 text-sm text-muted-foreground">
-                      Scores are calculated from saved scan data, not invented
-                      by AI.
+                  )}
+                  <div className="flex flex-wrap items-center justify-center gap-2 text-center">
+                    <Badge variant="secondary">{interpretation.label}</Badge>
+                    <p className="text-sm text-muted-foreground">
+                      {interpretation.description}
                     </p>
                   </div>
-                  <Progress value={report.overallScore ?? 0} />
-                  <Alert>
-                    <CheckCircle2Icon data-icon="inline-start" />
-                    <AlertTitle>Author-focused scoring</AlertTitle>
-                    <AlertDescription>
-                      This scorecard looks at how well the website supports
-                      books, readers, trust, and author growth.
-                    </AlertDescription>
-                  </Alert>
+                  {!pageState.showFullReport ? (
+                    <Progress value={report.overallScore ?? 0} />
+                  ) : null}
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Score based on the checks completed in this scan.
+                  </p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card bodyClass="flex flex-col gap-5 p-6 lg:p-8">
                 <CardHeader>
-                  <CardTitle>Website modules</CardTitle>
-                  <CardDescription>
-                    The report reviews these author website areas.
-                  </CardDescription>
+                  <CardTitle className="text-lg tracking-tight">
+                    Your category scores
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-3 md:grid-cols-2">
-                    {reportCategoryOrder.map((category) => (
-                      <CategoryScoreCard
-                        key={category}
-                        label={reportCategoryDisplay[category].title}
-                        description={
-                          reportCategoryDisplay[category].description
-                        }
-                      />
-                    ))}
+                    {reportCategoryOrder.map((category) => {
+                      const score = scoresByCategory.get(category);
+
+                      return (
+                        <CategoryScoreCard
+                          key={category}
+                          label={reportCategoryDisplay[category].title}
+                          score={score?.score ?? null}
+                          maxScore={score?.maxScore ?? null}
+                        />
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Top 3 issues</CardTitle>
-                  <CardDescription>
-                    A preview of the highest-priority items found in this scan.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-4">
-                  {previewFindings.length > 0 ? (
-                    previewFindings.map((finding) => (
-                      <div key={finding.id} className="flex flex-col gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant={severityVariant(finding.severity)}>
-                            {severityLabels[finding.severity]}
-                          </Badge>
-                          <p className="text-sm font-medium">{finding.title}</p>
+            {!pageState.showFullReport ? (
+              <div className="grid gap-6 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Top problem</CardTitle>
+                    <CardDescription>
+                      The highest-priority issue found in this scan.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-4">
+                    {previewFindings.length > 0 ? (
+                      previewFindings.map((finding) => (
+                        <div key={finding.id} className="flex flex-col gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant={severityVariant(finding.severity)}>
+                              {severityLabels[finding.severity]}
+                            </Badge>
+                            <p className="text-sm font-medium">
+                              {finding.title}
+                            </p>
+                          </div>
+                          <p className="text-sm leading-6 text-muted-foreground">
+                            {finding.finding}
+                          </p>
                         </div>
-                        <p className="text-sm leading-6 text-muted-foreground">
-                          {finding.finding}
-                        </p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No priority issues have been saved for this report yet.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No priority issues have been saved for this report yet.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Top 3 quick wins</CardTitle>
-                  <CardDescription>
-                    Practical improvements you can review before unlocking the
-                    full report.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  {previewQuickWins.length > 0 ? (
-                    previewQuickWins.map((finding) => (
-                      <div
-                        key={finding.id}
-                        className="rounded-lg border border-slate-200 bg-muted/20 p-4"
-                      >
-                        <p className="text-sm font-medium">{finding.title}</p>
-                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                          {finding.recommendation}
-                        </p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No quick wins have been saved for this report yet.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Quick win</CardTitle>
+                    <CardDescription>
+                      One practical improvement you can make before unlocking
+                      the full report.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-3">
+                    {previewQuickWins.length > 0 ? (
+                      previewQuickWins.map((finding) => (
+                        <div
+                          key={finding.id}
+                          className="rounded-lg border border-slate-200 bg-muted/20 p-4"
+                        >
+                          <p className="text-sm font-medium">{finding.title}</p>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            {finding.recommendation}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No quick wins have been saved for this report yet.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            ) : null}
 
             {pageState.showEmailGate ? (
               <Card>
@@ -716,9 +820,9 @@ export default async function ReportPage({
                 <CardContent className="flex flex-col gap-4">
                   <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
                     The preview above gives you the score, category breakdown,
-                    top issues, and quick wins first. The full report opens the
-                    detailed findings, technical snapshot, suggested SEO copy,
-                    and GrailHiiv recommendation.
+                    top problem, and one quick win. The full report adds every
+                    finding, a prioritized action plan, performance results, and
+                    design evidence.
                   </p>
                   <UnlockReportForm reportId={report.id} />
                 </CardContent>
@@ -727,166 +831,90 @@ export default async function ReportPage({
 
             {pageState.showFullReport ? (
               <>
-                <Card>
+                <Card bodyClass="flex flex-col gap-5 p-6 lg:p-8">
                   <CardHeader>
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <CardTitle>Executive summary</CardTitle>
-                        <Badge variant="outline">
-                          {serializedNarrative?.source === "ai"
-                            ? "AI-assisted wording"
-                            : "Deterministic summary"}
-                        </Badge>
-                      </div>
-                      <a
-                        href={`${getReportPath(report.domain)}/pdf`}
-                        className="button h-8 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-600 hover:border-primary hover:text-primary"
-                      >
-                        <DownloadIcon data-icon="inline-start" />
-                        Download PDF Report
-                      </a>
-                    </div>
+                    <CardTitle className="text-xl tracking-tight">
+                      What to focus on first
+                    </CardTitle>
                     <CardDescription>
-                      A plain-language overview of the author website.
+                      The clearest strengths and the best place to begin.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                      {executiveSummary ??
-                        "No executive summary has been saved for this report yet."}
+                    <p className="max-w-4xl text-sm leading-6 text-muted-foreground">
+                      {executiveSummary ||
+                        "No summary has been saved for this report yet."}
                     </p>
                   </CardContent>
                 </Card>
 
-                <div className="grid gap-6 lg:grid-cols-3">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>What is working</CardTitle>
-                      <CardDescription>
-                        The strongest areas supported by the saved score data.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-4">
-                      {narrative?.whatIsWorking.length ? (
-                        narrative.whatIsWorking.slice(0, 4).map((item) => (
-                          <div key={item} className="flex gap-3">
-                            <CheckCircle2Icon data-icon="inline-start" />
-                            <p className="text-sm leading-6 text-muted-foreground">
-                              {item}
+                <Card bodyClass="flex flex-col gap-5 p-6 lg:p-8">
+                  <CardHeader>
+                    <CardTitle className="text-xl tracking-tight">
+                      Your action plan
+                    </CardTitle>
+                    <CardDescription>
+                      Start with these three improvements, in priority order.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-4 lg:grid-cols-2">
+                    {priorityFindings.length > 0 ? (
+                      priorityFindings.map((finding, index) => (
+                        <div
+                          key={finding.id}
+                          className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-muted/20 p-5 lg:p-6"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold text-muted-foreground">
+                              {index + 1}.
+                            </span>
+                            <Badge variant={severityVariant(finding.severity)}>
+                              {severityLabels[finding.severity]}
+                            </Badge>
+                            <p className="text-base font-semibold leading-6">
+                              {actionPlanTitle(finding.checkId, finding.title)}
                             </p>
                           </div>
-                        ))
-                      ) : workingScores.length > 0 ? (
-                        workingScores.map((score) => (
-                          <div key={score.id} className="flex gap-3">
-                            <CheckCircle2Icon data-icon="inline-start" />
-                            <div className="flex flex-col gap-1">
-                              <p className="text-sm font-medium">
-                                {reportCategoryDisplay[score.category].title}
-                              </p>
-                              <p className="text-sm leading-6 text-muted-foreground">
-                                {score.summary}
-                              </p>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No strong categories have been recorded yet.
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Top priority fixes</CardTitle>
-                      <CardDescription>
-                        Findings are shown in the priority order saved with the
-                        report.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-4">
-                      {priorityFindings.length > 0 ? (
-                        priorityFindings.map((finding) => (
-                          <div key={finding.id} className="flex flex-col gap-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge
-                                variant={severityVariant(finding.severity)}
-                              >
-                                {severityLabels[finding.severity]}
-                              </Badge>
-                              <p className="text-sm font-medium">
-                                {finding.title}
-                              </p>
-                            </div>
-                            <p className="text-sm leading-6 text-muted-foreground">
+                          <div>
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              Why it matters
+                            </p>
+                            <p className="mt-1 text-sm leading-6 text-muted-foreground">
                               {finding.finding}
                             </p>
-                            <p className="text-sm leading-6">
-                              {finding.recommendation}
-                            </p>
-                            <PracticalActions
-                              actions={finding.practicalActions}
-                            />
                           </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No priority findings have been saved for this report
-                          yet.
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Quick wins</CardTitle>
-                      <CardDescription>
-                        Practical next steps taken from saved recommendations.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-3">
-                      {quickWins.length > 0 ? (
-                        quickWins.map((finding) => (
-                          <div
-                            key={finding.id}
-                            className="rounded-lg border p-4"
-                          >
-                            <p className="text-sm font-medium">
-                              {finding.title}
+                          <div>
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              Recommended fix
                             </p>
-                            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            <p className="mt-1 text-sm leading-6">
                               {finding.recommendation}
                             </p>
                           </div>
-                        ))
-                      ) : narrative?.topRecommendations.length ? (
-                        narrative.topRecommendations.slice(0, 5).map((item) => (
-                          <div
-                            key={item}
-                            className="rounded-lg border border-slate-200 bg-muted/20 p-4"
-                          >
-                            <p className="text-sm leading-6 text-muted-foreground">
-                              {item}
-                            </p>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No quick wins have been saved for this report yet.
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
+                          <PracticalActions
+                            actions={finding.practicalActions}
+                            label="Checklist"
+                            limit={3}
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No priority findings have been saved for this report
+                        yet.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
 
-                <Card>
+                <Card bodyClass="flex flex-col gap-5 p-6 lg:p-8">
                   <CardHeader>
-                    <CardTitle>Detailed module findings</CardTitle>
+                    <CardTitle className="text-xl tracking-tight">
+                      Findings by category
+                    </CardTitle>
                     <CardDescription>
-                      Each module includes its purpose and related findings.
+                      Review every issue and recommendation, grouped by score
+                      category.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -899,23 +927,27 @@ export default async function ReportPage({
                           narrative,
                           [reportCategoryDisplay[category].title],
                         );
+                        const categoryScore = scoresByCategory.get(category);
 
                         return (
                           <AccordionItem key={category}>
                             <AccordionTrigger>
-                              <span className="pr-3">
-                                {reportCategoryDisplay[category].title}
+                              <span className="flex w-full items-center justify-between gap-4 pr-3">
+                                <span>
+                                  {reportCategoryDisplay[category].title}
+                                </span>
+                                <span className="text-sm font-semibold tabular-nums text-muted-foreground">
+                                  {categoryScore
+                                    ? `${categoryScore.score}/${categoryScore.maxScore}`
+                                    : "Not scored"}
+                                </span>
                               </span>
                             </AccordionTrigger>
                             <AccordionContent className="flex flex-col gap-4">
-                              <p className="text-sm leading-6 text-muted-foreground">
-                                {reportCategoryDisplay[category].description}
-                              </p>
-
                               {narrativeCritique ? (
                                 <Alert>
                                   <CheckCircle2Icon data-icon="inline-start" />
-                                  <AlertTitle>Category critique</AlertTitle>
+                                  <AlertTitle>Category overview</AlertTitle>
                                   <AlertDescription>
                                     {narrativeCritique.critique}
                                   </AlertDescription>
@@ -927,7 +959,7 @@ export default async function ReportPage({
                                   {categoryFindings.map((finding) => (
                                     <div
                                       key={finding.id}
-                                      className="rounded-lg border border-slate-200 bg-muted/20 p-4"
+                                      className="rounded-2xl border border-slate-200 bg-muted/20 p-5 lg:p-6"
                                     >
                                       <div className="flex flex-wrap items-center gap-2">
                                         <Badge
@@ -937,25 +969,35 @@ export default async function ReportPage({
                                         >
                                           {severityLabels[finding.severity]}
                                         </Badge>
-                                        <p className="font-medium">
+                                        <p className="text-base font-semibold leading-6">
                                           {finding.title}
                                         </p>
                                       </div>
-                                      <p className="mt-3 leading-6 text-muted-foreground">
-                                        {finding.finding}
-                                      </p>
-                                      <p className="mt-3 leading-6">
-                                        {finding.recommendation}
-                                      </p>
-                                      <PracticalActions
-                                        actions={finding.practicalActions}
-                                      />
+                                      <div className="mt-4">
+                                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                          What we found
+                                        </p>
+                                        <p className="mt-1 leading-6 text-muted-foreground">
+                                          {finding.finding}
+                                        </p>
+                                      </div>
+                                      <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+                                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                          Recommended next step
+                                        </p>
+                                        <p className="mt-1 leading-6">
+                                          {finding.recommendation}
+                                        </p>
+                                        <PracticalActions
+                                          actions={finding.practicalActions}
+                                        />
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
                                 <p className="text-sm text-muted-foreground">
-                                  No priority finding has been recorded for this
+                                  No priority issues were found in this
                                   category.
                                 </p>
                               )}
@@ -967,124 +1009,83 @@ export default async function ReportPage({
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card bodyClass="flex flex-col gap-5 p-6 lg:p-8">
                   <CardHeader>
-                    <CardTitle>Suggested improvements</CardTitle>
+                    <CardTitle className="text-xl tracking-tight">
+                      Speed and accessibility
+                    </CardTitle>
                     <CardDescription>
-                      AI-assisted wording from saved scan findings, when
-                      available.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {narrative ? (
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="rounded-lg border border-slate-200 bg-muted/20 p-4">
-                          <p className="text-sm font-medium">
-                            Homepage improvement
-                          </p>
-                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                            {narrative.suggestedHomepageImprovement}
-                          </p>
-                        </div>
-                        <div className="rounded-lg border border-slate-200 bg-muted/20 p-4">
-                          <p className="text-sm font-medium">CTA improvement</p>
-                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                            {narrative.suggestedCTAImprovement}
-                          </p>
-                        </div>
-                        <div className="rounded-lg border border-slate-200 bg-muted/20 p-4">
-                          <p className="text-sm font-medium">
-                            Suggested SEO title
-                          </p>
-                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                            {narrative.suggestedSeoTitle}
-                          </p>
-                        </div>
-                        <div className="rounded-lg border border-slate-200 bg-muted/20 p-4">
-                          <p className="text-sm font-medium">
-                            Suggested meta description
-                          </p>
-                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                            {narrative.suggestedMetaDescription}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No saved AI critique is available for this report yet.
-                        The detailed findings and deterministic score data are
-                        still shown below.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Technical snapshot</CardTitle>
-                    <CardDescription>
-                      PageSpeed data when available, plus basic crawl details
-                      saved with the report.
+                      Homepage measurements from Google Lighthouse.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-6">
                     {report.technicalAudit ? (
-                      <Tabs defaultValue="mobile">
-                        <TabsList>
-                          <TabsTrigger value="mobile" className="gap-2">
-                            <SmartphoneIcon
-                              className="size-4"
-                              aria-hidden="true"
+                      <div className="space-y-4">
+                        <p className="text-sm leading-6 text-muted-foreground">
+                          {performanceSummary(
+                            report.technicalAudit.mobilePerformance,
+                            report.technicalAudit.desktopPerformance,
+                          )}
+                        </p>
+                        <div className="grid gap-4 xl:grid-cols-2">
+                          <div className="rounded-2xl border border-slate-200 p-5 lg:p-6">
+                            <div className="mb-4 flex items-center gap-2">
+                              <SmartphoneIcon
+                                className="size-4"
+                                aria-hidden="true"
+                              />
+                              <h3 className="text-base font-semibold">
+                                Mobile
+                              </h3>
+                            </div>
+                            <TechnicalMetricGrid
+                              metrics={[
+                                [
+                                  "Performance",
+                                  report.technicalAudit.mobilePerformance,
+                                ],
+                                [
+                                  "Accessibility",
+                                  report.technicalAudit.mobileAccessibility,
+                                ],
+                                ["SEO", report.technicalAudit.mobileSeo],
+                                [
+                                  "Technical best practices",
+                                  report.technicalAudit.mobileBestPractices,
+                                ],
+                              ]}
                             />
-                            Mobile
-                          </TabsTrigger>
-                          <TabsTrigger value="desktop" className="gap-2">
-                            <MonitorIcon
-                              className="size-4"
-                              aria-hidden="true"
+                          </div>
+                          <div className="rounded-2xl border border-slate-200 p-5 lg:p-6">
+                            <div className="mb-4 flex items-center gap-2">
+                              <MonitorIcon
+                                className="size-4"
+                                aria-hidden="true"
+                              />
+                              <h3 className="text-base font-semibold">
+                                Desktop
+                              </h3>
+                            </div>
+                            <TechnicalMetricGrid
+                              metrics={[
+                                [
+                                  "Performance",
+                                  report.technicalAudit.desktopPerformance,
+                                ],
+                                [
+                                  "Accessibility",
+                                  report.technicalAudit.desktopAccessibility,
+                                ],
+                                ["SEO", report.technicalAudit.desktopSeo],
+                                [
+                                  "Technical best practices",
+                                  report.technicalAudit.desktopBestPractices,
+                                ],
+                              ]}
                             />
-                            Desktop
-                          </TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="mobile" className="pt-4">
-                          <TechnicalMetricGrid
-                            metrics={[
-                              [
-                                "Performance",
-                                report.technicalAudit.mobilePerformance,
-                              ],
-                              [
-                                "Accessibility",
-                                report.technicalAudit.mobileAccessibility,
-                              ],
-                              ["SEO", report.technicalAudit.mobileSeo],
-                              [
-                                "Best practices",
-                                report.technicalAudit.mobileBestPractices,
-                              ],
-                            ]}
-                          />
-                        </TabsContent>
-                        <TabsContent value="desktop" className="pt-4">
-                          <TechnicalMetricGrid
-                            metrics={[
-                              [
-                                "Performance",
-                                report.technicalAudit.desktopPerformance,
-                              ],
-                              [
-                                "Accessibility",
-                                report.technicalAudit.desktopAccessibility,
-                              ],
-                              ["SEO", report.technicalAudit.desktopSeo],
-                              [
-                                "Best practices",
-                                report.technicalAudit.desktopBestPractices,
-                              ],
-                            ]}
-                          />
-                        </TabsContent>
-                      </Tabs>
+                          </div>
+                        </div>
+                      </div>
                     ) : (
                       <Alert>
                         <AlertCircleIcon data-icon="inline-start" />
@@ -1096,201 +1097,66 @@ export default async function ReportPage({
                         </AlertDescription>
                       </Alert>
                     )}
-
-                    {report.technicalAudit &&
-                    getLighthouseSource(
-                      report.technicalAudit.lighthouseJson,
-                    ) ? (
-                      <p className="text-xs text-muted-foreground">
-                        Lighthouse source:{" "}
-                        {getLighthouseSource(
-                          report.technicalAudit.lighthouseJson,
-                        )}
-                      </p>
-                    ) : null}
-
-                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                      <SnapshotMetric
-                        label="Pages scanned"
-                        value={report.pagesScanned.length}
-                      />
-                      <SnapshotMetric
-                        label="Successful pages"
-                        value={successfulPages.length}
-                      />
-                      <SnapshotMetric
-                        label="Words found"
-                        value={totalWordCount}
-                      />
-                      <SnapshotMetric
-                        label="Links, images, forms"
-                        value={`${internalLinkCount} / ${imageCount} / ${formCount}`}
-                      />
-                    </div>
-
-                    {report.pagesScanned.length > 0 ? (
-                      <div className="grid gap-3">
-                        {report.pagesScanned.map((page) => (
-                          <div
-                            key={page.id}
-                            className="grid gap-2 rounded-lg border border-slate-200 bg-muted/20 p-4 md:grid-cols-[1fr_auto]"
-                          >
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="outline">
-                                  {page.pageType ?? "Unknown"}
-                                </Badge>
-                                <p className="text-sm font-medium">
-                                  {page.title ?? page.url}
-                                </p>
-                              </div>
-                              <p className="mt-2 break-all text-sm text-muted-foreground">
-                                {page.url}
-                              </p>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground md:justify-end">
-                              <span>Status {page.statusCode ?? "unknown"}</span>
-                              <span>{page.wordCount ?? 0} words</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No scanned pages have been saved for this report yet.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Website preview</CardTitle>
-                    <CardDescription>
-                      Homepage screenshot saved during analysis, when capture
-                      was available.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {screenshotUrl ? (
-                      <Image
-                        src={screenshotUrl}
-                        alt={`Screenshot preview for ${report.domain}`}
-                        width={1200}
-                        height={675}
-                        className="aspect-video w-full rounded-lg border border-slate-200 object-cover object-top"
-                      />
-                    ) : (
-                      <div className="flex aspect-video flex-col items-center justify-center gap-3 rounded-lg border border-slate-200 bg-muted/30 text-center">
-                        <ImageIcon className="size-8 text-muted-foreground" />
-                        <div>
-                          <p className="font-medium">No screenshot saved</p>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            The report still uses saved scan data and findings.
-                          </p>
-                        </div>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
 
                 {visualDesignAnalysis ? (
-                  <Card>
+                  <Card bodyClass="flex flex-col gap-5 p-6 lg:p-8">
                     <CardHeader>
                       <div className="flex flex-wrap items-center gap-3">
                         <PaletteIcon className="size-5 text-muted-foreground" />
-                        <CardTitle>Design & reader experience</CardTitle>
-                        <Badge variant="outline">Rendered evidence</Badge>
-                        <Badge variant="secondary">3 checks scored</Badge>
+                        <CardTitle className="text-xl tracking-tight">
+                          Design and reader experience
+                        </CardTitle>
                       </div>
                       <CardDescription>
-                        Primary navigation contributes to Site Usability. Mobile
-                        viewport fit and text contrast contribute to Mobile
-                        Performance. The remaining observations are advisory.
+                        These layout issues may make it harder for readers to
+                        navigate, understand the page, or take the next step.
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      <div className="flex flex-wrap gap-2">
-                        <Badge
-                          variant={
-                            visualDesignReviewCount > 0
-                              ? "secondary"
-                              : "outline"
-                          }
-                        >
-                          {visualDesignReviewCount} automated item
-                          {visualDesignReviewCount === 1 ? "" : "s"} to review
-                        </Badge>
-                        <Badge variant="outline">
-                          {visualDesignAnalysis.viewports.length} viewport
-                          {visualDesignAnalysis.viewports.length === 1
-                            ? ""
-                            : "s"}{" "}
-                          inspected
-                        </Badge>
-                        {visualDesignAnalysis.status === "partial" ? (
-                          <Badge variant="outline">Partial evidence</Badge>
-                        ) : null}
-                      </div>
-
                       {visualDesignPillars.map((pillar) => {
                         const observations =
-                          visualDesignAnalysis.observations.filter(
-                            (observation) =>
-                              observation.pillar === pillar &&
-                              observation.status !== "passed",
+                          consolidatedVisualObservations.filter(
+                            (observation) => observation.pillar === pillar,
                           );
 
                         return (
                           <section key={pillar} className="space-y-3">
-                            <h3 className="text-sm font-semibold">
+                            <h3 className="text-base font-semibold">
                               {visualDesignPillarLabels[pillar]}
                             </h3>
                             {observations.length > 0 ? (
                               <div className="grid gap-3 lg:grid-cols-2">
                                 {observations.map((observation) => (
                                   <div
-                                    key={
-                                      observation.viewport +
-                                      "-" +
-                                      observation.id
-                                    }
-                                    className="rounded-lg border border-slate-200 bg-muted/20 p-4"
+                                    key={observation.id}
+                                    className="rounded-2xl border border-slate-200 bg-muted/20 p-5 lg:p-6"
                                   >
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <Badge
-                                        variant={
-                                          observation.status === "needs_review"
-                                            ? "secondary"
-                                            : "outline"
-                                        }
-                                      >
-                                        {observation.status === "needs_review"
-                                          ? "Review"
-                                          : "Not measured"}
-                                      </Badge>
-                                      <Badge variant="outline">
-                                        {isScoredVisualObservation(observation)
-                                          ? "Score check"
-                                          : "Advisory"}
-                                      </Badge>
-                                      <p className="text-sm font-medium">
-                                        {observation.title}
-                                      </p>
+                                    <p className="text-base font-semibold leading-6">
+                                      {visualObservationTitle(
+                                        observation.title,
+                                      )}
+                                    </p>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      {observation.viewports.map((viewport) => (
+                                        <Badge key={viewport} variant="outline">
+                                          {viewportLabels[viewport]}
+                                        </Badge>
+                                      ))}
                                     </div>
                                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
                                       {observation.summary}
                                     </p>
-                                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                                      Evidence: {observation.evidence}
-                                    </p>
                                     {observation.recommendation ? (
-                                      <p className="mt-3 text-sm leading-6">
-                                        <span className="font-medium">
-                                          Recommendation:{" "}
-                                        </span>
-                                        {observation.recommendation}
-                                      </p>
+                                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                          Recommended next step
+                                        </p>
+                                        <p className="mt-1 text-sm leading-6">
+                                          {observation.recommendation}
+                                        </p>
+                                      </div>
                                     ) : null}
                                   </div>
                                 ))}
@@ -1303,60 +1169,146 @@ export default async function ReportPage({
                           </section>
                         );
                       })}
-
-                      <div className="border-t border-slate-200 pt-5">
-                        <h3 className="text-sm font-semibold">
-                          Quick manual checklist
-                        </h3>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          These judgments still need a person because a snapshot
-                          cannot reliably determine design intent or the full
-                          multi-page journey.
-                        </p>
-                        <ul className="mt-3 space-y-3">
-                          {visualDesignManualReviewPrompts.map((item) => (
-                            <li
-                              key={item.pillar}
-                              className="rounded-lg border border-slate-200 p-4"
-                            >
-                              <p className="text-sm font-medium">
-                                {visualDesignPillarLabels[item.pillar]}
-                              </p>
-                              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                                {item.prompt}
-                              </p>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
                     </CardContent>
                   </Card>
                 ) : null}
 
+                <Card bodyClass="flex flex-col gap-5 p-6 lg:p-8">
+                  <CardHeader>
+                    <CardTitle className="text-xl tracking-tight">
+                      About this scan
+                    </CardTitle>
+                    <CardDescription>
+                      Coverage, scoring, and review details for this report.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-5">
+                    <Accordion>
+                      <AccordionItem>
+                        <AccordionTrigger>How scores work</AccordionTrigger>
+                        <AccordionContent className="space-y-4">
+                          <p className="text-sm leading-6 text-muted-foreground">
+                            Numeric scores come from measurable website checks.
+                            AI may help explain saved results, but it does not
+                            determine the scores.
+                          </p>
+                          {visualDesignAnalysis ? (
+                            <p className="text-sm leading-6 text-muted-foreground">
+                              Primary navigation affects Site Usability. Mobile
+                              viewport fit and text contrast affect Mobile
+                              Performance. Other visual observations are
+                              advisory and do not change the score.
+                            </p>
+                          ) : null}
+                        </AccordionContent>
+                      </AccordionItem>
+                      <AccordionItem>
+                        <AccordionTrigger>View scan details</AccordionTrigger>
+                        <AccordionContent className="flex flex-col gap-5">
+                          <div className="grid gap-3 md:grid-cols-3">
+                            <SnapshotMetric
+                              label="Pages scanned"
+                              value={report.pagesScanned.length}
+                            />
+                            <SnapshotMetric
+                              label="Successful pages"
+                              value={successfulPages.length}
+                            />
+                            <SnapshotMetric
+                              label="Words found"
+                              value={totalWordCount}
+                            />
+                          </div>
+                          {report.technicalAudit &&
+                          getLighthouseSource(
+                            report.technicalAudit.lighthouseJson,
+                          ) ? (
+                            <p className="text-xs text-muted-foreground">
+                              Lighthouse source:{" "}
+                              {getLighthouseSource(
+                                report.technicalAudit.lighthouseJson,
+                              )}
+                            </p>
+                          ) : null}
+                          {report.pagesScanned.length > 0 ? (
+                            <div className="grid gap-3">
+                              {report.pagesScanned.map((page) => (
+                                <div
+                                  key={page.id}
+                                  className="grid gap-2 rounded-lg border border-slate-200 bg-muted/20 p-4 md:grid-cols-[1fr_auto]"
+                                >
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Badge variant="outline">
+                                        {page.pageType ?? "Unknown"}
+                                      </Badge>
+                                      <p className="text-sm font-medium">
+                                        {page.title ?? page.url}
+                                      </p>
+                                    </div>
+                                    <p className="mt-2 break-all text-sm text-muted-foreground">
+                                      {page.url}
+                                    </p>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground md:justify-end">
+                                    <span>
+                                      Status {page.statusCode ?? "unknown"}
+                                    </span>
+                                    <span>{page.wordCount ?? 0} words</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              No scanned pages were saved for this report.
+                            </p>
+                          )}
+                        </AccordionContent>
+                      </AccordionItem>
+                      {visualDesignAnalysis ? (
+                        <AccordionItem>
+                          <AccordionTrigger>
+                            Optional human review
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
+                              {visualDesignManualReviewPrompts.map((item) => (
+                                <li key={item.pillar}>{item.prompt}</li>
+                              ))}
+                            </ul>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ) : null}
+                    </Accordion>
+                  </CardContent>
+                </Card>
+
                 <Card>
                   <CardHeader>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <CardTitle>GrailHiiv recommendation</CardTitle>
-                      <Badge variant="secondary">{serviceFitLabel}</Badge>
+                    <div className="flex flex-col items-start gap-2">
+                      <CardTitle className="text-xl tracking-tight">
+                        Want help turning this report into a plan?
+                      </CardTitle>
+                      <Badge variant="secondary">
+                        Best fit: {serviceFitLabel}
+                      </Badge>
                     </div>
                     <CardDescription>
-                      A low-pressure next step if you want help improving the
-                      website.
+                      Review the priorities with GrailHiiv and decide what to do
+                      first.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
                       {ctaForServiceFit(serviceFitLabel)}
                     </p>
-                    {narrative?.finalRecommendation ? (
-                      <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground">
-                        {narrative.finalRecommendation}
-                      </p>
-                    ) : null}
                   </CardContent>
                   <CardFooter>
                     <form action="/">
-                      <Button type="submit">Get Website Help</Button>
+                      <Button type="submit" size="lg">
+                        Book a website review
+                      </Button>
                     </form>
                   </CardFooter>
                 </Card>
@@ -1371,18 +1323,30 @@ export default async function ReportPage({
 
 function CategoryScoreCard({
   label,
-  description,
+  score,
+  maxScore,
 }: {
   label: string;
-  description: string;
+  score: number | null;
+  maxScore: number | null;
 }) {
+  const percentage =
+    score !== null && maxScore !== null ? scorePercent(score, maxScore) : null;
+
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>{label}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-    </Card>
+    <div className="rounded-2xl border border-slate-200 p-5 lg:p-6">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-base font-semibold leading-6">{label}</p>
+        <span className="text-sm font-semibold tabular-nums text-slate-950">
+          {score === null || maxScore === null
+            ? "Not scored"
+            : `${score}/${maxScore}`}
+        </span>
+      </div>
+      <div className="mt-3">
+        <Progress value={percentage ?? 0} />
+      </div>
+    </div>
   );
 }
 
@@ -1409,7 +1373,7 @@ function TechnicalMetricGrid({
   metrics: Array<[label: string, value: number | null]>;
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2">
       {metrics.map(([label, value]) => (
         <Card key={label} size="sm">
           <CardHeader>

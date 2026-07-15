@@ -4,7 +4,7 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@crawlee/cheerio"],
+  serverExternalPackages: ["@crawlee/cheerio", "pdfkit"],
   turbopack: {
     root: __dirname,
   },

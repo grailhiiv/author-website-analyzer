@@ -53,7 +53,7 @@ const AdminListSelection = ({
                 <StickyFooter
                     className="flex items-center justify-between bg-white py-4 dark:bg-gray-800"
                     stickyClass="-mx-4 border-t border-gray-200 px-4 sm:-mx-8 sm:px-8 dark:border-gray-700"
-                    defaultClass="mt-4 w-full rounded-xl border border-gray-200 px-4 sm:px-8 dark:border-gray-600"
+                    defaultClass="mt-4 w-full rounded border border-gray-200 px-4 sm:px-8 dark:border-gray-600"
                 >
                     <div className="flex w-full items-center justify-between">
                         <span className="flex items-center gap-2">

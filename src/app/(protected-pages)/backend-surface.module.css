@@ -1,0 +1,62 @@
+.backendSurface {
+    display: contents;
+}
+
+:global(body):has(.backendSurface) :global(.card),
+:global(body):has(.backendSurface) :global(.button),
+:global(body):has(.backendSurface) :global(.tag),
+:global(body):has(.backendSurface) :global(.input),
+:global(body):has(.backendSurface) :global(.input-addon),
+:global(body):has(.backendSurface) :global(.select-control),
+:global(body):has(.backendSurface) :global(.select-menu),
+:global(body):has(.backendSurface) :global(.select-multi-value),
+:global(body):has(.backendSurface) :global(.select-option),
+:global(body):has(.backendSurface) :global(.dialog-content),
+:global(body):has(.backendSurface) :global(.dropdown-menu),
+:global(body):has(.backendSurface) :global(.date-picker),
+:global(body):has(.backendSurface) :global(.date-picker-panel),
+:global(body):has(.backendSurface) :global(.notification),
+:global(body):has(.backendSurface) :global(.pagination),
+:global(body):has(.backendSurface) :global(.pagination-pager),
+:global(body):has(.backendSurface) :global(.menu-item),
+:global(body):has(.backendSurface) :global(.menu-collapse-item),
+:global(body):has(.backendSurface) :global(.segment),
+:global(body):has(.backendSurface) :global(.segment-item),
+:global(body):has(.backendSurface) :global(.upload),
+:global(body):has(.backendSurface) :global(.upload-draggable),
+:global(body):has(.backendSurface) :global(.tooltip),
+:global(body):has(.backendSurface) :global(.rounded-2xl),
+:global(body):has(.backendSurface) :global(.rounded-xl),
+:global(body):has(.backendSurface) :global(.rounded-lg),
+:global(body):has(.backendSurface) :global(.rounded-md),
+:global(body):has(.backendSurface) :global(.rounded) {
+    border-radius: 0.25rem;
+}
+
+:global(body):has(.backendSurface) :global(.card-header-border),
+:global(body):has(.backendSurface) :global(.rounded-t-2xl),
+:global(body):has(.backendSurface) :global(.rounded-t-xl),
+:global(body):has(.backendSurface) :global(.rounded-t-lg) {
+    border-radius: 0.25rem 0.25rem 0 0;
+}
+
+:global(body):has(.backendSurface) :global(.card-footer),
+:global(body):has(.backendSurface) :global(.rounded-b-2xl),
+:global(body):has(.backendSurface) :global(.rounded-b-xl),
+:global(body):has(.backendSurface) :global(.rounded-b-lg) {
+    border-radius: 0 0 0.25rem 0.25rem;
+}
+
+:global(body):has(.backendSurface) :global(.input-group) > :global(.input),
+:global(body):has(.backendSurface) :global(.input-group) > :global(.input-addon),
+:global(body):has(.backendSurface) :global(.input-group) > :global(.button) {
+    border-radius: 0;
+}
+
+:global(body):has(.backendSurface) :global(.input-group) > :first-child {
+    border-radius: 0.25rem 0 0 0.25rem;
+}
+
+:global(body):has(.backendSurface) :global(.input-group) > :last-child {
+    border-radius: 0 0.25rem 0.25rem 0;
+}

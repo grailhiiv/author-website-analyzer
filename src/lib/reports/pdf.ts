@@ -1,9 +1,6 @@
 import PDFDocument from "pdfkit";
 
-import {
-  FindingSeverity,
-  ReportCategory,
-} from "@/generated/prisma/client";
+import { FindingSeverity, ReportCategory } from "@/generated/prisma/client";
 import type { ReportNarrative } from "@/lib/ai/report-narrative.core";
 import { parsePracticalActions } from "@/lib/reports/practical-actions";
 
@@ -26,6 +23,7 @@ export type PdfReportScore = {
 export type PdfReportFinding = {
   category: ReportCategory;
   severity: FindingSeverity;
+  checkId?: string | null;
   title: string;
   finding: string;
   recommendation: string;
@@ -144,12 +142,6 @@ function scoreInterpretation(score: number | null) {
   return "Needs major attention";
 }
 
-function safeText(value: string | null | undefined, fallback = "Not available") {
-  const trimmed = value?.trim();
-
-  return trimmed ? trimmed : fallback;
-}
-
 function collectPdfBuffer(doc: PDFKit.PDFDocument) {
   return new Promise<Buffer>((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -184,7 +176,7 @@ function addFooter(doc: PDFKit.PDFDocument) {
       {
         width: pageWidth(doc),
         align: "center",
-      }
+      },
     );
 }
 
@@ -213,12 +205,20 @@ function paragraph(doc: PDFKit.PDFDocument, text: string) {
 
 function keyValue(doc: PDFKit.PDFDocument, label: string, value: string) {
   const y = doc.y;
-  doc.font("Helvetica-Bold").fontSize(9).fillColor(BRAND).text(label, PAGE_MARGIN, y, {
-    width: 120,
-  });
-  doc.font("Helvetica").fontSize(9).fillColor(MUTED).text(value, PAGE_MARGIN + 130, y, {
-    width: pageWidth(doc) - 130,
-  });
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(9)
+    .fillColor(BRAND)
+    .text(label, PAGE_MARGIN, y, {
+      width: 120,
+    });
+  doc
+    .font("Helvetica")
+    .fontSize(9)
+    .fillColor(MUTED)
+    .text(value, PAGE_MARGIN + 130, y, {
+      width: pageWidth(doc) - 130,
+    });
   doc.moveDown(0.45);
 }
 
@@ -226,7 +226,7 @@ function scoreBar(
   doc: PDFKit.PDFDocument,
   label: string,
   score: number,
-  maxScore: number
+  maxScore: number,
 ) {
   ensureSpace(doc, 32);
 
@@ -250,14 +250,16 @@ function scoreBar(
 
   const barY = doc.y + 5;
   doc.roundedRect(PAGE_MARGIN, barY, width, 7, 3).fill("#e5e7eb");
-  doc.roundedRect(PAGE_MARGIN, barY, (width * percent) / 100, 7, 3).fill(ACCENT);
+  doc
+    .roundedRect(PAGE_MARGIN, barY, (width * percent) / 100, 7, 3)
+    .fill(ACCENT);
   doc.y = barY + 16;
 }
 
 function findingBlock(
   doc: PDFKit.PDFDocument,
   finding: PdfReportFinding,
-  includeCategory = false
+  includeCategory = false,
 ) {
   ensureSpace(doc, 78);
 
@@ -279,9 +281,13 @@ function findingBlock(
     });
   doc.moveDown(0.25);
   paragraph(doc, finding.finding);
-  doc.font("Helvetica-Bold").fontSize(9).fillColor(BRAND).text("Recommendation", {
-    continued: false,
-  });
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(9)
+    .fillColor(BRAND)
+    .text("Recommendation", {
+      continued: false,
+    });
   paragraph(doc, finding.recommendation);
   const practicalActions = parsePracticalActions(finding.practicalActions);
   if (practicalActions.length > 0) {
@@ -297,6 +303,51 @@ function findingBlock(
   doc.moveDown(0.1);
 }
 
+function actionPlanBlock(
+  doc: PDFKit.PDFDocument,
+  finding: PdfReportFinding,
+  position: number,
+) {
+  ensureSpace(doc, 58);
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(10)
+    .fillColor(BRAND)
+    .text(
+      `${position}. ${actionPlanTitle(finding.checkId, finding.title)}`,
+      PAGE_MARGIN,
+      doc.y,
+      {
+        width: pageWidth(doc),
+      },
+    );
+  doc
+    .font("Helvetica")
+    .fontSize(8)
+    .fillColor("#6b7280")
+    .text(
+      `${categoryLabels[finding.category]} - ${severityLabels[finding.severity]} priority`,
+      PAGE_MARGIN,
+      doc.y,
+      { width: pageWidth(doc) },
+    );
+  doc.moveDown(0.25);
+  paragraph(doc, finding.recommendation);
+}
+
+function actionPlanTitle(checkId: string | null | undefined, fallback: string) {
+  const titles: Record<string, string> = {
+    "usability.primary_navigation": "Make navigation work on every screen",
+    "mobile.pagespeed_performance": "Speed up the homepage on mobile",
+    "engagement.reader_magnet": "Give readers a reason to subscribe",
+    "engagement.subscriber_benefit":
+      "Explain what newsletter subscribers will receive",
+    "mobile.image_alt_text": "Add alt text to important images",
+  };
+
+  return (checkId ? titles[checkId] : undefined) ?? fallback;
+}
+
 function addHeader(doc: PDFKit.PDFDocument, input: AuthorReportPdfInput) {
   doc.rect(0, 0, doc.page.width, 96).fill("#f9fafb");
   doc
@@ -310,7 +361,7 @@ function addHeader(doc: PDFKit.PDFDocument, input: AuthorReportPdfInput) {
     .font("Helvetica")
     .fontSize(10)
     .fillColor(MUTED)
-    .text("Author Website Scorecard", PAGE_MARGIN, 56, {
+    .text("Author Website Report", PAGE_MARGIN, 56, {
       width: pageWidth(doc),
     });
   doc.y = 120;
@@ -335,7 +386,11 @@ function addHeader(doc: PDFKit.PDFDocument, input: AuthorReportPdfInput) {
   doc.moveDown(1);
 
   keyValue(doc, "Website", input.report.normalizedUrl);
-  keyValue(doc, "Report date", formatDate(input.report.completedAt ?? input.report.createdAt));
+  keyValue(
+    doc,
+    "Report date",
+    formatDate(input.report.completedAt ?? input.report.createdAt),
+  );
   keyValue(doc, "Date generated", formatDate(input.generatedAt));
 }
 
@@ -348,7 +403,7 @@ export async function renderAuthorReportPdf(input: AuthorReportPdfInput) {
     info: {
       Title: `Author Website Report - ${input.report.domain}`,
       Author: "GrailHiiv",
-      Subject: "Author Website Scorecard",
+      Subject: "Author Website Report",
       Creator: "GrailHiiv Author Website Analyzer",
     },
   });
@@ -357,12 +412,16 @@ export async function renderAuthorReportPdf(input: AuthorReportPdfInput) {
   doc.addPage();
   addHeader(doc, input);
 
-  sectionTitle(doc, "Executive Summary");
+  sectionTitle(doc, "What to Focus on First");
   paragraph(doc, input.executiveSummary);
 
-  sectionTitle(doc, "Score Breakdown");
+  sectionTitle(doc, "Category Scores");
+  paragraph(
+    doc,
+    "These eight scores show where the website supports readers well and where focused improvements will have the most impact.",
+  );
   const scoresByCategory = new Map(
-    input.scores.map((score) => [score.category, score])
+    input.scores.map((score) => [score.category, score]),
   );
 
   for (const category of categoryOrder) {
@@ -373,26 +432,36 @@ export async function renderAuthorReportPdf(input: AuthorReportPdfInput) {
     }
   }
 
-  sectionTitle(doc, "Top 5 Fixes");
+  sectionTitle(doc, "Your Action Plan");
+  paragraph(
+    doc,
+    "Start with these three improvements in priority order. Complete evidence and practical steps follow in the category findings.",
+  );
   const topFindings = [...input.findings]
     .sort(
       (a, b) =>
         a.priority - b.priority ||
         severityWeight(b.severity) - severityWeight(a.severity) ||
-        a.title.localeCompare(b.title)
+        a.title.localeCompare(b.title),
     )
-    .slice(0, 5);
+    .slice(0, 3);
 
   if (topFindings.length > 0) {
-    topFindings.forEach((finding) => findingBlock(doc, finding, true));
+    topFindings.forEach((finding, index) =>
+      actionPlanBlock(doc, finding, index + 1),
+    );
   } else {
     paragraph(doc, "No priority fixes were saved with this report.");
   }
 
-  sectionTitle(doc, "Category Critique");
+  sectionTitle(doc, "Findings by Category");
+  paragraph(
+    doc,
+    "Review every issue and recommendation, grouped by score category.",
+  );
   for (const category of categoryOrder) {
     const relatedFindings = input.findings.filter(
-      (finding) => finding.category === category
+      (finding) => finding.category === category,
     );
     const score = scoresByCategory.get(category);
 
@@ -409,53 +478,10 @@ export async function renderAuthorReportPdf(input: AuthorReportPdfInput) {
         width: pageWidth(doc),
       });
 
-    if (score?.summary) {
-      paragraph(doc, score.summary);
-    }
-
-    relatedFindings.slice(0, 3).forEach((finding) => {
+    relatedFindings.forEach((finding) => {
       findingBlock(doc, finding);
     });
   }
-
-  sectionTitle(doc, "Suggested Improvements");
-  paragraph(
-    doc,
-    `Homepage improvement: ${safeText(
-      input.narrative?.suggestedHomepageImprovement,
-      "No homepage-specific suggestion was saved for this report."
-    )}`
-  );
-  paragraph(
-    doc,
-    `CTA improvement: ${safeText(
-      input.narrative?.suggestedCTAImprovement,
-      "No CTA-specific suggestion was saved for this report."
-    )}`
-  );
-  paragraph(
-    doc,
-    `Suggested SEO title: ${safeText(
-      input.narrative?.suggestedSeoTitle,
-      "No suggested SEO title was saved for this report."
-    )}`
-  );
-  paragraph(
-    doc,
-    `Suggested meta description: ${safeText(
-      input.narrative?.suggestedMetaDescription,
-      "No suggested meta description was saved for this report."
-    )}`
-  );
-
-  sectionTitle(doc, "Final Recommendation");
-  paragraph(
-    doc,
-    safeText(
-      input.narrative?.finalRecommendation,
-      "Review the highest-priority fixes first, then improve the reader path from homepage to books, newsletter signup, and contact."
-    )
-  );
 
   ensureSpace(doc, 74);
   doc
@@ -468,19 +494,24 @@ export async function renderAuthorReportPdf(input: AuthorReportPdfInput) {
     .font("Helvetica-Bold")
     .fontSize(12)
     .fillColor(BRAND)
-    .text("Want this fixed for you?", PAGE_MARGIN + 16, doc.y, {
-      width: pageWidth(doc) - 32,
-    });
+    .text(
+      "Want help turning this report into a plan?",
+      PAGE_MARGIN + 16,
+      doc.y,
+      {
+        width: pageWidth(doc) - 32,
+      },
+    );
   doc.moveDown(0.25);
   doc
     .font("Helvetica")
     .fontSize(9)
     .fillColor(MUTED)
     .text(
-      "GrailHiiv creates and manages professional author websites so your books, bio, reviews, and reader links are clear, polished, and easy to maintain.",
+      "GrailHiiv can review the priority issues with you and recommend the best next steps for your author website.",
       PAGE_MARGIN + 16,
       doc.y,
-      { width: pageWidth(doc) - 32, lineGap: 2 }
+      { width: pageWidth(doc) - 32, lineGap: 2 },
     );
 
   const range = doc.bufferedPageRange();
