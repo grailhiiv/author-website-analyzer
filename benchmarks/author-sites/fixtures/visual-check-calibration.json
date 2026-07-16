@@ -18,7 +18,7 @@
     "id": "dead-mobile-menu-control",
     "viewport": "mobile",
     "observationId": "navigation-availability",
-    "expectedStatus": "needs_review",
+    "expectedStatus": "failed",
     "overrides": {
       "visibleNavigationCount": 0,
       "visibleNavigationControlCount": 1,
@@ -43,7 +43,7 @@
     "id": "genuine-page-level-overflow",
     "viewport": "mobile",
     "observationId": "horizontal-overflow",
-    "expectedStatus": "needs_review",
+    "expectedStatus": "failed",
     "overrides": {
       "documentWidth": 430,
       "horizontalOverflowElementCount": 1,
@@ -56,7 +56,7 @@
     "id": "insufficient-contrast-coverage",
     "viewport": "mobile",
     "observationId": "text-contrast",
-    "expectedStatus": "unknown",
+    "expectedStatus": "needs_review",
     "overrides": {
       "textElementCount": 20,
       "contrastTextCount": 15,

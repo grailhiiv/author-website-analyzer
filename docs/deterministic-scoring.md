@@ -16,7 +16,7 @@ Those documents are a calibration basis. They do not add, remove, or reweight a 
 For each category `c`:
 
 ```text
-earned check points(c) = full points for pass + half points for unknown
+earned check points(c) = full points for Passed + half points for Needs Review
 category score(c)      = round(earned check points(c) / available points(c) * category maximum(c))
 overall score          = sum(category score(c))
 ```
@@ -45,13 +45,13 @@ For example, `12/15` and `16/20` both represent 80 percent even though the categ
 
 ## Scored evidence
 
-Every check has one of three states:
+Every active audit check has one of three statuses:
 
-- **Pass:** awards all check points.
-- **Fail:** awards no points and creates a fixed finding, primary recommendation, and practical-action list.
-- **Unknown:** awards half the check points and does not create a site-problem finding. This is used when an external audit such as PageSpeed is temporarily unavailable.
+- **Passed:** awards all check points.
+- **Needs Review:** awards half the check points and does not create a site-problem finding. This is used when required evidence or an external audit such as PageSpeed is unavailable or incomplete.
+- **Failed:** awards no points and creates a fixed finding and recommendation.
 
-The persisted check-result model also supports **Not applicable**, but all 50 current registered checks retain their existing universal applicability and never use it. The unresolved conditional-check and not-applicable policies remain unchanged. Three registered rendered checks use objective browser observations; the remaining design observations stay advisory. Each registered result stores the registry version, check version, state, available and earned points, reason code, and bounded evidence references. Rescoring replaces deterministic score findings and check results while preserving separately marked system-diagnostic findings.
+No additional audit-check statuses are active. Three registered rendered checks use objective browser observations; the remaining design observations stay advisory. Each registered result stores the registry version, check version, status, available and earned points, reason code, and bounded evidence references. Rescoring replaces deterministic score findings and check results while preserving separately marked system-diagnostic findings.
 
 The category rules consume deterministic evidence saved by the scan, including:
 
@@ -61,11 +61,11 @@ The category rules consume deterministic evidence saved by the scan, including:
 - rendered homepage navigation behavior, genuine page-level mobile overflow, and sufficiently covered measurable mobile text contrast;
 - technical and maintenance signals such as HTTPS, failed pages, indexability, canonical/schema evidence, and stale copyright text.
 
-Failed checks create findings with a fixed category, severity, priority, primary recommendation, and several concrete practical actions. The primary recommendation states what to improve; its practical actions explain how to begin. Both are deterministic rule content and are saved with the report, so they do not depend on AI availability. Numeric scores are based only on observable website evidence. Author type and website goal do not change the score.
+Failed checks create findings with a fixed category, severity, priority, and recommendation. The recommendation contains the complete deterministic guidance and is saved with the report, so it does not depend on AI availability. Numeric scores are based only on observable website evidence. Author type and website goal do not change the score.
 
-Passed checks display fixed check-specific confirmation details, a maintenance recommendation, and practical tips. Unknown checks display fixed reason-aware evidence limitations, a manual-verification recommendation, and practical actions. This status guidance is selected from the registered check ID and result state, remains independent of AI, and does not alter points, applicability, or finding creation.
+Passed checks display fixed check-specific confirmation details and a maintenance recommendation. Needs Review checks display fixed evidence limitations and a manual-verification recommendation. Failed checks display fixed failure details and a primary recommendation. There is no separate Action field. This guidance is selected from the registered check ID and result status, remains independent of AI, and does not alter the approved point treatment or finding creation.
 
-AI receives these saved recommendations and actions as constrained source material. It may make the explanation more author-friendly or select the most relevant supplied action, but it cannot create a failed check, change its score, or replace the deterministic fallback.
+AI receives the saved recommendations as constrained source material. It may make the explanation more author-friendly, but it cannot create a failed check, change its score, or replace the deterministic fallback.
 
 PageSpeed data is divided by module rather than scored twice:
 
@@ -98,7 +98,7 @@ The analysis pipeline runs in this order:
 2. Capture screenshots and technical audit data when available.
 3. Detect author-website signals from the saved scan.
 4. Run the deterministic scoring engine.
-5. Save each category's score and maximum, each registered check result and evidence reference, findings with their primary recommendations and practical actions, and the overall score.
+5. Save each category's score and maximum, each registered check result and evidence reference, findings with their recommendations, and the overall score.
 6. Generate an AI or fallback narrative from those locked scores and findings. The AI response schema has no numeric score field; application code attaches the already-calculated category percentages after the narrative returns.
 
 AI output can explain findings, but it cannot supply or change a numeric score.

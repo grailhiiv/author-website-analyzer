@@ -10,10 +10,12 @@ Core user flow:
 1. User enters website URL.
 2. App checks whether the site is reachable, inspectable, and reasonably identifiable as an author website.
 3. App scans the website.
-4. App generates an Author Website Scorecard using deterministic scoring.
+4. App generates an Author Website audit report using deterministic scoring.
 5. Author sees a partial report with the overall score, all category scores, one top problem, and one quick win.
 6. Author enters an email address to unlock the full report immediately and receive a secure return link.
 7. Admin can view reports and leads.
+
+The homepage partial report shows a deterministic preview of approximately one quarter of the detailed checks, with at least one check from every category. The canonical `/report/[domain]` page owns the complete check list and must use a separate presentation component so homepage report changes do not alter it. Queued or running report URLs redirect to the matching homepage `?domain=` scan state; do not render the homepage analyzing UI on the full-report page.
 
 Do not collect author type or website goal. Score the observable website rather than stated intentions.
 
@@ -43,7 +45,7 @@ Tech stack:
 Important rule:
 Use deterministic scoring for numeric scores. Use AI only to explain findings in clear author-friendly language.
 
-Organize the report's `Design & reader experience` review under Site Structure, Visual Design, and Conversion Design. Only the registered objective checks `usability.primary_navigation`, `mobile.viewport_fit`, and `mobile.text_contrast` affect existing Site Usability or Mobile Performance points. All other rendered observations are advisory. Keep subjective judgments such as genre fit, professionalism, emotional tone, and visual taste in a guided manual checklist. Do not add a ninth score category or change category maxima, applicability, or `not_applicable` behavior without an explicit approved product decision.
+Organize the report's `Design & reader experience` review under Site Structure, Visual Design, and Conversion Design. Only the registered objective checks `usability.primary_navigation`, `mobile.viewport_fit`, and `mobile.text_contrast` affect existing Site Usability or Mobile Performance points. All other rendered observations are advisory. Keep subjective judgments such as genre fit, professionalism, emotional tone, and visual taste in a guided manual checklist. Every active audit check uses only `Passed`, `Needs Review`, or `Failed`; do not add another audit-check status, a ninth score category, or change category maxima without an explicit approved product decision.
 
 ## Ecme template priority
 
@@ -176,3 +178,44 @@ Answer status questions directly, then continue the confirmed task.
 
 Reconfirm only when the user clearly replaces the task or materially changes
 its agreed scope, outcome, constraints, or deliverables.
+
+## Proportional validation
+
+Scale validation to the risk and scope of the change.
+
+For small, isolated edits such as copy, spacing, colors, or other
+presentation-only changes:
+
+- Do not run automated tests, the full lint command, or a full type-check by
+  default.
+- Inspect the diff and perform the cheapest relevant verification.
+- State what was checked and clearly disclose any tests or checks that were not
+  run.
+
+Run a targeted test or static check when:
+
+- The changed file has an obvious nearby test.
+- The change affects behavior rather than presentation only.
+- The change touches shared code or has multiple consumers.
+- The user explicitly requests the check.
+
+Prefer the least expensive relevant check first, such as:
+
+1. Inspecting the changed diff.
+2. Linting only the affected file or package.
+3. Running one relevant test file.
+4. Running the affected package's type-check.
+5. Running repository-wide validation only when justified.
+
+Run broader validation when the change affects routing, authentication,
+authorization, deterministic scoring, billing, database behavior, migrations,
+shared utilities, production integrations, or several interconnected areas.
+
+Run the full test suite before a commit, pull request, release, or explicit
+release-readiness handoff when the repository supports it and the scope
+justifies the cost.
+
+If validation fails, perform one focused investigation and attempt a safe,
+obvious in-scope correction. Do not enter a prolonged debugging loop for an
+unrelated or pre-existing failure. Report the failing command, relevant error,
+likely cause, and recommended next action.

@@ -39,10 +39,9 @@ enum FindingOrigin {
 }
 
 enum CheckResultState {
-  PASS
-  FAIL
-  UNKNOWN
-  NOT_APPLICABLE
+  PASSED
+  NEEDS_REVIEW
+  FAILED
 }
 
 enum ReportCategory {
@@ -186,7 +185,6 @@ model ReportFinding {
   title          String
   finding        String
   recommendation String
-  practicalActions Json?
   priority       Int
   checkId        String?
   origin         FindingOrigin    @default(SYSTEM_DIAGNOSTIC)

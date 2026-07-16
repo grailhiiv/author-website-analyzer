@@ -305,7 +305,7 @@ Use a bold but clean banner.
 
 ```text
 Ready to improve your author website?
-Get your website score and action plan today.
+Get your website score and recommendations today.
 
 [Analyze My Website]
 ```
@@ -381,7 +381,7 @@ On mobile, stack the sidebar above the report.
 4. Strengths
 5. Priority Issues
 6. Detailed Module Analysis
-7. Recommended Action Plan
+7. Recommended Improvements
 8. Suggested Next Steps
 9. Export or Save Report
 
@@ -510,9 +510,9 @@ Rewrite the homepage headline so it clearly states your genre, audience, and rea
 
 ---
 
-## 15. Action Plan Section
+## 15. Recommendations Section
 
-The action plan should be one of the most useful parts of the report.
+The prioritized recommendations should be one of the most useful parts of the report.
 
 ### Recommended Structure
 
@@ -558,7 +558,7 @@ The PDF should include:
 3. Executive summary
 4. Category breakdown
 5. Detailed analysis
-6. Priority action plan
+6. Priority recommendations
 7. Final recommendations
 
 Keep the PDF clean and client-ready.

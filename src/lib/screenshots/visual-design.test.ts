@@ -121,7 +121,7 @@ describe("buildVisualDesignAnalysis", () => {
     ]);
     const misses =
       analysis?.observations.filter(
-        (observation) => observation.status === "needs_review",
+        (observation) => observation.status === "failed",
       ) ?? [];
 
     assert.equal(analysis?.status, "partial");
@@ -142,7 +142,7 @@ describe("buildVisualDesignAnalysis", () => {
     );
   });
 
-  it("marks contrast unknown when the rendered background cannot be measured", () => {
+  it("marks contrast as Needs Review when the rendered background cannot be measured", () => {
     const analysis = buildVisualDesignAnalysis([
       viewport("desktop", { contrastTextCount: 0 }),
     ]);
@@ -151,7 +151,7 @@ describe("buildVisualDesignAnalysis", () => {
       analysis?.observations.find(
         (observation) => observation.id === "text-contrast",
       )?.status,
-      "unknown",
+      "needs_review",
     );
   });
 
@@ -192,7 +192,7 @@ describe("buildVisualDesignAnalysis", () => {
       analysis?.observations.find(
         (observation) => observation.id === "navigation-availability",
       )?.status,
-      "needs_review",
+      "failed",
     );
   });
 
@@ -208,7 +208,7 @@ describe("buildVisualDesignAnalysis", () => {
       insufficient?.observations.find(
         (observation) => observation.id === "text-contrast",
       )?.status,
-      "unknown",
+      "needs_review",
     );
     assert.equal(
       sufficient?.observations.find(
@@ -245,7 +245,7 @@ describe("buildVisualDesignAnalysis", () => {
       genuine?.observations.find(
         (observation) => observation.id === "horizontal-overflow",
       )?.status,
-      "needs_review",
+      "failed",
     );
   });
 

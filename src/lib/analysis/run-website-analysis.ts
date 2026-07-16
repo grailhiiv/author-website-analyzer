@@ -13,7 +13,12 @@ import {
 } from "@/lib/ai/report-narrative";
 import { serializeReportNarrative } from "@/lib/ai/report-narrative.core";
 import {
+  getAnalysisErrorMessage,
+  getPublicAnalysisErrorMessage,
+} from "@/lib/analysis/error-messages";
+import {
   analysisStageMetadata,
+  getCrawlAnalysisProgress,
   recordAnalysisTiming,
   type AnalysisStage,
   type AnalysisTimings,
@@ -38,14 +43,6 @@ const CRAWL_TIMEOUT_MS = 6_000;
 const SITEMAP_TIMEOUT_MS = 3_000;
 const SCREENSHOT_TIMEOUT_MS = 12_000;
 const AI_ENRICHMENT_TIMEOUT_MS = 8_000;
-
-function errorMessage(error: unknown) {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-
-  return "The website could not be analyzed.";
-}
 
 async function hasUsableHomepageData(reportId: string) {
   const homepage = await prisma.pageScanned.findFirst({
@@ -74,9 +71,9 @@ async function hasUsableHomepageData(reportId: string) {
     (homepage.statusCode >= 200 && homepage.statusCode < 400);
   const contentIsUsable = Boolean(
     homepage.title ||
-      homepage.h1 ||
-      homepage.headingsJson ||
-      (homepage.wordCount && homepage.wordCount > 0)
+    homepage.h1 ||
+    homepage.headingsJson ||
+    (homepage.wordCount && homepage.wordCount > 0),
   );
 
   return statusIsUsable && contentIsUsable;
@@ -142,7 +139,7 @@ async function safelyCaptureScreenshots(reportId: string, homepageUrl: string) {
 
 async function safelyPersistScreenshots(
   reportId: string,
-  capture: CapturedReportHomepageScreenshots | null
+  capture: CapturedReportHomepageScreenshots | null,
 ) {
   if (!capture) {
     return;
@@ -215,7 +212,10 @@ export async function runWebsiteAnalysis(reportId: string) {
   let currentProgress: number = analysisStageMetadata.VALIDATING.progress;
   let timings: AnalysisTimings = {};
 
-  async function runStage<T>(stage: AnalysisStage, operation: () => Promise<T>) {
+  async function runStage<T>(
+    stage: AnalysisStage,
+    operation: () => Promise<T>,
+  ) {
     currentProgress = analysisStageMetadata[stage].progress;
     await updateAnalysisProgress({
       reportId,
@@ -242,7 +242,7 @@ export async function runWebsiteAnalysis(reportId: string) {
   try {
     const validation = await runStage("VALIDATING", async () => {
       const result = await validateUrlForScan(
-        report.normalizedUrl || report.url
+        report.normalizedUrl || report.url,
       );
 
       if (!result.ok) {
@@ -273,7 +273,7 @@ export async function runWebsiteAnalysis(reportId: string) {
     const technicalStartedAt = Date.now();
     const screenshotCapture = safelyCaptureScreenshots(
       reportId,
-      validation.finalUrl
+      validation.finalUrl,
     );
     const pageSpeedAudit = safelyRunPageSpeed(reportId, validation.finalUrl);
     const crawlStartedAt = Date.now();
@@ -282,6 +282,21 @@ export async function runWebsiteAnalysis(reportId: string) {
       try {
         await crawlReportWebsite(reportId, {
           concurrency: 4,
+          onProgress: async (crawlProgress) => {
+            const nextProgress = getCrawlAnalysisProgress(crawlProgress);
+
+            if (nextProgress <= currentProgress) {
+              return;
+            }
+
+            currentProgress = nextProgress;
+            await updateAnalysisProgress({
+              reportId,
+              stage: "CRAWLING",
+              progress: currentProgress,
+              timings,
+            });
+          },
           sitemapTimeoutMs: SITEMAP_TIMEOUT_MS,
           timeoutMs: CRAWL_TIMEOUT_MS,
         });
@@ -292,7 +307,9 @@ export async function runWebsiteAnalysis(reportId: string) {
       }
 
       if (!(await hasUsableHomepageData(reportId))) {
-        throw new Error("The homepage could not be read well enough to analyze.");
+        throw new Error(
+          "The homepage could not be read well enough to analyze.",
+        );
       }
     } catch (error) {
       // Settle the independent work before the report is marked failed so no
@@ -303,7 +320,7 @@ export async function runWebsiteAnalysis(reportId: string) {
       timings = recordAnalysisTiming(
         timings,
         "CRAWLING",
-        Date.now() - crawlStartedAt
+        Date.now() - crawlStartedAt,
       );
     }
 
@@ -323,7 +340,7 @@ export async function runWebsiteAnalysis(reportId: string) {
     timings = recordAnalysisTiming(
       timings,
       "TECHNICAL_CHECKS",
-      Date.now() - technicalStartedAt
+      Date.now() - technicalStartedAt,
     );
     await updateAnalysisProgress({
       reportId,
@@ -337,7 +354,7 @@ export async function runWebsiteAnalysis(reportId: string) {
       const summary =
         await generateDeterministicSerializedReportNarrativeForReport(
           reportId,
-          result
+          result,
         );
 
       await prisma.report.update({
@@ -355,7 +372,7 @@ export async function runWebsiteAnalysis(reportId: string) {
     timings = recordAnalysisTiming(
       timings,
       "TOTAL",
-      Date.now() - analysisStartedAt
+      Date.now() - analysisStartedAt,
     );
     currentProgress = analysisStageMetadata.COMPLETE.progress;
 
@@ -388,7 +405,7 @@ export async function runWebsiteAnalysis(reportId: string) {
       const narrative = await generateReportNarrativeForReport(
         reportId,
         scoringResult,
-        { timeoutMs: AI_ENRICHMENT_TIMEOUT_MS }
+        { timeoutMs: AI_ENRICHMENT_TIMEOUT_MS },
       );
 
       if (narrative.source === "ai") {
@@ -411,12 +428,13 @@ export async function runWebsiteAnalysis(reportId: string) {
       overallScore: scoringResult.overallScore,
     };
   } catch (error) {
-    const message = errorMessage(error);
+    const message = getAnalysisErrorMessage(error);
+    const publicMessage = getPublicAnalysisErrorMessage(message);
 
     timings = recordAnalysisTiming(
       timings,
       "TOTAL",
-      Date.now() - analysisStartedAt
+      Date.now() - analysisStartedAt,
     );
 
     await prisma.$transaction([
@@ -426,7 +444,7 @@ export async function runWebsiteAnalysis(reportId: string) {
         },
         data: {
           status: ReportStatus.FAILED,
-          errorMessage: message,
+          errorMessage: publicMessage,
           completedAt: new Date(),
         },
       }),
@@ -436,7 +454,6 @@ export async function runWebsiteAnalysis(reportId: string) {
         },
         data: {
           stage: "FAILED",
-          progress: currentProgress,
           timingsJson: timings,
         },
       }),

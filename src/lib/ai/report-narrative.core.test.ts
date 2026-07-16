@@ -128,10 +128,6 @@ const findings: ScoringFinding[] = [
       "The saved scan data did not detect a newsletter form, subscribe form, or email signup field.",
     recommendation:
       "Add a clear newsletter signup section with a simple reader benefit.",
-    practicalActions: [
-      "Add the signup form to the homepage.",
-      "Explain the subscriber benefit beside the form.",
-    ],
     priority: 1,
   },
   {
@@ -141,10 +137,6 @@ const findings: ScoringFinding[] = [
     finding: "The saved scan data did not detect buy links or retailer links.",
     recommendation:
       "Add a visible book section with retailer links for the featured book.",
-    practicalActions: [
-      "Feature one book prominently.",
-      "Add its active retailer links.",
-    ],
     priority: 2,
   },
 ];

@@ -109,7 +109,7 @@ The second approved three-site calibration completed on 2026-07-14. Manual revie
 - a What's New page with multiple book purchase destinations is a books index rather than one book detail page; and
 - exact plain `author` image alt text can identify an author portrait, while generic phrases such as `author website logo` cannot.
 
-The crawl-priority calibration also added legacy `.html` route handling, `contact-us` and privacy-disclosure variants, and protection for core contact/privacy surfaces when a site exposes many nested book pages. All confirmed misses were converted into anonymized offline fixtures. The resulting 27-case benchmark passes without changing score weights, conditional-check applicability, or `not_applicable` behavior.
+The crawl-priority calibration also added legacy `.html` route handling, `contact-us` and privacy-disclosure variants, and protection for core contact/privacy surfaces when a site exposes many nested book pages. All confirmed misses were converted into anonymized offline fixtures. The resulting 27-case benchmark passes without changing score weights or category maxima.
 
 The third approved three-site calibration completed on 2026-07-14 against Kristin Hannah, Michael Robotham, and Dervla McTiernan. Manual browser review confirmed seven reusable detector misses:
 
@@ -118,7 +118,7 @@ The third approved three-site calibration completed on 2026-07-14 against Kristi
 - a privacy-policy route remains primarily `PRIVACY` when the page also contains article-like markup; and
 - WordPress posts can expose reliable semantic article evidence through a `type-post` class or a dated `<time>` element even when the URL has no conventional article prefix.
 
-Each confirmed miss was reduced to an anonymized offline fixture before the production detector was repaired. The expanded 31-case, 41-page benchmark and all 145 tests pass. The final bounded live rerun completed 3/3 sites, passed 7/7 explicit expectations, and reported no crawl failures. All three sites yielded sufficient static HTML, so browser fallback was correctly recorded as `not_needed`. Score weights, conditional-check applicability, and `not_applicable` behavior remain unchanged.
+Each confirmed miss was reduced to an anonymized offline fixture before the production detector was repaired. The expanded 31-case, 41-page benchmark and all 145 tests pass. The final bounded live rerun completed 3/3 sites, passed 7/7 explicit expectations, and reported no crawl failures. All three sites yielded sufficient static HTML, so browser fallback was correctly recorded as `not_needed`. Score weights and category maxima remain unchanged.
 
 ## Next steps
 

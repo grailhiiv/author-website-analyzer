@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  getCrawlAnalysisProgress,
   getAnalysisStageLabel,
   normalizeAnalysisProgress,
   recordAnalysisTiming,
@@ -14,10 +15,40 @@ test("analysis progress is clamped to a deterministic 0-100 range", () => {
   assert.equal(normalizeAnalysisProgress(Number.NaN), 0);
 });
 
+test("crawl progress advances within the crawl stage without exceeding its range", () => {
+  assert.equal(
+    getCrawlAnalysisProgress({
+      attemptedRequests: 0,
+      maxRequests: 30,
+      maxSavedHtmlPages: 10,
+      successfulHtmlPages: 0,
+    }),
+    15,
+  );
+  assert.equal(
+    getCrawlAnalysisProgress({
+      attemptedRequests: 4,
+      maxRequests: 30,
+      maxSavedHtmlPages: 10,
+      successfulHtmlPages: 5,
+    }),
+    30,
+  );
+  assert.equal(
+    getCrawlAnalysisProgress({
+      attemptedRequests: 40,
+      maxRequests: 30,
+      maxSavedHtmlPages: 10,
+      successfulHtmlPages: 12,
+    }),
+    45,
+  );
+});
+
 test("analysis stages expose stable user-facing labels", () => {
   assert.equal(
     getAnalysisStageLabel("SCORING"),
-    "Applying the deterministic scoring rubric"
+    "Applying the deterministic scoring rubric",
   );
   assert.equal(getAnalysisStageLabel("UNKNOWN"), "Waiting to start");
 });

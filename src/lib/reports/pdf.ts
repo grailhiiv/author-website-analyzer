@@ -2,7 +2,6 @@ import PDFDocument from "pdfkit";
 
 import { FindingSeverity, ReportCategory } from "@/generated/prisma/client";
 import type { ReportNarrative } from "@/lib/ai/report-narrative.core";
-import { parsePracticalActions } from "@/lib/reports/practical-actions";
 
 export type PdfReport = {
   id: string;
@@ -27,7 +26,6 @@ export type PdfReportFinding = {
   title: string;
   finding: string;
   recommendation: string;
-  practicalActions?: unknown;
   priority: number;
 };
 
@@ -289,21 +287,10 @@ function findingBlock(
       continued: false,
     });
   paragraph(doc, finding.recommendation);
-  const practicalActions = parsePracticalActions(finding.practicalActions);
-  if (practicalActions.length > 0) {
-    doc
-      .font("Helvetica-Bold")
-      .fontSize(9)
-      .fillColor(BRAND)
-      .text("Practical actions", { continued: false });
-    for (const action of practicalActions) {
-      paragraph(doc, `• ${action}`);
-    }
-  }
   doc.moveDown(0.1);
 }
 
-function actionPlanBlock(
+function recommendationPlanBlock(
   doc: PDFKit.PDFDocument,
   finding: PdfReportFinding,
   position: number,
@@ -314,7 +301,7 @@ function actionPlanBlock(
     .fontSize(10)
     .fillColor(BRAND)
     .text(
-      `${position}. ${actionPlanTitle(finding.checkId, finding.title)}`,
+      `${position}. ${recommendationPlanTitle(finding.checkId, finding.title)}`,
       PAGE_MARGIN,
       doc.y,
       {
@@ -335,7 +322,10 @@ function actionPlanBlock(
   paragraph(doc, finding.recommendation);
 }
 
-function actionPlanTitle(checkId: string | null | undefined, fallback: string) {
+function recommendationPlanTitle(
+  checkId: string | null | undefined,
+  fallback: string,
+) {
   const titles: Record<string, string> = {
     "usability.primary_navigation": "Make navigation work on every screen",
     "mobile.pagespeed_performance": "Speed up the homepage on mobile",
@@ -432,10 +422,10 @@ export async function renderAuthorReportPdf(input: AuthorReportPdfInput) {
     }
   }
 
-  sectionTitle(doc, "Your Action Plan");
+  sectionTitle(doc, "Priority Recommendations");
   paragraph(
     doc,
-    "Start with these three improvements in priority order. Complete evidence and practical steps follow in the category findings.",
+    "Start with these three recommendations in priority order. Complete evidence follows in the category findings.",
   );
   const topFindings = [...input.findings]
     .sort(
@@ -448,7 +438,7 @@ export async function renderAuthorReportPdf(input: AuthorReportPdfInput) {
 
   if (topFindings.length > 0) {
     topFindings.forEach((finding, index) =>
-      actionPlanBlock(doc, finding, index + 1),
+      recommendationPlanBlock(doc, finding, index + 1),
     );
   } else {
     paragraph(doc, "No priority fixes were saved with this report.");

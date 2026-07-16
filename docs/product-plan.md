@@ -32,7 +32,7 @@ Numeric scores must be deterministic. AI may explain findings in clear, author-f
    - All eight category scores
    - One top-priority problem
    - One quick win
-   - Every detailed website check with its actual status and details, plus row-level Tips containing the recommendation and practical actions; these fields are never locked or replaced by unlock placeholders
+   - A deterministic homepage preview of approximately one quarter of the detailed website checks, with at least one check from each category. The preview prioritizes `Failed`, then `Needs Review`, then `Passed` checks without changing the checks that run, their statuses, or scoring.
 5. The author enters their Full Name and a valid email address to receive the complete report. These are the only required contact fields.
 6. The complete report becomes available immediately in the browser.
 7. The app emails the complete PDF report as an attachment together with a secure return link to the online report.
@@ -41,10 +41,12 @@ Numeric scores must be deterministic. AI may explain findings in clear, author-f
 
 - The homepage owns the website URL form. There is no separate `/analyze` page.
 - After a scan begins, the homepage uses `/?domain=authorwebsite.com` and renders the saved or in-progress result directly below the existing hero. The hero itself does not change after a result appears.
-- The first result section is a relatively compact `Overview for authorwebsite.com`. It is followed by eight distinctly titled audit modules matching the confirmed scorecard categories; do not compress the categories into one combined `Category Audit` or category-score block.
+- The homepage is the only public surface that renders queued or running scan progress. Opening `/report/authorwebsite.com` while its latest scan is still queued or running redirects to `/?domain=authorwebsite.com`.
+- The first result section is a relatively compact `Overview for authorwebsite.com`. It is followed by eight distinctly titled audit modules matching the confirmed scorecard categories. Each homepage module shows only its selected preview checks; do not compress the categories into one combined `Category Audit` or category-score block.
 - The eight audit modules use a SEMrush-style report rhythm with a mix of full-width and paired two-column sections, while keeping the current homepage visual theme. A concise issue-and-recommendation preview, a two-column top-problem and quick-win row, and the email unlock prompt follow the modules.
+- The homepage audit preview and the canonical full-report audit use separate presentation components. Homepage layout or analyzing-state changes must not alter the full-report page. Shared deterministic report data and view-model builders may be reused.
 - The canonical full-report address is `/report/authorwebsite.com`. The domain path identifies the latest saved report for that normalized domain; access control must not depend on the domain being secret or unguessable.
-- Visiting the canonical report address without authorization shows the partial report, including every detailed website check with its actual status and details, with the recommendation and practical actions grouped inside row-level Tips. Expanded evidence, the prioritized action plan, PDF delivery, and other full-report content remain email-gated.
+- Visiting the canonical report address without authorization shows the partial report, including every detailed website check with its actual status and details, with the recommendation inside row-level Tips. Expanded evidence, prioritized recommendations, PDF delivery, and other full-report content remain email-gated.
 - Email submission creates a report access grant associated with that email address and the specific report that was unlocked.
 - The secure emailed link contains an unguessable authorization token that reveals the full report. Unlocking a report does not make it public to everyone who visits the canonical domain route.
 - The secure link is a bearer link: anyone who possesses it can view that specific full report, including a recipient to whom the author forwards it. Do not require an account, active session, or repeated email verification.
@@ -58,14 +60,14 @@ Authors do not need an account in the initial release. The unlocked full report 
 
 ## Full report
 
-The unlocked report includes the complete set of detected problems, quick wins, explanations, and prioritized recommendations. Every failed deterministic scoring check provides one fixed primary recommendation plus several fixed practical actions. These actions are stored with the finding and remain available when AI generation fails. Every passed check provides fixed check-specific details, a maintenance recommendation, and practical tips. Every `unknown` or `Couldn't verify` check provides fixed reason-aware details, a manual-verification recommendation, and practical actions. Passed and unknown guidance is deterministic application content and does not rely on AI generation.
+The unlocked report includes the complete set of detected problems, quick wins, explanations, and prioritized recommendations. Every active audit check uses exactly one of three statuses: `Passed`, `Needs Review`, or `Failed`. Each status provides fixed check-specific details and one deterministic recommendation. The recommendation contains the complete guidance for maintaining, manually verifying, or fixing the check; there is no separate Action field. This guidance does not rely on AI generation. No additional audit-check statuses are active.
 
 ### Design and reader-experience review
 
 - The full report may include a separate `Design & reader experience` review under three lenses: Site Structure, Visual Design, and Conversion Design.
-- Three objective rendered checks are approved for deterministic scoring: `usability.primary_navigation` contributes one existing Site Usability raw point, while `mobile.viewport_fit` and `mobile.text_contrast` each contribute one existing Mobile Performance raw point. They replace earlier proxy rules without changing the eight category maxima, overall 100-point model, conditional-check applicability, or `not_applicable` policy.
-- A confirmed rendered failure receives zero points and a fixed recommendation. Missing capture evidence, failed collection, or insufficient measurement coverage is `unknown`, receives the existing half-credit treatment, and creates no site-problem finding. These checks are universal for eligible author homepages and do not become `not_applicable`.
-- Browser inspection may automatically flag only repeatable rendered evidence: navigation availability, horizontal overflow, first-screen H1 and primary-action visibility, unusually long forms, measurable text contrast, mobile text and tap-target size, and large fixed overlays. Each flag must retain its viewport, evidence, stable check ID, and fixed recommendation. Unmeasurable states remain `unknown` rather than being treated as failures.
+- Three objective rendered checks are approved for deterministic scoring: `usability.primary_navigation` contributes one existing Site Usability raw point, while `mobile.viewport_fit` and `mobile.text_contrast` each contribute one existing Mobile Performance raw point. They replace earlier proxy rules without changing the eight category maxima or overall 100-point model.
+- A confirmed rendered failure receives the `Failed` status, zero points, and fixed guidance. Missing capture evidence, failed collection, or insufficient measurement coverage receives `Needs Review`, retains the existing half-credit treatment, and creates no site-problem finding. These checks are universal for eligible author homepages.
+- Browser inspection may automatically flag only repeatable rendered evidence: navigation availability, horizontal overflow, first-screen H1 and primary-action visibility, unusually long forms, measurable text contrast, mobile text and tap-target size, and large fixed overlays. Each flag must retain its viewport, evidence, stable check ID, and fixed recommendation. Unmeasurable scored-check states become `Needs Review` rather than being treated as failures.
 - Capture desktop and mobile homepage previews. Reuse the desktop browser page at a tablet viewport to collect layout evidence without storing a third screenshot or launching a separate browser.
 - Treat genre and book-brand alignment, professionalism, audience fit, emotional tone, visual hierarchy, book-cover integration, image relevance and quality, typography and color suitability, freshness, cross-page consistency, and the quality of the reader journey as guided manual review. These judgments must not be inferred from aesthetic taste or scored by AI.
 - Existing deterministic checks remain authoritative where the detailed rubric overlaps brand clarity, book presentation, newsletter/contact paths, trust, freshness, mobile behavior, accessibility, or usability. Do not create duplicate scored rules for the same evidence. All other Site Structure, Visual Design, and Conversion Design observations remain advisory; Conversion Design currently has no rendered check that affects scoring.
@@ -73,7 +75,7 @@ The unlocked report includes the complete set of detected problems, quick wins, 
 
 User-facing finding lists use the severity levels `Critical`, `High`, `Medium`, and `Low`. Do not display numeric priority levels. An internal priority value may remain as a deterministic tie-breaker between findings with the same severity.
 
-AI failure must never prevent delivery of a usable report. Deterministic findings, priorities, primary recommendations, and practical actions provide the fallback. AI may clarify or personalize the supplied guidance and examples, but it must not invent unsupported fixes. Enhanced AI explanations may be regenerated later by an admin action or background process.
+AI failure must never prevent delivery of a usable report. Deterministic findings, priorities, and recommendations provide the fallback. AI may clarify or personalize the supplied guidance and examples, but it must not invent unsupported fixes. Enhanced AI explanations may be regenerated later by an admin action or background process.
 
 ## Scan eligibility and failures
 

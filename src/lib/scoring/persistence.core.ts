@@ -9,10 +9,9 @@ import type {
 } from "@/lib/scoring/engine";
 
 const CHECK_RESULT_STATE: Record<ScoringCheckState, CheckResultState> = {
-  pass: CheckResultState.PASS,
-  fail: CheckResultState.FAIL,
-  unknown: CheckResultState.UNKNOWN,
-  not_applicable: CheckResultState.NOT_APPLICABLE,
+  passed: CheckResultState.PASSED,
+  needs_review: CheckResultState.NEEDS_REVIEW,
+  failed: CheckResultState.FAILED,
 };
 
 export function deterministicFindingScope(reportId: string) {

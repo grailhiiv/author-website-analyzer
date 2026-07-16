@@ -33,10 +33,9 @@ Each check should resolve to one of these conceptual states:
 - `present`: accepted evidence satisfies the check.
 - `absent`: the relevant surface was inspectable and the required evidence was not found after accepted alternatives were evaluated.
 - `unknown`: coverage, extraction, rendering, or external audit limitations prevent a defensible result.
-- `not_applicable`: a deterministic applicability rule excludes the check.
 - `conflicting`: evidence sources materially disagree and require a defined resolution rule.
 
-The implemented score currently accepts pass, fail, and unknown. `not_applicable` and `conflicting` must be mapped only through an approved scoring design. Until then, they should not silently become failures.
+The scoring layer maps sufficient positive evidence to Passed, sufficient negative evidence to Failed, and `unknown` or unresolved `conflicting` evidence to Needs Review. Lower-level evidence states must not be exposed as additional audit-check statuses.
 
 ## Evidence observation
 
@@ -51,7 +50,7 @@ type EvidenceObservation = {
   sourceKind: 'http' | 'dom' | 'jsonld' | 'link' | 'image' | 'form' | 'text' | 'audit'
   selectorOrProperty?: string
   normalizedValue?: string
-  state: 'present' | 'absent' | 'unknown' | 'not_applicable' | 'conflicting'
+  state: 'present' | 'absent' | 'unknown' | 'conflicting'
   strength: 'strong' | 'supporting' | 'weak'
   ruleVersion: string
   observedAt: string | null

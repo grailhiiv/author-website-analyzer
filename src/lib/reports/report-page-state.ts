@@ -1,7 +1,7 @@
 import { ReportStatus } from "@/generated/prisma/client";
 
 export type ReportPageState = {
-  showAnalyzingState: boolean;
+  redirectToHomepage: boolean;
   showCompleteState: boolean;
   showEmailGate: boolean;
   showFailedState: boolean;
@@ -15,14 +15,14 @@ export function getReportPageState({
   hasLeadEmail: boolean;
   status: ReportStatus;
 }): ReportPageState {
-  const showAnalyzingState =
+  const redirectToHomepage =
     status === ReportStatus.QUEUED || status === ReportStatus.RUNNING;
   const showFailedState = status === ReportStatus.FAILED;
   const showCompleteState = status === ReportStatus.COMPLETE;
   const showFullReport = showCompleteState && hasLeadEmail;
 
   return {
-    showAnalyzingState,
+    redirectToHomepage,
     showCompleteState,
     showEmailGate: showCompleteState && !hasLeadEmail,
     showFailedState,

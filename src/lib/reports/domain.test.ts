@@ -3,16 +3,24 @@ import test from "node:test";
 
 import {
   getAdminReportPath,
+  getHomepageReportPath,
   getReportDomainCandidates,
   getReportPath,
   normalizeReportDomain,
 } from "@/lib/reports/domain";
 
 test("builds distinct public and admin report paths from a domain", () => {
-  assert.equal(getReportPath("authorwebsites.com"), "/report/authorwebsites.com");
+  assert.equal(
+    getReportPath("authorwebsites.com"),
+    "/report/authorwebsites.com",
+  );
   assert.equal(
     getAdminReportPath("authorwebsites.com"),
     "/reports/authorwebsites.com",
+  );
+  assert.equal(
+    getHomepageReportPath("authorwebsites.com"),
+    "/?domain=authorwebsites.com#website-audit-result",
   );
 });
 

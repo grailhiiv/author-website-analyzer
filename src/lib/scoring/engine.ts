@@ -10,7 +10,7 @@ import {
   SCORING_CHECK_REGISTRY_VERSION,
   type ScoringCheckId,
 } from "@/lib/scoring/check-registry";
-import { getPracticalActions } from "@/lib/scoring/recommendation-actions";
+import { getCheckStatusContent } from "@/lib/scoring/check-status-content.generated";
 
 export type TechnicalAuditScoreInput = {
   mobilePerformance?: number | null;
@@ -40,16 +40,11 @@ export type ScoringFinding = {
   title: string;
   finding: string;
   recommendation: string;
-  practicalActions: string[];
   priority: number;
   checkId?: ScoringCheckId;
 };
 
-export type ScoringCheckState =
-  | "pass"
-  | "fail"
-  | "unknown"
-  | "not_applicable";
+export type ScoringCheckState = "passed" | "needs_review" | "failed";
 
 export type ScoringCheckResult = {
   registryVersion: number;
@@ -96,8 +91,6 @@ type ScoreRule = {
   points: number;
   passed: boolean | null;
   title: string;
-  finding: string;
-  recommendation: string;
   severity: FindingSeverity;
   priority: number;
   checkId: ScoringCheckId;
@@ -190,7 +183,7 @@ function scoreSummary(score: number) {
   }
 
   if (score >= 50) {
-    return "Some useful pieces are present, but this area needs attention.";
+    return "Some useful pieces are present, but this area needs improvement.";
   }
 
   return "Important author website basics are missing or unclear in the scan.";
@@ -205,7 +198,7 @@ function scoreCategory(
   checkResults: ScoringCheckResult[];
 } {
   // Validate every rule, including passing rules, so a new scoring check cannot
-  // ship without its deterministic recommendation actions.
+  // ship without complete deterministic content for every active status.
   rules.forEach((rule) => {
     const check = getScoringCheck(rule.checkId);
 
@@ -215,7 +208,9 @@ function scoreCategory(
       );
     }
 
-    getPracticalActions(rule.recommendation);
+    getCheckStatusContent(rule.checkId, "passed");
+    getCheckStatusContent(rule.checkId, "needs_review");
+    getCheckStatusContent(rule.checkId, "failed");
   });
 
   const availablePoints = rules.reduce((sum, rule) => sum + rule.points, 0);
@@ -242,24 +237,27 @@ function scoreCategory(
     config.weight > 0 ? clampScore((score / config.weight) * 100) : 0;
   const findings = rules
     .filter((rule) => rule.passed === false)
-    .map<ScoringFinding>((rule) => ({
-      category: config.category,
-      severity: rule.severity,
-      title: rule.title,
-      finding: rule.finding,
-      recommendation: rule.recommendation,
-      practicalActions: getPracticalActions(rule.recommendation),
-      priority: rule.priority,
-      checkId: rule.checkId,
-    }));
+    .map<ScoringFinding>((rule) => {
+      const content = getCheckStatusContent(rule.checkId, "failed");
+
+      return {
+        category: config.category,
+        severity: rule.severity,
+        title: rule.title,
+        finding: content.details,
+        recommendation: content.recommendation,
+        priority: rule.priority,
+        checkId: rule.checkId,
+      };
+    });
   const checkResults = rules.map<ScoringCheckResult>((rule) => {
     const check = getScoringCheck(rule.checkId);
     const state: ScoringCheckState =
       rule.passed === true
-        ? "pass"
+        ? "passed"
         : rule.passed === false
-          ? "fail"
-          : "unknown";
+          ? "failed"
+          : "needs_review";
 
     return {
       registryVersion: SCORING_CHECK_REGISTRY_VERSION,
@@ -269,12 +267,16 @@ function scoreCategory(
       state,
       availablePoints: rule.points,
       earnedPoints:
-        state === "pass" ? rule.points : state === "unknown" ? rule.points / 2 : 0,
+        state === "passed"
+          ? rule.points
+          : state === "needs_review"
+            ? rule.points / 2
+            : 0,
       reasonCode:
         rule.reasonCode ??
-        (state === "pass"
+        (state === "passed"
           ? "deterministic_evidence_passed"
-          : state === "fail"
+          : state === "failed"
             ? "deterministic_evidence_failed"
             : "required_evidence_missing"),
       evidenceReferences: rule.evidenceReferences ?? {},
@@ -381,19 +383,22 @@ function buildVisualCheckRule(
       check.requiredViewports.includes(observation.viewport as never),
   );
   const observationsByViewport = new Map(
-    matchingObservations?.map((observation) => [observation.viewport, observation]) ?? [],
+    matchingObservations?.map((observation) => [
+      observation.viewport,
+      observation,
+    ]) ?? [],
   );
   const requiredObservations = check.requiredViewports.map((viewport) =>
     observationsByViewport.get(viewport),
   );
   const hasConfirmedFailure = requiredObservations.some(
-    (observation) => observation?.status === "needs_review",
+    (observation) => observation?.status === "failed",
   );
   const hasMissingEvidence = requiredObservations.some(
     (observation) => !observation,
   );
   const hasInsufficientEvidence = requiredObservations.some(
-    (observation) => observation?.status === "unknown",
+    (observation) => observation?.status === "needs_review",
   );
   const passed = hasConfirmedFailure
     ? false
@@ -405,8 +410,6 @@ function buildVisualCheckRule(
     points: check.points,
     passed,
     title: check.findingTitle,
-    finding: check.finding,
-    recommendation: check.recommendation,
     severity: check.severity,
     priority: check.priority,
     checkId,
@@ -538,10 +541,6 @@ function buildBrandRules(input: ScoringInput): ScoreRule[] {
       points: 4,
       passed: has(signals.authorBrand.authorNameVisible),
       title: "Author name is not clear",
-      finding:
-        "The scan did not find a clear author name in the page title, main heading, or structured data.",
-      recommendation:
-        "Place the author's name clearly in the homepage title and main heading.",
       severity: FindingSeverity.HIGH,
       priority: 1,
     },
@@ -550,10 +549,6 @@ function buildBrandRules(input: ScoringInput): ScoreRule[] {
       points: 3,
       passed: has(signals.authorBrand.genreOrCategoryMentioned),
       title: "Writing category is unclear",
-      finding:
-        "The scan did not find clear genre, topic, or writing category language.",
-      recommendation:
-        "Add simple wording that tells readers what kind of books the author writes.",
       severity: FindingSeverity.MEDIUM,
       priority: 2,
     },
@@ -562,10 +557,6 @@ function buildBrandRules(input: ScoringInput): ScoreRule[] {
       points: 4,
       passed: has(signals.authorBrand.clearHomepageHeadline),
       title: "Homepage headline needs clarity",
-      finding:
-        "The homepage did not provide a clear headline that quickly orients readers.",
-      recommendation:
-        "Use one clear homepage headline that connects the author name, genre, or main reader promise.",
       severity: FindingSeverity.HIGH,
       priority: 2,
     },
@@ -574,10 +565,6 @@ function buildBrandRules(input: ScoringInput): ScoreRule[] {
       points: 3,
       passed: has(signals.authorBrand.aboutSectionOrPage),
       title: "About path is hard to confirm",
-      finding:
-        "The scan did not find an about page, author bio path, or clear about section.",
-      recommendation:
-        "Add an About page or a visible homepage link to the author's bio.",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
     },
@@ -588,10 +575,6 @@ function buildBrandRules(input: ScoringInput): ScoreRule[] {
         home && successfulPage(home) && (home.wordCount ?? 0) >= 50,
       ),
       title: "Homepage content looks thin",
-      finding:
-        "The homepage scan found limited readable content to explain the author brand.",
-      recommendation:
-        "Add a short introduction that tells readers who the author is and what to do next.",
       severity: FindingSeverity.LOW,
       priority: 6,
     },
@@ -607,9 +590,6 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       points: 4,
       passed: has(signals.bookPromotion.bookCoverImages),
       title: "Book cover was not detected",
-      finding: "The scan did not find an image that looked like a book cover.",
-      recommendation:
-        "Show the primary book cover clearly on the homepage or Books page.",
       severity: FindingSeverity.HIGH,
       priority: 1,
     },
@@ -618,10 +598,6 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       points: 3,
       passed: has(signals.bookPromotion.bookTitles),
       title: "Book title was not detected",
-      finding:
-        "The scan did not find a clear book title in headings or book structured data.",
-      recommendation:
-        "Make each book title easy to find near the cover and description.",
       severity: FindingSeverity.HIGH,
       priority: 1,
     },
@@ -630,10 +606,6 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       points: 4,
       passed: has(signals.bookPromotion.bookDescriptionOrBlurb),
       title: "Book description is missing or unclear",
-      finding:
-        "The scan did not find a book description, blurb, synopsis, or similar book copy.",
-      recommendation:
-        "Add a short book description that helps readers understand why the book is for them.",
       severity: FindingSeverity.HIGH,
       priority: 2,
     },
@@ -642,10 +614,6 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       points: 4,
       passed: has(signals.bookPromotion.buyLinks),
       title: "Buy links were not detected",
-      finding:
-        "The scan did not find clear buy, order, preorder, or purchase links.",
-      recommendation:
-        "Add visible buy links near each featured book and on the Books page.",
       severity: FindingSeverity.HIGH,
       priority: 1,
     },
@@ -654,10 +622,6 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       points: 2,
       passed: multipleRetailers(signals),
       title: "Multiple retailer options were not detected",
-      finding:
-        "The scan did not find links to more than one common book retailer.",
-      recommendation:
-        "Offer the main retailer links your readers use, such as Amazon, Apple Books, Kobo, Barnes & Noble, or Bookshop.",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
     },
@@ -666,10 +630,6 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       points: 2,
       passed: has(signals.bookPromotion.reviewsOrPraise),
       title: "Reader proof was not detected",
-      finding:
-        "The scan did not find reviews, praise, endorsements, awards, or reader proof.",
-      recommendation:
-        "Add a short praise or reviews section to help new readers trust the book.",
       severity: FindingSeverity.MEDIUM,
       priority: 5,
     },
@@ -678,10 +638,6 @@ function buildBookRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: has(signals.bookPromotion.featuredBookSection),
       title: "Featured book section was not detected",
-      finding:
-        "The scan did not find a clear featured book, latest release, or available-now section.",
-      recommendation:
-        "Feature at least one current book prominently with its title, cover, description, and buying action.",
       severity: FindingSeverity.LOW,
       priority: 6,
     },
@@ -707,10 +663,6 @@ function buildNewsletterRules(input: ScoringInput): ScoreRule[] {
       points: 5,
       passed: hasForm,
       title: "Newsletter signup was not detected",
-      finding:
-        "The scan did not find a newsletter, subscribe form, or email signup field.",
-      recommendation:
-        "Add a simple newsletter signup so interested readers can stay connected.",
       severity: FindingSeverity.HIGH,
       priority: 1,
     },
@@ -719,9 +671,6 @@ function buildNewsletterRules(input: ScoringInput): ScoreRule[] {
       points: 3,
       passed: homepageNewsletterDetected(signals, pagesScanned),
       title: "Newsletter is not visible on the homepage",
-      finding: "The scan did not find the newsletter signup on the homepage.",
-      recommendation:
-        "Place a newsletter signup or clear subscribe link on the homepage.",
       severity: FindingSeverity.MEDIUM,
       priority: 3,
     },
@@ -730,10 +679,6 @@ function buildNewsletterRules(input: ScoringInput): ScoreRule[] {
       points: 4,
       passed: has(signals.newsletter.readerMagnetPhrases),
       title: "Reader magnet was not detected",
-      finding:
-        "The scan did not find a reader magnet such as a free chapter, bonus scene, free book, or sample download.",
-      recommendation:
-        "Offer a simple reader magnet if it fits the author's goals and genre.",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
     },
@@ -742,10 +687,6 @@ function buildNewsletterRules(input: ScoringInput): ScoreRule[] {
       points: 3,
       passed: hasReaderBenefit,
       title: "Subscriber benefit is unclear",
-      finding:
-        "The scan did not find clear wording that explains why readers should subscribe.",
-      recommendation:
-        "Tell readers what they will receive, such as book news, release updates, or a free sample.",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
     },
@@ -762,10 +703,6 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
       points: 2,
       passed: has(signals.seo.titleTagExists),
       title: "Title tag is missing",
-      finding:
-        "The scan did not find a page title tag, which helps browsers and search engines understand the page.",
-      recommendation:
-        "Add a clear page title that includes the author name and writing category.",
       severity: FindingSeverity.HIGH,
       priority: 2,
     },
@@ -774,10 +711,6 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
       points: 3,
       passed: titleIncludesAuthorOrBrand(signals, pagesScanned),
       title: "Title does not clearly support the author brand",
-      finding:
-        "The homepage title did not clearly include the author name, author role, books, or writing category.",
-      recommendation:
-        "Use a homepage title such as 'Author Name | Genre Author' or another clear author-brand format.",
       severity: FindingSeverity.MEDIUM,
       priority: 3,
     },
@@ -786,10 +719,6 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
       points: 3,
       passed: has(signals.seo.metaDescriptionExists),
       title: "Meta description is missing",
-      finding:
-        "The scan did not find a meta description for the scanned pages.",
-      recommendation:
-        "Add a short meta description that summarizes the author, books, and reader action.",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
     },
@@ -798,10 +727,6 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
       points: 2,
       passed: oneH1,
       title: "Main heading structure needs cleanup",
-      finding:
-        "The scan either did not find an H1 or found multiple H1 headings on a page.",
-      recommendation:
-        "Use one clear H1 on each important page, especially the homepage.",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
     },
@@ -810,10 +735,6 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
       points: 3,
       passed: h1GivesAuthorClarity(signals, pagesScanned),
       title: "H1 does not clearly orient readers",
-      finding:
-        "The main heading did not clearly connect the page to the author, books, or genre.",
-      recommendation:
-        "Make the homepage H1 clear enough for a new reader to understand the site in a few seconds.",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
     },
@@ -822,10 +743,6 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
       points: 3,
       passed: pageAppearsIndexable(signals),
       title: "Indexability may be blocked",
-      finding:
-        "The scan found a noindex or similar signal that may keep the page out of search results.",
-      recommendation:
-        "Review robots and indexing settings before relying on search visibility.",
       severity: FindingSeverity.CRITICAL,
       priority: 1,
     },
@@ -834,10 +751,6 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
       points: 2,
       passed: hasUsefulInternalLinks(pagesScanned),
       title: "Useful internal links are limited",
-      finding:
-        "The scan did not find enough internal links to key author website pages.",
-      recommendation:
-        "Link clearly to Books, About, Contact, Newsletter, and other important reader paths.",
       severity: FindingSeverity.LOW,
       priority: 6,
     },
@@ -854,10 +767,6 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
       points: 4,
       passed: scoreAtLeast(technicalAudit?.mobilePerformance, 70),
       title: "Mobile performance score is below target",
-      finding:
-        "PageSpeed measured a mobile performance score below the target.",
-      recommendation:
-        "Review image sizes, scripts, hosting, and caching so mobile visitors get a faster experience.",
       severity: FindingSeverity.HIGH,
       priority: 3,
     },
@@ -865,11 +774,7 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
       checkId: "mobile.pagespeed_accessibility",
       points: 1,
       passed: scoreAtLeast(technicalAudit?.mobileAccessibility, 90),
-      title: "Mobile accessibility score needs attention",
-      finding:
-        "PageSpeed measured a mobile accessibility score below the target.",
-      recommendation:
-        "Review mobile accessibility basics such as contrast, labels, alt text, and tap targets.",
+      title: "Mobile accessibility score is below target",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
     },
@@ -878,11 +783,7 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
       checkId: "mobile.pagespeed_seo",
       points: 1,
       passed: scoreAtLeast(technicalAudit?.mobileSeo, 90),
-      title: "Mobile search audit score needs attention",
-      finding:
-        "PageSpeed measured a mobile search audit score below the target.",
-      recommendation:
-        "Review the mobile Lighthouse search checks for crawlability and page metadata issues.",
+      title: "Mobile search audit score is below target",
       severity: FindingSeverity.LOW,
       priority: 6,
     },
@@ -891,9 +792,6 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: !has(signals.seo.missingAltText),
       title: "Images are missing alt text",
-      finding: "The scan found images without alt text.",
-      recommendation:
-        "Add useful alt text to important images, especially book covers and author photos.",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
     },
@@ -904,10 +802,6 @@ function buildMobileRules(input: ScoringInput): ScoreRule[] {
         home && successfulPage(home) && has(signals.seo.h1Exists),
       ),
       title: "Homepage structure was not fully confirmed",
-      finding:
-        "The scan could not confirm a successful homepage load with a clear main heading.",
-      recommendation:
-        "Make sure the homepage loads cleanly and presents a readable main heading.",
       severity: FindingSeverity.LOW,
       priority: 6,
     },
@@ -925,10 +819,6 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
       points: 2,
       passed: scoreAtLeast(technicalAudit?.desktopPerformance, 70),
       title: "Desktop performance score is below target",
-      finding:
-        "PageSpeed measured a desktop performance score below the target.",
-      recommendation:
-        "Review image delivery, scripts, hosting, and caching so desktop pages load more quickly.",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
     },
@@ -936,11 +826,7 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
       checkId: "technical.mobile_best_practices",
       points: 2,
       passed: scoreAtLeast(technicalAudit?.mobileBestPractices, 90),
-      title: "Mobile best practices score needs attention",
-      finding:
-        "PageSpeed measured a mobile best practices score below the target.",
-      recommendation:
-        "Review browser errors, security settings, and modern web best practices.",
+      title: "Mobile best practices score is below target",
       severity: FindingSeverity.MEDIUM,
       priority: 5,
     },
@@ -948,11 +834,7 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
       checkId: "technical.desktop_best_practices",
       points: 1,
       passed: scoreAtLeast(technicalAudit?.desktopBestPractices, 90),
-      title: "Desktop best practices score needs attention",
-      finding:
-        "PageSpeed measured a desktop best practices score below the target.",
-      recommendation:
-        "Clean up technical issues reported by Lighthouse best practices.",
+      title: "Desktop best practices score is below target",
       severity: FindingSeverity.LOW,
       priority: 6,
     },
@@ -960,11 +842,7 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
       checkId: "technical.desktop_accessibility",
       points: 1,
       passed: scoreAtLeast(technicalAudit?.desktopAccessibility, 90),
-      title: "Desktop accessibility score needs attention",
-      finding:
-        "PageSpeed measured a desktop accessibility score below the target.",
-      recommendation:
-        "Fix accessibility issues that make the site harder to read or navigate.",
+      title: "Desktop accessibility score is below target",
       severity: FindingSeverity.LOW,
       priority: 6,
     },
@@ -973,9 +851,6 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: /^https:\/\//i.test(home?.url ?? ""),
       title: "Secure HTTPS was not confirmed",
-      finding: "The scanned homepage did not use a secure HTTPS address.",
-      recommendation:
-        "Serve the full website over HTTPS and redirect old HTTP addresses.",
       severity: FindingSeverity.HIGH,
       priority: 2,
     },
@@ -986,10 +861,6 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
         home && successfulPage(home) && !hasFailedPages(pagesScanned),
       ),
       title: "Some scanned pages did not load cleanly",
-      finding:
-        "The crawl data did not confirm that all scanned pages returned successful responses.",
-      recommendation:
-        "Fix failed or redirected pages that readers may hit while browsing the site.",
       severity: FindingSeverity.MEDIUM,
       priority: 5,
     },
@@ -998,10 +869,6 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: pageAppearsIndexable(signals),
       title: "Search engine access may be blocked",
-      finding:
-        "The scan found a noindex signal or could not confirm that the homepage is indexable.",
-      recommendation:
-        "Review robots settings and remove accidental noindex directives from public pages.",
       severity: FindingSeverity.HIGH,
       priority: 2,
     },
@@ -1013,10 +880,6 @@ function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
         has(signals.schema.person) ||
         has(signals.schema.organization),
       title: "Technical structure signals are limited",
-      finding:
-        "The scan did not find a canonical URL or basic author/site structured data.",
-      recommendation:
-        "Add canonical URLs and appropriate Person or Organization schema.",
       severity: FindingSeverity.LOW,
       priority: 6,
     },
@@ -1034,9 +897,6 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       points: 2,
       passed: has(signals.trust.authorBio),
       title: "Author bio was not detected",
-      finding: "The scan did not find a clear author bio or biography page.",
-      recommendation:
-        "Add a concise author bio that helps readers, press, and event hosts understand the author.",
       severity: FindingSeverity.MEDIUM,
       priority: 3,
     },
@@ -1045,10 +905,6 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       points: 2,
       passed: has(signals.trust.authorPhoto),
       title: "Author photo was not detected",
-      finding:
-        "The scan did not find an author photo, portrait, or headshot signal.",
-      recommendation:
-        "Add a professional author photo with descriptive alt text.",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
     },
@@ -1057,9 +913,6 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       points: 2,
       passed: hasContact,
       title: "Contact path was not detected",
-      finding: "The scan did not find a contact form or contact email.",
-      recommendation:
-        "Add a simple contact page or email path for readers, press, and opportunities.",
       severity: FindingSeverity.MEDIUM,
       priority: 3,
     },
@@ -1068,9 +921,6 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: has(signals.trust.socialLinks),
       title: "Social profile links were not detected",
-      finding: "The scan did not find links to author social profiles.",
-      recommendation:
-        "Link only to active author profiles that help build trust with readers.",
       severity: FindingSeverity.LOW,
       priority: 6,
     },
@@ -1079,9 +929,6 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: has(signals.trust.mediaKit),
       title: "Media kit was not detected",
-      finding: "The scan did not find a media kit, press kit, or press page.",
-      recommendation:
-        "Add a media kit if the author wants interviews, speaking, events, or press opportunities.",
       severity: FindingSeverity.LOW,
       priority: 7,
     },
@@ -1090,9 +937,6 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: has(signals.trust.privacyPolicy),
       title: "Privacy policy was not detected",
-      finding: "The scan did not find a visible privacy policy link.",
-      recommendation:
-        "Add a privacy policy, especially if the site collects email subscribers or contact form messages.",
       severity: FindingSeverity.MEDIUM,
       priority: 5,
     },
@@ -1104,10 +948,6 @@ function buildTrustRules(input: ScoringInput): ScoreRule[] {
         has(signals.schema.review) ||
         has(signals.schema.aggregateRating),
       title: "Trust proof was not detected",
-      finding:
-        "The scan did not find reviews, praise, ratings, or similar trust proof.",
-      recommendation:
-        "Add a small section for praise, awards, reviews, or reader testimonials when available.",
       severity: FindingSeverity.LOW,
       priority: 6,
     },
@@ -1125,10 +965,6 @@ function buildMaintenanceRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: !hasFailedPages(pagesScanned),
       title: "A scanned page returned an unsuccessful status",
-      finding:
-        "The crawl data shows at least one scanned page did not return a successful response.",
-      recommendation:
-        "Review broken pages, redirects, and unavailable content.",
       severity: FindingSeverity.MEDIUM,
       priority: 5,
     },
@@ -1137,10 +973,6 @@ function buildMaintenanceRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: has(signals.trust.privacyPolicy),
       title: "Privacy policy is missing from the scan",
-      finding:
-        "The scan did not find a privacy policy link, which is a maintenance and trust concern for forms and newsletter collection.",
-      recommendation:
-        "Add or update a privacy policy and link it from the footer.",
       severity: FindingSeverity.MEDIUM,
       priority: 5,
     },
@@ -1152,10 +984,6 @@ function buildMaintenanceRules(input: ScoringInput): ScoreRule[] {
         has(signals.schema.person) ||
         has(signals.schema.organization),
       title: "Technical structure signals are limited",
-      finding:
-        "The scan did not find a canonical URL or basic site/author structured data.",
-      recommendation:
-        "Add basic technical structure such as canonical URLs and appropriate Person or Organization schema.",
       severity: FindingSeverity.LOW,
       priority: 6,
     },
@@ -1164,10 +992,6 @@ function buildMaintenanceRules(input: ScoringInput): ScoreRule[] {
       points: 1,
       passed: !outdated,
       title: "Site content may be out of date",
-      finding:
-        "The scan found a footer copyright year that appears several years out of date.",
-      recommendation:
-        "Refresh the footer date and review the site for other stale content.",
       severity: FindingSeverity.LOW,
       priority: 7,
     },

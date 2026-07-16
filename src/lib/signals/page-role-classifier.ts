@@ -25,7 +25,7 @@ export type EvidenceSourceKind =
   "http" | "dom" | "jsonld" | "link" | "image" | "form" | "text" | "audit";
 
 export type EvidenceObservationState =
-  "present" | "absent" | "unknown" | "not_applicable" | "conflicting";
+  "present" | "absent" | "unknown" | "conflicting";
 
 export type EvidenceStrength = "strong" | "supporting" | "weak";
 

@@ -53,6 +53,14 @@ export type CrawlOptions = {
   browserFallbackPageLimit?: number;
   browserFallbackTimeoutMs?: number;
   browserRenderSessionFactory?: BrowserRenderSessionFactory;
+  onProgress?: (progress: CrawlProgress) => Promise<void> | void;
+};
+
+export type CrawlProgress = {
+  attemptedRequests: number;
+  maxRequests: number;
+  maxSavedHtmlPages: number;
+  successfulHtmlPages: number;
 };
 
 type ResolvedCrawlOptions = {
@@ -65,6 +73,7 @@ type ResolvedCrawlOptions = {
   browserFallbackPageLimit: number;
   browserFallbackTimeoutMs: number;
   browserRenderSessionFactory: BrowserRenderSessionFactory;
+  onProgress?: (progress: CrawlProgress) => Promise<void> | void;
 };
 
 export type CrawledPageResult = {
@@ -147,7 +156,10 @@ async function fetchSitemapUrls(
   });
   let robotsSitemapUrls: string[] = [];
 
-  if (robotsSecurity.ok && sameHostname(robotsSecurity.finalUrl, homepageHost)) {
+  if (
+    robotsSecurity.ok &&
+    sameHostname(robotsSecurity.finalUrl, homepageHost)
+  ) {
     try {
       const response = await fetchText(
         robotsSecurity.finalUrl,
@@ -231,11 +243,7 @@ async function fetchSitemapUrls(
 
       const url = normalizeCandidateUrl($(element).text().trim(), homepageUrl);
 
-      if (
-        url &&
-        sameHostname(url, homepageHost) &&
-        !seenSitemaps.has(url)
-      ) {
+      if (url && sameHostname(url, homepageHost) && !seenSitemaps.has(url)) {
         sitemapQueue.push(url);
       }
 
@@ -273,11 +281,13 @@ export async function crawlWebsite(
       ),
     ),
     browserFallbackTimeoutMs: Math.min(
-      options.browserFallbackTimeoutMs ?? BROWSER_FALLBACK_NAVIGATION_TIMEOUT_MS,
+      options.browserFallbackTimeoutMs ??
+        BROWSER_FALLBACK_NAVIGATION_TIMEOUT_MS,
       BROWSER_FALLBACK_NAVIGATION_TIMEOUT_MS,
     ),
     browserRenderSessionFactory:
       options.browserRenderSessionFactory ?? createBrowserRenderSession,
+    onProgress: options.onProgress,
   } satisfies ResolvedCrawlOptions;
   const homepageSecurity = await validateUrlForScan(requestedHomepageUrl, {
     redirectLimit: crawlOptions.redirectLimit,
@@ -310,6 +320,22 @@ export async function crawlWebsite(
   let skippedDuplicates = 0;
   let skippedNonHtml = 0;
   let skippedUnsuccessfulStatus = 0;
+  const reportCrawlProgress = async () => {
+    if (!crawlOptions.onProgress) {
+      return;
+    }
+
+    try {
+      await crawlOptions.onProgress({
+        attemptedRequests,
+        maxRequests: crawlOptions.pageLimit * 3,
+        maxSavedHtmlPages: crawlOptions.pageLimit,
+        successfulHtmlPages: successfulPages.length,
+      });
+    } catch {
+      // Progress reporting is best-effort and must not interrupt the crawl.
+    }
+  };
   type SecurityValidation = Awaited<ReturnType<typeof validateUrlForScan>>;
   const securityCache = new Map<string, Promise<SecurityValidation>>();
   securityCache.set(homepageNormalizedUrl, Promise.resolve(homepageSecurity));
@@ -336,7 +362,7 @@ export async function crawlWebsite(
 
   const crawler = new CheerioCrawler(
     {
-      minConcurrency: 1,
+      minConcurrency: crawlOptions.concurrency,
       maxConcurrency: crawlOptions.concurrency,
       maxRequestRetries: 1,
       maxRequestsPerCrawl: crawlOptions.pageLimit * 3,
@@ -348,6 +374,7 @@ export async function crawlWebsite(
       preNavigationHooks: [
         async ({ request }, gotOptions) => {
           attemptedRequests += 1;
+          await reportCrawlProgress();
           attemptedUrls.add(
             normalizeCandidateUrl(request.url, homepageUrl) ?? request.url,
           );
@@ -375,7 +402,10 @@ export async function crawlWebsite(
       async requestHandler({ request, response, body, contentType }) {
         const security = await validateRequestUrl(request.url);
 
-        if (!security.ok || !sameHostname(security.finalUrl, homepageHostname)) {
+        if (
+          !security.ok ||
+          !sameHostname(security.finalUrl, homepageHostname)
+        ) {
           return;
         }
 
@@ -384,10 +414,7 @@ export async function crawlWebsite(
           contentType.type === "text/html" ||
           contentType.type === "application/xhtml+xml";
         const html =
-          statusCode !== null &&
-          statusCode >= 200 &&
-          statusCode < 300 &&
-          isHtml
+          statusCode !== null && statusCode >= 200 && statusCode < 300 && isHtml
             ? typeof body === "string"
               ? body
               : body.toString("utf8")
@@ -417,10 +444,7 @@ export async function crawlWebsite(
           const normalizedFinalUrl =
             normalizeCandidateUrl(page.finalUrl, homepageUrl) ?? page.finalUrl;
 
-          if (
-            statusCode !== null &&
-            (statusCode < 200 || statusCode >= 300)
-          ) {
+          if (statusCode !== null && (statusCode < 200 || statusCode >= 300)) {
             skippedUnsuccessfulStatus += 1;
             skippedUrls.push({
               requestedUrl: request.url,
@@ -457,6 +481,7 @@ export async function crawlWebsite(
         } else if (successfulPages.length < crawlOptions.pageLimit) {
           successfulPages.push(page);
           deduplicator.remember(page);
+          await reportCrawlProgress();
         }
 
         if (successfulPages.length >= crawlOptions.pageLimit) {
@@ -486,10 +511,7 @@ export async function crawlWebsite(
               : [],
           homepageInternalLinks: normalizedInternalLinks,
           limit: crawlOptions.pageLimit * 3,
-        }).filter(
-          (url) =>
-            url !== currentUrl && !deduplicator.hasSeenUrl(url),
-        );
+        }).filter((url) => url !== currentUrl && !deduplicator.hasSeenUrl(url));
 
         if (currentUrl === homepageNormalizedUrl) {
           discoveredFromHomepage = new Set(normalizedInternalLinks).size;
@@ -526,11 +548,7 @@ export async function crawlWebsite(
     policyVersion: BROWSER_FALLBACK_POLICY_VERSION,
     enabled: crawlOptions.browserFallbackEnabled,
     status: "not_needed" as
-      | "disabled"
-      | "not_needed"
-      | "completed"
-      | "partial"
-      | "failed",
+      "disabled" | "not_needed" | "completed" | "partial" | "failed",
     limits: {
       maxRenderedPages: crawlOptions.browserFallbackPageLimit,
       navigationTimeoutMs: crawlOptions.browserFallbackTimeoutMs,
@@ -558,7 +576,11 @@ export async function crawlWebsite(
     const candidates = successfulPages
       .filter((page) => page.browserTriggerCodes?.length)
       .sort((left, right) =>
-        left.finalUrl === homepageUrl ? -1 : right.finalUrl === homepageUrl ? 1 : 0,
+        left.finalUrl === homepageUrl
+          ? -1
+          : right.finalUrl === homepageUrl
+            ? 1
+            : 0,
       )
       .slice(0, crawlOptions.browserFallbackPageLimit);
     const browserFallbackStartedAt = Date.now();
@@ -583,7 +605,9 @@ export async function crawlWebsite(
           });
           break;
         }
-        if (browserFallback.requestCount >= BROWSER_FALLBACK_REPORT_REQUEST_LIMIT) {
+        if (
+          browserFallback.requestCount >= BROWSER_FALLBACK_REPORT_REQUEST_LIMIT
+        ) {
           browserFallback.failures.push({
             url: page.finalUrl,
             code: "report_request_limit",
@@ -603,15 +627,20 @@ export async function crawlWebsite(
             rendered.statusCode < 200 ||
             rendered.statusCode >= 300
           ) {
-            throw new Error("The rendered page did not return a successful HTML response.");
+            throw new Error(
+              "The rendered page did not return a successful HTML response.",
+            );
           }
 
           const staticIdentity =
             normalizeCandidateUrl(page.finalUrl, homepageUrl) ?? page.finalUrl;
           const renderedIdentity =
-            normalizeCandidateUrl(rendered.finalUrl, homepageUrl) ?? rendered.finalUrl;
+            normalizeCandidateUrl(rendered.finalUrl, homepageUrl) ??
+            rendered.finalUrl;
           if (staticIdentity !== renderedIdentity) {
-            throw new Error("The rendered page identity did not match its static page.");
+            throw new Error(
+              "The rendered page identity did not match its static page.",
+            );
           }
 
           const renderedData = extractRenderedPage(rendered, siteOrigin);
@@ -643,7 +672,10 @@ export async function crawlWebsite(
           browserFallback.failures.push({
             url: page.finalUrl,
             code: "render_failed",
-            message: error instanceof Error ? error.message : "Browser rendering failed.",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Browser rendering failed.",
           });
         }
       }
@@ -651,7 +683,10 @@ export async function crawlWebsite(
       browserFallback.failures.push({
         url: candidates[0]?.finalUrl ?? homepageUrl,
         code: "session_start_failed",
-        message: error instanceof Error ? error.message : "The browser could not start.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "The browser could not start.",
       });
     } finally {
       await session?.close().catch(() => undefined);
@@ -710,7 +745,7 @@ export async function crawlWebsite(
     diagnostics,
     failureMessage:
       successfulPages.length === 0
-        ? homepageError ?? "The website homepage could not be crawled."
+        ? (homepageError ?? "The website homepage could not be crawled.")
         : null,
   };
 }

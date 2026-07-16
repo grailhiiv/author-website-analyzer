@@ -1,5 +1,15 @@
 # Author website quality standard changelog
 
+## 0.9 - 2026-07-16
+
+- Replaced the active audit-check status model with exactly Passed, Needs Review, and Failed.
+- Preserved deterministic scoring: Passed receives full credit, Needs Review receives half credit, and Failed receives zero.
+- Added canonical Details and Recommendation content for all 50 checks and all three statuses.
+- Removed the separate Action field from audit guidance, findings, report rendering, and persistence.
+- Migrated saved check results and deterministic finding content to the new status model.
+
+**Scoring impact:** category maxima, check weights, and the overall 100-point model are unchanged.
+
 ## 0.8 - 2026-07-14
 
 - Approved and implemented the first stable-ID rendered scoring checks: `usability.primary_navigation`, `mobile.viewport_fit`, and `mobile.text_contrast`.
@@ -8,7 +18,7 @@
 - Distinguished invalid or hostname-mismatched HTTPS certificates from request timeouts so unreachable sites receive the correct owner-facing repair guidance.
 - Kept all subjective design judgments and the remaining Site Structure, Visual Design, and Conversion Design observations advisory.
 
-**Scoring impact:** confirmed failures can now reduce one existing Site Usability raw point and two existing Mobile Performance raw points. Missing or insufficient rendered evidence remains `unknown`, receives half credit, and creates no failure finding. Category maxima, conditional applicability, and `not_applicable` behavior are unchanged.
+**Scoring impact:** confirmed failures can now reduce one existing Site Usability raw point and two existing Mobile Performance raw points. Missing or insufficient rendered evidence receives half credit and creates no failure finding. Category maxima and conditional applicability are unchanged.
 
 ## 0.7 - 2026-07-14
 
@@ -17,7 +27,7 @@
 - Kept homepage and privacy routes as the primary page role when strong embedded newsletter, article, or contact evidence is also present.
 - Expanded the anonymized offline regression corpus to 31 cases and 41 scanned pages.
 
-**Scoring impact:** numeric weights, conditional-check applicability, and `not_applicable` behavior are unchanged. These changes improve deterministic extraction and classification only.
+**Scoring impact:** numeric weights and conditional-check applicability are unchanged. These changes improve deterministic extraction and classification only.
 
 ## 0.6 - 2026-07-14
 
@@ -70,6 +80,6 @@
 - Defined a proposed evidence model with provenance, evidence strength, coverage safeguards, and explicit uncertainty.
 - Defined a proposed stable check-registry contract.
 - Recorded primary external sources.
-- Flagged reader-magnet, media-kit, rendered-browser fallback, and not-applicable scoring as unresolved decisions.
+- Flagged reader-magnet, media-kit, and rendered-browser fallback policies as unresolved decisions.
 
 **Scoring impact:** none. This release documents a calibration baseline and does not modify the deterministic scoring engine.

@@ -52,7 +52,7 @@ export type VisualViewportEvidence = {
 };
 
 export type VisualDesignObservationStatus =
-  "passed" | "needs_review" | "unknown";
+  "passed" | "needs_review" | "failed";
 
 export type VisualDesignObservation = {
   id:
@@ -147,7 +147,7 @@ function buildViewportObservations(
     id: "navigation-availability",
     pillar: "information_architecture",
     viewport: viewport.variant,
-    status: navigationNeedsReview ? "needs_review" : "passed",
+    status: navigationNeedsReview ? "failed" : "passed",
     title: `${label} navigation availability`,
     summary: navigationNeedsReview
       ? "No usable visible navigation region was detected in this viewport."
@@ -182,7 +182,7 @@ function buildViewportObservations(
     id: "horizontal-overflow",
     pillar: "ui_ux",
     viewport: viewport.variant,
-    status: hasHorizontalOverflow ? "needs_review" : "passed",
+    status: hasHorizontalOverflow ? "failed" : "passed",
     title: `${label} horizontal overflow`,
     summary: hasHorizontalOverflow
       ? `The rendered page is ${formatPixels(overflowPixels)} wider than the ${formatPixels(viewport.viewportWidth)} viewport.`
@@ -203,7 +203,7 @@ function buildViewportObservations(
     id: "main-heading-visibility",
     pillar: "ui_ux",
     viewport: viewport.variant,
-    status: headingNeedsReview ? "needs_review" : "passed",
+    status: headingNeedsReview ? "failed" : "passed",
     title: `${label} main-heading visibility`,
     summary: headingNeedsReview
       ? "No visible H1 appears in the first viewport."
@@ -220,7 +220,7 @@ function buildViewportObservations(
     id: "primary-action-visibility",
     pillar: "conversion_design",
     viewport: viewport.variant,
-    status: actionNeedsReview ? "needs_review" : "passed",
+    status: actionNeedsReview ? "failed" : "passed",
     title: `${label} primary-action visibility`,
     summary: actionNeedsReview
       ? "No clear author-focused action was detected before scrolling."
@@ -241,7 +241,7 @@ function buildViewportObservations(
     id: "form-length",
     pillar: "conversion_design",
     viewport: viewport.variant,
-    status: formNeedsReview ? "needs_review" : "passed",
+    status: formNeedsReview ? "failed" : "passed",
     title: `${label} form length`,
     summary: formNeedsReview
       ? `${viewport.formsWithManyFieldsCount} visible form(s) ask for more than ${MANY_FORM_FIELDS_THRESHOLD} fields.`
@@ -263,9 +263,9 @@ function buildViewportObservations(
   const contrastStatus: VisualDesignObservationStatus =
     viewport.contrastTextCount < MINIMUM_CONTRAST_TEXT_COUNT ||
     contrastCoverage < MINIMUM_CONTRAST_MEASUREMENT_COVERAGE
-      ? "unknown"
+      ? "needs_review"
       : viewport.lowContrastTextCount > 0
-        ? "needs_review"
+        ? "failed"
         : "passed";
   const contrastSamples = viewport.lowContrastTextSamples
     .map(
@@ -281,16 +281,16 @@ function buildViewportObservations(
     status: contrastStatus,
     title: `${label} text contrast`,
     summary:
-      contrastStatus === "unknown"
+      contrastStatus === "needs_review"
         ? "Text contrast could not be measured reliably in this viewport."
-        : contrastStatus === "needs_review"
+        : contrastStatus === "failed"
           ? `${viewport.lowContrastTextCount} visible text element(s) fall below the baseline contrast threshold.`
           : "Measured visible text meets the baseline contrast threshold.",
     evidence: contrastSamples
       ? `${viewport.contrastTextCount} of ${viewport.textElementCount} text elements measured (${formatPercent(contrastCoverage)} coverage). Samples: ${contrastSamples}.`
       : `${viewport.contrastTextCount} of ${viewport.textElementCount} text elements measured (${formatPercent(contrastCoverage)} coverage).`,
     recommendation:
-      contrastStatus === "needs_review"
+      contrastStatus === "failed"
         ? "Increase the contrast between the flagged text and its background while preserving the author brand palette."
         : null,
   });
@@ -308,7 +308,7 @@ function buildViewportObservations(
       id: "mobile-tap-targets",
       pillar: "ui_ux",
       viewport: viewport.variant,
-      status: tapTargetsNeedReview ? "needs_review" : "passed",
+      status: tapTargetsNeedReview ? "failed" : "passed",
       title: "Mobile tap-target size",
       summary: tapTargetsNeedReview
         ? `${viewport.undersizedInteractiveCount} visible control(s) are smaller than ${MINIMUM_TAP_TARGET_PX}px in at least one dimension.`
@@ -333,7 +333,7 @@ function buildViewportObservations(
       id: "mobile-text-size",
       pillar: "ui_ux",
       viewport: viewport.variant,
-      status: smallTextNeedsReview ? "needs_review" : "passed",
+      status: smallTextNeedsReview ? "failed" : "passed",
       title: "Mobile text size",
       summary: smallTextNeedsReview
         ? `${viewport.undersizedTextCount} visible text element(s) use text smaller than ${SMALL_TEXT_THRESHOLD_PX}px.`
@@ -353,7 +353,7 @@ function buildViewportObservations(
     id: "obstructive-overlay",
     pillar: "ui_ux",
     viewport: viewport.variant,
-    status: overlayNeedsReview ? "needs_review" : "passed",
+    status: overlayNeedsReview ? "failed" : "passed",
     title: `${label} overlay obstruction`,
     summary: overlayNeedsReview
       ? `${viewport.obstructiveOverlayCount} large fixed overlay(s) may obscure the first screen.`

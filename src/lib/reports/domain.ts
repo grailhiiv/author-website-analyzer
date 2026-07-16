@@ -20,6 +20,10 @@ export function getReportPath(domain: string) {
   return `/report/${encodeURIComponent(domain)}`;
 }
 
+export function getHomepageReportPath(domain: string) {
+  return `/?domain=${encodeURIComponent(domain)}#website-audit-result`;
+}
+
 export function getAdminReportPath(domain: string) {
   return `/reports/${encodeURIComponent(domain)}`;
 }

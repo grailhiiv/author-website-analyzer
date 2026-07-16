@@ -40,6 +40,30 @@ export function normalizeAnalysisProgress(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
+export function getCrawlAnalysisProgress({
+  attemptedRequests,
+  maxRequests,
+  maxSavedHtmlPages,
+  successfulHtmlPages,
+}: {
+  attemptedRequests: number;
+  maxRequests: number;
+  maxSavedHtmlPages: number;
+  successfulHtmlPages: number;
+}) {
+  const attemptedRatio = maxRequests > 0 ? attemptedRequests / maxRequests : 0;
+  const successfulRatio =
+    maxSavedHtmlPages > 0 ? successfulHtmlPages / maxSavedHtmlPages : 0;
+  const completionRatio = Math.max(
+    0,
+    Math.min(1, Math.max(attemptedRatio, successfulRatio)),
+  );
+  const start = analysisStageMetadata.CRAWLING.progress;
+  const end = analysisStageMetadata.TECHNICAL_CHECKS.progress - 5;
+
+  return normalizeAnalysisProgress(start + (end - start) * completionRatio);
+}
+
 export function getAnalysisStageLabel(stage: string | null | undefined) {
   if (stage && stage in analysisStageMetadata) {
     return analysisStageMetadata[stage as AnalysisStage].label;
@@ -51,7 +75,7 @@ export function getAnalysisStageLabel(stage: string | null | undefined) {
 export function recordAnalysisTiming(
   timings: AnalysisTimings,
   stage: AnalysisStage | "TOTAL",
-  durationMs: number
+  durationMs: number,
 ): AnalysisTimings {
   return {
     ...timings,

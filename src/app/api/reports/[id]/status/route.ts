@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { ReportStatus } from "@/generated/prisma/client";
-import {
-  enqueueAnalysisJob,
-  scheduleAnalysisJob,
-} from "@/lib/analysis/jobs";
+import { getPublicAnalysisErrorMessage } from "@/lib/analysis/error-messages";
+import { enqueueAnalysisJob, scheduleAnalysisJob } from "@/lib/analysis/jobs";
 import { prisma } from "@/lib/db/prisma";
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   const report = await prisma.report.findUnique({
@@ -25,13 +23,8 @@ export async function GET(
       analysisJob: {
         select: {
           status: true,
-          attempts: true,
-          maxAttempts: true,
-          nextRunAt: true,
-          lastError: true,
           stage: true,
           progress: true,
-          timingsJson: true,
         },
       },
     },
@@ -45,7 +38,7 @@ export async function GET(
       },
       {
         status: 404,
-      }
+      },
     );
   }
 
@@ -63,7 +56,9 @@ export async function GET(
     status: report.status,
     overallScore: report.overallScore,
     updatedAt: report.updatedAt,
-    errorMessage: report.errorMessage,
+    errorMessage: report.errorMessage
+      ? getPublicAnalysisErrorMessage(report.errorMessage)
+      : null,
     job: report.analysisJob,
   });
 }

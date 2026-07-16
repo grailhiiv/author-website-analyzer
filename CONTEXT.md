@@ -17,20 +17,16 @@ Independent permission issued for one email-address and report pair to view that
 _Avoid_: Account, subscription, global unlock
 
 **Scoring Check**:
-One deterministic pass, fail, or unknown rule within a scoring module. A failed check creates one finding.
+One deterministic rule within a scoring module that resolves to Passed, Needs Review, or Failed. A Failed check creates one finding.
 _Avoid_: AI judgment, recommendation
 
 **Finding**:
-The saved issue created when a deterministic scoring check fails, including its evidence, priority, primary recommendation, and practical actions.
+The saved issue created when a deterministic scoring check fails, including its evidence, priority, and recommendation.
 _Avoid_: Score, AI critique
 
 **Primary Recommendation**:
 The fixed, rule-based direction attached to a failed scoring check. It states what should be improved.
-_Avoid_: AI suggestion, practical action
-
-**Practical Action**:
-One fixed, concrete implementation step attached to a primary recommendation. A finding can contain several practical actions.
-_Avoid_: Scoring check, primary recommendation
+_Avoid_: AI suggestion, separate action field
 
 **Page Role**:
 The primary reader purpose served by a scanned page, inferred from several observable signals such as navigation context, headings, structured data, links, and URL path. A page can support secondary purposes, but one primary role guides evaluation.

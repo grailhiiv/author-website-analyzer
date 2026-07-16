@@ -19,16 +19,35 @@ export async function updateAnalysisProgress({
   progress: number;
   timings?: AnalysisTimings;
 }) {
+  const normalizedProgress = normalizeAnalysisProgress(progress);
+  const timingsJson = timings ? (timings as Prisma.InputJsonValue) : undefined;
+  const advanced = await prisma.analysisJob.updateMany({
+    where: {
+      reportId,
+      progress: {
+        lte: normalizedProgress,
+      },
+    },
+    data: {
+      stage,
+      progress: normalizedProgress,
+      timingsJson,
+    },
+  });
+
+  if (advanced.count > 0) {
+    return advanced;
+  }
+
+  // A retry may return to an earlier stage, but the user-facing percentage
+  // should retain the highest progress already reached.
   return prisma.analysisJob.updateMany({
     where: {
       reportId,
     },
     data: {
       stage,
-      progress: normalizeAnalysisProgress(progress),
-      timingsJson: timings
-        ? (timings as Prisma.InputJsonValue)
-        : undefined,
+      timingsJson,
     },
   });
 }

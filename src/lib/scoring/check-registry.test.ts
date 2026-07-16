@@ -10,7 +10,7 @@ import {
 } from "@/lib/scoring/check-registry";
 
 test("scoring check registry exposes every unique, versioned deterministic check", () => {
-  assert.equal(SCORING_CHECK_REGISTRY_VERSION, 1);
+  assert.equal(SCORING_CHECK_REGISTRY_VERSION, 2);
   assert.equal(SCORING_CHECK_REGISTRY.length, 50);
   assert.equal(
     new Set(SCORING_CHECK_REGISTRY.map((check) => check.id)).size,
@@ -25,9 +25,7 @@ test("scoring check registry exposes every unique, versioned deterministic check
   assert.equal(
     SCORING_CHECK_REGISTRY.every(
       (check) =>
-        check.version === 1 &&
-        check.status === "active" &&
-        check.notApplicableRuleId === "never",
+        check.version === 2 && check.status === "active",
     ),
     true,
   );
@@ -61,7 +59,7 @@ test("every check has stable applicability and evidence metadata", () => {
     assert.ok(check.title);
     assert.ok(check.evidencePolicyId);
     assert.ok(check.passRuleId);
-    assert.ok(check.unknownRuleId);
+    assert.ok(check.needsReviewRuleId);
     assert.ok(check.applicabilityRuleId);
     assert.ok(check.applicablePageRoles.length > 0);
   }

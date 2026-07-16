@@ -42,7 +42,6 @@ import {
   getReportPath,
   normalizeReportDomain,
 } from "@/lib/reports/domain";
-import { parsePracticalActions } from "@/lib/reports/practical-actions";
 
 import ReportAdminWorkspace from "./_components/report-admin-workspace";
 
@@ -350,7 +349,7 @@ function LighthouseDevicePanel({
               className: "p-3",
               content: (
                 <Alert type="danger" showIcon>
-                  {label} performance needs attention. Visitors may experience
+                  {label} performance is below target. Visitors may experience
                   slow loading, especially while the main page content appears.
                 </Alert>
               ),
@@ -715,7 +714,7 @@ export default async function AdminReportDetailPage({
               content: (
                 <SectionTitle
                   title="Improvements by severity"
-                  description="Start with the most severe issues. Each finding includes a recommended fix and practical next steps."
+                  description="Start with the most severe issues. Each finding includes one deterministic recommendation."
                 />
               ),
               extra: (
@@ -727,55 +726,40 @@ export default async function AdminReportDetailPage({
           >
             {findingsBySeverity.length ? (
               <Timeline>
-                {findingsBySeverity.map((finding) => {
-                  const actions = parsePracticalActions(
-                    finding.practicalActions,
-                  );
-                  return (
-                    <Timeline.Item
-                      key={finding.id}
-                      media={
-                        <div
-                          className={`flex h-9 min-w-20 items-center justify-center rounded px-3 text-xs font-bold uppercase tracking-wide ${severityTagClass(finding.severity)}`}
-                        >
-                          {findingSeverityLabels[finding.severity]}
-                        </div>
-                      }
-                    >
-                      <div className="pb-8 pl-3">
-                        <div className="mb-4 flex flex-wrap items-center gap-2">
-                          <h5 className="mr-auto text-base font-semibold">
-                            {finding.title}
-                          </h5>
-                          <Tag className="border-0 bg-gray-100 text-gray-600">
-                            {categoryLabels[finding.category]}
-                          </Tag>
-                        </div>
-                        <p className="leading-7 text-gray-600 dark:text-gray-300">
-                          {finding.finding}
-                        </p>
-                        <div className="mt-5 rounded border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-700/40">
-                          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
-                            Recommended fix
-                          </div>
-                          <p className="text-sm leading-6 text-gray-700 dark:text-gray-200">
-                            {finding.recommendation}
-                          </p>
-                          {actions.length ? (
-                            <ul className="mt-3 space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                              {actions.map((action) => (
-                                <li key={action} className="flex gap-2">
-                                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                                  <span>{action}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                        </div>
+                {findingsBySeverity.map((finding) => (
+                  <Timeline.Item
+                    key={finding.id}
+                    media={
+                      <div
+                        className={`flex h-9 min-w-20 items-center justify-center rounded px-3 text-xs font-bold uppercase tracking-wide ${severityTagClass(finding.severity)}`}
+                      >
+                        {findingSeverityLabels[finding.severity]}
                       </div>
-                    </Timeline.Item>
-                  );
-                })}
+                    }
+                  >
+                    <div className="pb-8 pl-3">
+                      <div className="mb-4 flex flex-wrap items-center gap-2">
+                        <h5 className="mr-auto text-base font-semibold">
+                          {finding.title}
+                        </h5>
+                        <Tag className="border-0 bg-gray-100 text-gray-600">
+                          {categoryLabels[finding.category]}
+                        </Tag>
+                      </div>
+                      <p className="leading-7 text-gray-600 dark:text-gray-300">
+                        {finding.finding}
+                      </p>
+                      <div className="mt-5 rounded border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-700/40">
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
+                          Recommended fix
+                        </div>
+                        <p className="text-sm leading-6 text-gray-700 dark:text-gray-200">
+                          {finding.recommendation}
+                        </p>
+                      </div>
+                    </div>
+                  </Timeline.Item>
+                ))}
               </Timeline>
             ) : (
               <p className="py-4 text-sm text-gray-500">

@@ -68,7 +68,6 @@ const observationStates = [
   "present",
   "absent",
   "unknown",
-  "not_applicable",
   "conflicting",
 ] as const satisfies readonly EvidenceObservationState[];
 
@@ -472,7 +471,6 @@ export async function runAuthorSiteBenchmark({
     present: 0,
     absent: 0,
     unknown: 0,
-    not_applicable: 0,
     conflicting: 0,
   };
   const caseResults: AuthorSiteBenchmarkCaseResult[] = [];

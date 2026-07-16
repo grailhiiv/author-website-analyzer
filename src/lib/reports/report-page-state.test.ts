@@ -13,24 +13,24 @@ test("report page exposes complete preview state for completed reports without l
   assert.equal(state.showCompleteState, true);
   assert.equal(state.showEmailGate, true);
   assert.equal(state.showFullReport, false);
-  assert.equal(state.showAnalyzingState, false);
+  assert.equal(state.redirectToHomepage, false);
   assert.equal(state.showFailedState, false);
 });
 
-test("report page exposes running state for queued and running reports", () => {
+test("report page redirects queued and running reports to the homepage scan state", () => {
   assert.equal(
     getReportPageState({
       status: ReportStatus.QUEUED,
       hasLeadEmail: false,
-    }).showAnalyzingState,
-    true
+    }).redirectToHomepage,
+    true,
   );
   assert.equal(
     getReportPageState({
       status: ReportStatus.RUNNING,
       hasLeadEmail: true,
-    }).showAnalyzingState,
-    true
+    }).redirectToHomepage,
+    true,
   );
 });
 
@@ -41,6 +41,7 @@ test("report page exposes failed state for failed reports", () => {
   });
 
   assert.equal(state.showFailedState, true);
+  assert.equal(state.redirectToHomepage, false);
   assert.equal(state.showCompleteState, false);
   assert.equal(state.showEmailGate, false);
   assert.equal(state.showFullReport, false);

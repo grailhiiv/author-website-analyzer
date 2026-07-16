@@ -11,7 +11,6 @@ const siteUrl = "https://author.example";
 test("builds every registered check in the established category order", () => {
   const sections = buildReportAuditSections({
     checkResults: [],
-    findings: [],
     scores: [],
     siteUrl,
   });
@@ -27,44 +26,26 @@ test("builds every registered check in the established category order", () => {
   assert.equal(sections.length, 8);
 });
 
-test("maps all four deterministic states to author-facing report language", () => {
+test("maps the three deterministic states to canonical report content", () => {
   const sections = buildReportAuditSections({
     checkResults: [
       {
         checkId: "brand.author_name",
-        state: "PASS",
+        state: "PASSED",
         reasonCode: "author_name_visible",
         evidenceReferences: {},
       },
       {
         checkId: "brand.genre_positioning",
-        state: "FAIL",
+        state: "FAILED",
         reasonCode: "genre_missing",
         evidenceReferences: {},
       },
       {
         checkId: "brand.homepage_headline",
-        state: "UNKNOWN",
+        state: "NEEDS_REVIEW",
         reasonCode: "evidence_coverage_insufficient",
         evidenceReferences: {},
-      },
-      {
-        checkId: "brand.about_path",
-        state: "NOT_APPLICABLE",
-        reasonCode: "not_applicable",
-        evidenceReferences: {},
-      },
-    ],
-    findings: [
-      {
-        checkId: "brand.genre_positioning",
-        finding: "The homepage does not clearly identify the writing category.",
-        recommendation:
-          "Add the writing category near the main author headline.",
-        practicalActions: [
-          "Update the homepage headline",
-          "Repeat it in the page title",
-        ],
       },
     ],
     scores: [
@@ -84,53 +65,42 @@ test("maps all four deterministic states to author-facing report language", () =
     checks.get("brand.author_name")?.details ?? "",
     /author name presented clearly/i,
   );
-  assert.equal(checks.get("brand.author_name")?.practicalActions.length, 3);
+
+  assert.equal(checks.get("brand.genre_positioning")?.statusLabel, "Failed");
   assert.equal(
-    checks.get("brand.genre_positioning")?.statusLabel,
-    "Needs attention",
+    checks.get("brand.genre_positioning")?.recommendation,
+    "Add a plain-language genre or writing-category phrase near the author name or homepage introduction, such as “historical romance author.” Use the same primary category consistently in relevant headings and metadata without keyword stuffing.",
   );
+
   assert.equal(
     checks.get("brand.homepage_headline")?.statusLabel,
-    "Couldn't verify",
+    "Needs Review",
   );
   assert.match(
     checks.get("brand.homepage_headline")?.recommendation ?? "",
-    /verify this item manually/i,
+    /open the homepage in a signed-out browser and verify/i,
   );
-  assert.equal(
-    checks.get("brand.homepage_headline")?.practicalActions.length,
-    3,
-  );
-  assert.equal(checks.get("brand.about_path")?.statusLabel, "Not applicable");
-  assert.equal(
-    checks.get("brand.genre_positioning")?.recommendation,
-    "Add the writing category near the main author headline.",
-  );
-  assert.deepEqual(checks.get("brand.genre_positioning")?.practicalActions, [
-    "Update the homepage headline",
-    "Repeat it in the page title",
-  ]);
+
   assert.equal(brand.score, 8);
   assert.equal(brand.maxScore, 15);
   assert.deepEqual(brand.counts, {
-    PASS: 1,
-    FAIL: 1,
-    UNKNOWN: 2,
-    NOT_APPLICABLE: 1,
+    PASSED: 1,
+    NEEDS_REVIEW: 3,
+    FAILED: 1,
   });
 });
 
-test("uses an honest unknown fallback for historic reports with missing results", () => {
+test("uses Needs Review for historic reports with missing check results", () => {
   const sections = buildReportAuditSections({
     checkResults: [],
-    findings: [],
     scores: [],
     siteUrl,
   });
   const firstCheck = sections[0].checks[0];
 
-  assert.equal(firstCheck.state, "UNKNOWN");
-  assert.match(firstCheck.details, /not recorded in the saved scan/i);
+  assert.equal(firstCheck.state, "NEEDS_REVIEW");
+  assert.equal(firstCheck.statusLabel, "Needs Review");
+  assert.match(firstCheck.details, /evidence was unavailable or incomplete/i);
 });
 
 test("exposes only safe web evidence links and always includes the analyzed site", () => {
@@ -138,7 +108,7 @@ test("exposes only safe web evidence links and always includes the analyzed site
     checkResults: [
       {
         checkId: "brand.author_name",
-        state: "PASS",
+        state: "PASSED",
         reasonCode: "author_name_visible",
         evidenceReferences: {
           page: "https://author.example/about",
@@ -147,7 +117,6 @@ test("exposes only safe web evidence links and always includes the analyzed site
         },
       },
     ],
-    findings: [],
     scores: [],
     siteUrl,
   });

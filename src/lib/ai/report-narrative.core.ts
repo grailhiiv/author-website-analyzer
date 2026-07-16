@@ -252,13 +252,11 @@ export function buildReportNarrativePrompt(input: ReportNarrativeInput) {
       title: finding.title,
       finding: finding.finding,
       recommendation: finding.recommendation,
-      practicalActions: finding.practicalActions,
       priority: finding.priority,
     })),
     quickWins: input.quickWins.slice(0, 6).map((finding) => ({
       title: finding.title,
       recommendation: finding.recommendation,
-      practicalActions: finding.practicalActions,
     })),
     technicalAudit: input.technicalAudit ?? null,
   };
@@ -267,7 +265,7 @@ export function buildReportNarrativePrompt(input: ReportNarrativeInput) {
     "Return only JSON that matches the requested schema.",
     "Use only the scan facts, deterministic scores, and saved findings below.",
     "Numeric scores are calculated by application code. Do not return, create, or change any score.",
-    "Use the supplied primary recommendations and practical actions. You may clarify their wording for the author, but do not invent unsupported fixes.",
+    "Use the supplied recommendations. You may clarify their wording for the author, but do not invent unsupported fixes.",
     "For categoryCritiques, repeat the provided category label exactly and explain that category only.",
     "Explain missing items only when a provided finding or detected signal supports that statement.",
     "Avoid guaranteed SEO, ranking, traffic, sales, or revenue claims.",

@@ -7,7 +7,6 @@ import {
   CircleHelpIcon,
   ExternalLinkIcon,
   InfoIcon,
-  MinusCircleIcon,
 } from "lucide-react";
 
 import { Button, Card } from "@/components/report/report-ui";
@@ -22,10 +21,9 @@ const statusStyles: Record<
   ReportCheckState,
   { icon: typeof CheckCircle2Icon; className: string }
 > = {
-  PASS: { icon: CheckCircle2Icon, className: "text-success" },
-  FAIL: { icon: AlertCircleIcon, className: "text-error" },
-  UNKNOWN: { icon: CircleHelpIcon, className: "text-warning" },
-  NOT_APPLICABLE: { icon: MinusCircleIcon, className: "text-gray-400" },
+  PASSED: { icon: CheckCircle2Icon, className: "text-success" },
+  NEEDS_REVIEW: { icon: CircleHelpIcon, className: "text-warning" },
+  FAILED: { icon: AlertCircleIcon, className: "text-error" },
 };
 
 function Status({ check }: { check: ReportCheckViewModel }) {
@@ -79,20 +77,6 @@ function InlineTips({ check }: { check: ReportCheckViewModel }) {
   return (
     <div className="mt-4 rounded-xl bg-info-subtle p-4 text-gray-700 dark:bg-gray-800 dark:text-gray-200">
       <p className="text-sm leading-6">{check.recommendation}</p>
-
-      {check.practicalActions.length > 0 ? (
-        <ul className="mt-3 space-y-2">
-          {check.practicalActions.map((action) => (
-            <li key={action} className="flex gap-2 text-sm leading-6">
-              <CheckCircle2Icon
-                className="mt-1 size-4 shrink-0 text-info"
-                aria-hidden="true"
-              />
-              <span>{action}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
     </div>
   );
 }
@@ -277,8 +261,8 @@ export function ReportAuditSections({
       {sections.map((section) => {
         const sectionHeadingId = `audit-section-${section.category.toLowerCase()}`;
         const actionableCheck =
-          section.checks.find((check) => check.state === "FAIL") ??
-          section.checks.find((check) => check.state === "UNKNOWN") ??
+          section.checks.find((check) => check.state === "FAILED") ??
+          section.checks.find((check) => check.state === "NEEDS_REVIEW") ??
           section.checks[0] ??
           null;
         const handleSectionAction = () => {

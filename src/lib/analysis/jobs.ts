@@ -7,6 +7,10 @@ import {
   Prisma,
   ReportStatus,
 } from "@/generated/prisma/client";
+import {
+  getAnalysisErrorMessage,
+  getPublicAnalysisErrorMessage,
+} from "@/lib/analysis/error-messages";
 import { prisma } from "@/lib/db/prisma.core";
 
 import {
@@ -32,14 +36,6 @@ type ProcessAnalysisJobResult =
       nextRunAt?: Date;
     };
 
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-
-  return "The analysis job could not be completed.";
-}
-
 function isUniqueConstraintError(error: unknown) {
   return (
     typeof error === "object" &&
@@ -59,8 +55,8 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
         timeout = setTimeout(() => {
           reject(
             new Error(
-              "The website analysis exceeded the maximum allowed runtime."
-            )
+              "The website analysis exceeded the maximum allowed runtime.",
+            ),
           );
         }, timeoutMs);
       }),
@@ -131,6 +127,7 @@ async function markJobComplete(reportId: string) {
 }
 
 async function markJobFailedOrRetry(reportId: string, message: string) {
+  const publicMessage = getPublicAnalysisErrorMessage(message);
   const job = await prisma.analysisJob.findUnique({
     where: {
       reportId,
@@ -164,7 +161,7 @@ async function markJobFailedOrRetry(reportId: string, message: string) {
         },
         data: {
           status: ReportStatus.FAILED,
-          errorMessage: message,
+          errorMessage: publicMessage,
           completedAt: new Date(),
         },
       }),
@@ -192,7 +189,6 @@ async function markJobFailedOrRetry(reportId: string, message: string) {
         lockedAt: null,
         nextRunAt,
         stage: "QUEUED",
-        progress: 0,
         timingsJson: Prisma.DbNull,
       },
     }),
@@ -202,7 +198,7 @@ async function markJobFailedOrRetry(reportId: string, message: string) {
       },
       data: {
         status: ReportStatus.QUEUED,
-        errorMessage: message,
+        errorMessage: publicMessage,
         completedAt: null,
       },
     }),
@@ -255,7 +251,6 @@ async function claimAnalysisJob(reportId: string) {
       lockedAt: now,
       lastError: null,
       stage: "VALIDATING",
-      progress: 5,
       timingsJson: Prisma.DbNull,
     },
   });
@@ -275,7 +270,7 @@ export async function processAnalysisJob(
   reportId: string,
   options: {
     maxRuntimeMs?: number;
-  } = {}
+  } = {},
 ): Promise<ProcessAnalysisJobResult> {
   const report = await prisma.report.findUnique({
     where: {
@@ -317,7 +312,7 @@ export async function processAnalysisJob(
   try {
     const result = await withTimeout(
       runWebsiteAnalysis(reportId),
-      options.maxRuntimeMs ?? ANALYSIS_JOB_MAX_RUNTIME_MS
+      options.maxRuntimeMs ?? ANALYSIS_JOB_MAX_RUNTIME_MS,
     );
 
     if (!result.ok) {
@@ -332,6 +327,6 @@ export async function processAnalysisJob(
       status: "complete",
     };
   } catch (error) {
-    return await markJobFailedOrRetry(reportId, getErrorMessage(error));
+    return await markJobFailedOrRetry(reportId, getAnalysisErrorMessage(error));
   }
 }

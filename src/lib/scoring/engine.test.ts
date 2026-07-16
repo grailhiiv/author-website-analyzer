@@ -286,10 +286,10 @@ function sparseScoreInput(): ScoringInput {
   });
 }
 
-test("scoreAuthorWebsite preserves the pre-registry strong, sparse, and unknown baselines", () => {
+test("scoreAuthorWebsite preserves the strong, sparse, and Needs Review scoring baselines", () => {
   const strong = scoreAuthorWebsite(scoreInput());
   const sparse = scoreAuthorWebsite(sparseScoreInput());
-  const unknown = scoreAuthorWebsite(
+  const needsReview = scoreAuthorWebsite(
     scoreInput({ technicalAudit: null, visualDesignAnalysis: null }),
   );
   const categoryScores = (result: ReturnType<typeof scoreAuthorWebsite>) =>
@@ -333,18 +333,18 @@ test("scoreAuthorWebsite preserves the pre-registry strong, sparse, and unknown 
   );
   assert.deepEqual(
     {
-      overallScore: unknown.overallScore,
-      categoryScores: categoryScores(unknown),
-      findingCount: unknown.findings.length,
-      unknownCheckCount: unknown.checkResults.filter(
-        (check) => check.state === "unknown",
+      overallScore: needsReview.overallScore,
+      categoryScores: categoryScores(needsReview),
+      findingCount: needsReview.findings.length,
+      needsReviewCheckCount: needsReview.checkResults.filter(
+        (check) => check.state === "needs_review",
       ).length,
     },
     {
       overallScore: 93,
       categoryScores: [15, 20, 15, 15, 6, 7, 10, 5],
       findingCount: 0,
-      unknownCheckCount: 10,
+      needsReviewCheckCount: 10,
     },
   );
 });
@@ -367,7 +367,7 @@ test("scoreAuthorWebsite awards full deterministic scores for a complete author 
   assert.equal(bookScore?.weight, 20);
 });
 
-test("scoreAuthorWebsite treats unavailable PageSpeed metrics as unknown", () => {
+test("scoreAuthorWebsite treats unavailable PageSpeed metrics as Needs Review", () => {
   const result = scoreAuthorWebsite(
     scoreInput({
       technicalAudit: null,
@@ -437,7 +437,7 @@ test("scoreAuthorWebsite records one stable result for every registered check", 
   assert.equal(
     result.checkResults.every(
       (check) =>
-        check.state === "pass" &&
+        check.state === "passed" &&
         check.earnedPoints === check.availablePoints,
     ),
     true,
@@ -463,7 +463,7 @@ test("scoreAuthorWebsite lowers Site Usability for confirmed navigation failure"
   );
 
   assert.equal(siteUsability?.score, 4);
-  assert.equal(check?.state, "fail");
+  assert.equal(check?.state, "failed");
   assert.equal(check?.earnedPoints, 0);
   assert.ok(
     result.findings.some(
@@ -497,7 +497,7 @@ test("scoreAuthorWebsite lowers Mobile Performance for confirmed viewport overfl
     result.checkResults.find(
       (check) => check.checkId === "mobile.viewport_fit",
     )?.state,
-    "fail",
+    "failed",
   );
 });
 
@@ -528,11 +528,11 @@ test("scoreAuthorWebsite lowers Mobile Performance for confirmed low contrast", 
     result.checkResults.find(
       (check) => check.checkId === "mobile.text_contrast",
     )?.state,
-    "fail",
+    "failed",
   );
 });
 
-test("scoreAuthorWebsite treats unavailable rendered evidence as unknown without findings", () => {
+test("scoreAuthorWebsite treats unavailable rendered evidence as Needs Review without findings", () => {
   const result = scoreAuthorWebsite(
     scoreInput({ visualDesignAnalysis: null }),
   );
@@ -549,7 +549,7 @@ test("scoreAuthorWebsite treats unavailable rendered evidence as unknown without
   assert.equal(
     renderedChecks.every(
       (check) =>
-        check.state === "unknown" &&
+        check.state === "needs_review" &&
         check.earnedPoints === check.availablePoints / 2,
     ),
     true,
@@ -582,8 +582,8 @@ test("scoreAuthorWebsite creates findings for every reduced category score", () 
   );
   assert.ok(result.findings.length > 0);
   assert.ok(
-    result.findings.every((finding) => finding.practicalActions.length >= 3),
-    "Every deterministic finding should include several practical actions",
+    result.findings.every((finding) => finding.recommendation.trim().length > 0),
+    "Every deterministic finding should include a recommendation",
   );
   assert.deepEqual(
     new Set(result.findings.map((finding) => finding.category)),

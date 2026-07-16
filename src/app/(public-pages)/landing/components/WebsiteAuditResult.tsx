@@ -1,15 +1,11 @@
-import {
-  AlertCircleIcon,
-  ClockIcon,
-  ExternalLinkIcon,
-} from "lucide-react";
+import { AlertCircleIcon, ClockIcon, ExternalLinkIcon } from "lucide-react";
 
 import {
   FindingSeverity,
   ReportStatus,
   type ReportCategory,
 } from "@/generated/prisma/client";
-import { ReportAuditSections } from "@/components/report/report-audit-sections";
+import { getPublicAnalysisErrorMessage } from "@/lib/analysis/error-messages";
 import { prisma } from "@/lib/db/prisma";
 import {
   reportCategoryDisplay,
@@ -18,27 +14,43 @@ import {
 import {
   getDisplayDomain,
   getReportDomainCandidates,
-  getReportPath,
 } from "@/lib/reports/domain";
+import { buildHomepageAuditPreviewSections } from "@/lib/reports/homepage-audit-preview";
 import { buildReportAuditSections } from "@/lib/reports/report-check-view-model";
 import { ReportStatusPoller } from "@/app/report/[id]/report-status-poller";
-import { UnlockReportForm } from "@/app/report/[id]/unlock-report-form";
+import { HomepageAuditPreviewSections } from "@/app/(public-pages)/landing/components/HomepageAuditPreviewSections";
 import { WebsitePreviewTabs } from "@/app/(public-pages)/landing/components/WebsitePreviewTabs";
-
-import styles from "./WebsiteAuditResult.module.css";
 
 const categoryNavigation: Record<
   ReportCategory,
   { id: string; label: string }
 > = {
   BRAND_CLARITY: { id: "audit-section-brand_clarity", label: "Brand clarity" },
-  BOOK_VISIBILITY: { id: "audit-section-book_visibility", label: "Book visibility" },
-  READER_ENGAGEMENT: { id: "audit-section-reader_engagement", label: "Reader engagement" },
-  SEARCH_VISIBILITY: { id: "audit-section-search_visibility", label: "Search visibility" },
-  MOBILE_PERFORMANCE: { id: "audit-section-mobile_performance", label: "Mobile performance" },
-  TECHNICAL_HEALTH: { id: "audit-section-technical_health", label: "Technical health" },
+  BOOK_VISIBILITY: {
+    id: "audit-section-book_visibility",
+    label: "Book visibility",
+  },
+  READER_ENGAGEMENT: {
+    id: "audit-section-reader_engagement",
+    label: "Reader engagement",
+  },
+  SEARCH_VISIBILITY: {
+    id: "audit-section-search_visibility",
+    label: "Search visibility",
+  },
+  MOBILE_PERFORMANCE: {
+    id: "audit-section-mobile_performance",
+    label: "Mobile performance",
+  },
+  TECHNICAL_HEALTH: {
+    id: "audit-section-technical_health",
+    label: "Technical health",
+  },
   AUTHOR_TRUST: { id: "audit-section-author_trust", label: "Author trust" },
-  SITE_USABILITY: { id: "audit-section-site_usability", label: "Site usability" },
+  SITE_USABILITY: {
+    id: "audit-section-site_usability",
+    label: "Site usability",
+  },
 };
 
 function scoreColor(score: number) {
@@ -71,9 +83,6 @@ export default async function WebsiteAuditResult({
         orderBy: { createdAt: "asc" },
       },
       scores: true,
-      lead: {
-        select: { email: true },
-      },
       analysisJob: {
         select: {
           progress: true,
@@ -111,15 +120,14 @@ export default async function WebsiteAuditResult({
     );
   }
 
-  const reportPath = getReportPath(report.domain);
   const auditSections = buildReportAuditSections({
     checkResults: report.checkResults,
-    findings: report.findings,
     scores: report.scores,
     siteUrl: report.normalizedUrl,
   });
+  const homepageAuditPreviewSections =
+    buildHomepageAuditPreviewSections(auditSections);
   const isComplete = report.status === ReportStatus.COMPLETE;
-  const isUnlocked = Boolean(report.lead?.email);
   const progress = report.analysisJob?.progress ?? 0;
   const stage = report.analysisJob?.stage ?? "QUEUED";
   const highPriorityIssueCount = report.findings.filter(
@@ -236,7 +244,6 @@ export default async function WebsiteAuditResult({
               </ul>
             </nav>
           )}
-
         </div>
 
         {!isComplete ? (
@@ -252,8 +259,9 @@ export default async function WebsiteAuditResult({
                     We could not complete this scan
                   </h3>
                   <p className="mt-2 leading-7 text-gray-600 dark:text-gray-300">
-                    {report.errorMessage ??
-                      "The website may be unavailable or blocking inspection. Please check the URL and try again."}
+                    {report.errorMessage
+                      ? getPublicAnalysisErrorMessage(report.errorMessage)
+                      : "The website may be unavailable or blocking inspection. Please check the URL and try again."}
                   </p>
                 </div>
               </div>
@@ -327,10 +335,9 @@ export default async function WebsiteAuditResult({
                       A clear starting point for improving {report.domain}
                     </h3>
                     <p className="mt-3 max-w-3xl leading-7 text-gray-600 dark:text-gray-300">
-                      The overall score brings eight author-focused checks
-                      together. Each check appears as its own report module
-                      below so strengths, risks, and next priorities are easier
-                      to review.
+                      The overall score brings eight author-focused audit areas
+                      together. Each module below previews the most useful
+                      checks; the full audit page contains every check.
                     </p>
                     <div className="mt-6 grid max-w-2xl grid-cols-2 gap-4 sm:grid-cols-3">
                       <div className="rounded-xl bg-gray-50 px-4 py-3 dark:bg-gray-700">
@@ -371,49 +378,10 @@ export default async function WebsiteAuditResult({
             </div>
 
             <div className="border-t border-gray-200 py-10 dark:border-gray-800">
-              <ReportAuditSections sections={auditSections} />
+              <HomepageAuditPreviewSections
+                sections={homepageAuditPreviewSections}
+              />
             </div>
-
-            <div
-              id="report-unlock"
-              className={`${styles.unlockPanel} overflow-hidden rounded-[2rem] px-6 py-16 sm:px-10 sm:py-20 lg:px-16 lg:py-24`}
-            >
-              {isUnlocked ? (
-                <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
-                  <div>
-                    <h3 className="font-heading text-3xl font-semibold tracking-tight text-gray-950 sm:text-4xl dark:text-white">
-                      Your full report is ready
-                    </h3>
-                    <p className="mt-4 text-base leading-7 text-gray-600 dark:text-gray-300">
-                      Open the complete findings and prioritized recommendations
-                      for {report.domain}.
-                    </p>
-                  </div>
-                  <a
-                    href={reportPath}
-                    className="mt-8 inline-flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-7 font-semibold text-white shadow-lg shadow-blue-700/15 transition duration-200 hover:-translate-y-0.5 hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 active:translate-y-0"
-                  >
-                    View full report
-                  </a>
-                </div>
-              ) : (
-                <div className="mx-auto max-w-4xl text-center">
-                  <div className="mx-auto max-w-2xl">
-                    <h3 className="font-heading text-3xl font-semibold tracking-tight text-gray-950 sm:text-4xl lg:text-5xl dark:text-white">
-                      Unlock the complete author website report
-                    </h3>
-                    <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-gray-600 sm:text-lg dark:text-gray-300">
-                      Enter your email to see every finding, explanation, and
-                      prioritized recommendation.
-                    </p>
-                  </div>
-                  <div className="mt-9 text-left sm:mt-10">
-                    <UnlockReportForm reportId={report.id} />
-                  </div>
-                </div>
-              )}
-            </div>
-
           </>
         )}
       </div>

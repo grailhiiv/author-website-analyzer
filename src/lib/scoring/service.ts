@@ -84,7 +84,6 @@ export async function scoreAndSaveReport(reportId: string) {
         title: finding.title,
         finding: finding.finding,
         recommendation: finding.recommendation,
-        practicalActions: finding.practicalActions,
         priority: finding.priority,
         checkId: finding.checkId,
         origin: FindingOrigin.DETERMINISTIC_SCORE,

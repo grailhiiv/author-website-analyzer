@@ -16,6 +16,7 @@
     "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "crawler:test": "tsx scripts/run-crawler.ts",
     "benchmark:analyzer": "tsx scripts/run-analyzer-benchmark.ts",
+    "generate:audit-status-content": "node scripts/generate-audit-status-content.mjs",
     "validate:live-sites": "tsx scripts/run-live-site-validation.ts",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",

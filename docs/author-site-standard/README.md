@@ -47,7 +47,7 @@ A detector can mark a practice absent only when all of the following are true:
 3. the detector examined the evidence sources required by the check; and
 4. no accepted alternative satisfied the practice.
 
-Otherwise the result is `unknown` or `not_applicable`, not a failure. The current scoring model supports pass, fail, and unknown; adding `not_applicable` to numeric scoring is a product and engine decision, not an assumption made by this document.
+Otherwise the scored audit check becomes `Needs Review`, not `Failed`. Lower-level detector diagnostics may retain an evidence-limitation reason, but every active audit check exposed by the application resolves only to Passed, Needs Review, or Failed.
 
 ## Page roles
 
@@ -82,7 +82,6 @@ The following must remain explicit until approved:
 
 - **Reader magnets:** the current recommendation says to offer one when it fits the author's goals and genre, but the app intentionally does not collect goals and the current engine scores detection. A deterministic applicability rule or an advisory-only treatment is needed.
 - **Media kits:** a press kit is valuable for authors seeking press, speaking, interviews, or events, but it is not universal. The current engine scores it; the future rule needs deterministic applicability or advisory-only treatment.
-- **Not-applicable scoring:** the implemented score has pass, fail, and unknown. Whether conditional checks should be excluded from available points requires a deliberate formula and migration decision.
 
 ## Change discipline
 
@@ -91,8 +90,8 @@ Every new or changed scored practice should include:
 1. a stable check ID;
 2. requirement level and deterministic applicability;
 3. accepted positive evidence and accepted alternatives;
-4. rules for absent, unknown, and false-positive cases;
-5. category, points, severity, recommendation, and practical actions;
+4. rules for absence, incomplete evidence, and false-positive cases;
+5. category, points, severity, and recommendation;
 6. positive, negative, ambiguous, and regression fixtures;
 7. a standard version and changelog entry; and
 8. a calibration review against a representative author-site corpus.

@@ -2,13 +2,11 @@ import {
   AlertCircleIcon,
   DownloadIcon,
   ExternalLinkIcon,
-  ClockIcon,
-  Loader2Icon,
   MonitorIcon,
   PaletteIcon,
   SmartphoneIcon,
 } from "lucide-react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { GridSection } from "@/components/layout/grid-section";
 import { PageHeader } from "@/components/layout/page-header";
@@ -27,19 +25,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/report/report-ui";
-import { Progress, Skeleton } from "@/components/report/report-ui";
+import { Progress } from "@/components/report/report-ui";
 import EcmeProgress from "@/components/ui/Progress";
-import {
-  FindingSeverity,
-  ReportStatus,
-} from "@/generated/prisma/client";
-import {
-  getAnalysisStageLabel,
-  normalizeAnalysisProgress,
-} from "@/lib/analysis/progress.core";
+import { FindingSeverity, ReportStatus } from "@/generated/prisma/client";
+import { getPublicAnalysisErrorMessage } from "@/lib/analysis/error-messages";
 import { prisma } from "@/lib/db/prisma";
 import {
   getDisplayDomain,
+  getHomepageReportPath,
   getReportPath,
   normalizeReportDomain,
 } from "@/lib/reports/domain";
@@ -57,7 +50,6 @@ import {
   type VisualViewportVariant,
 } from "@/lib/screenshots/visual-design";
 
-import { ReportStatusPoller } from "./report-status-poller";
 import { UnlockReportForm } from "./unlock-report-form";
 
 const statusLabels: Record<ReportStatus, string> = {
@@ -248,7 +240,7 @@ function performanceSummary(
 
   if (mobilePerformance !== null && desktopPerformance !== null) {
     if (desktopPerformance - mobilePerformance >= 15) {
-      return `Mobile speed needs the most attention: ${mobilePerformance}/100 compared with ${desktopPerformance}/100 on desktop.`;
+      return `Mobile speed is furthest below target: ${mobilePerformance}/100 compared with ${desktopPerformance}/100 on desktop.`;
     }
 
     return `Homepage performance scored ${mobilePerformance}/100 on mobile and ${desktopPerformance}/100 on desktop.`;
@@ -271,7 +263,7 @@ function consolidateVisualObservations(
   const groups = new Map<string, VisualDesignObservation[]>();
 
   observations
-    .filter((observation) => observation.status === "needs_review")
+    .filter((observation) => observation.status === "failed")
     .forEach((observation) => {
       const existing = groups.get(observation.id) ?? [];
       existing.push(observation);
@@ -312,17 +304,21 @@ export default async function ReportPage({
       },
       technicalAudit: true,
       lead: true,
-      analysisJob: {
-        select: {
-          progress: true,
-          stage: true,
-        },
-      },
     },
   });
 
   if (!report) {
     notFound();
+  }
+
+  const isFullReportUnlocked = Boolean(report.lead?.email);
+  const pageState = getReportPageState({
+    status: report.status,
+    hasLeadEmail: isFullReportUnlocked,
+  });
+
+  if (pageState.redirectToHomepage) {
+    redirect(getHomepageReportPath(report.domain));
   }
 
   const scoresByCategory = new Map(
@@ -350,14 +346,8 @@ export default async function ReportPage({
   const previewQuickWins = quickWins.slice(0, 1);
   const auditSections = buildReportAuditSections({
     checkResults: report.checkResults,
-    findings: report.findings,
     scores: report.scores,
     siteUrl: report.normalizedUrl,
-  });
-  const isFullReportUnlocked = Boolean(report.lead?.email);
-  const pageState = getReportPageState({
-    status: report.status,
-    hasLeadEmail: isFullReportUnlocked,
   });
   const weakestLabel = weakestScore
     ? reportCategoryDisplay[weakestScore.category].title
@@ -404,15 +394,6 @@ export default async function ReportPage({
           }
         />
 
-        {pageState.showAnalyzingState ? (
-          <ReportStatusPoller
-            progress={report.analysisJob?.progress ?? 0}
-            reportId={report.id}
-            stage={report.analysisJob?.stage ?? "QUEUED"}
-            status={report.status}
-          />
-        ) : null}
-
         {!pageState.showFullReport ? (
           <div className="mb-6 grid gap-3 md:grid-cols-2">
             <Card size="sm">
@@ -440,15 +421,6 @@ export default async function ReportPage({
               </CardHeader>
             </Card>
           </div>
-        ) : null}
-
-        {pageState.showAnalyzingState ? (
-          <AnalyzingReport
-            progress={report.analysisJob?.progress ?? 0}
-            stage={report.analysisJob?.stage ?? "QUEUED"}
-            url={report.normalizedUrl}
-            status={report.status}
-          />
         ) : null}
 
         {pageState.showFailedState ? (
@@ -618,8 +590,8 @@ export default async function ReportPage({
                   <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
                     The preview above gives you the score, category breakdown,
                     top problem, and one quick win. The full report adds every
-                    finding, a prioritized action plan, performance results, and
-                    design evidence.
+                    finding, prioritized recommendations, performance results,
+                    and design evidence.
                   </p>
                   <UnlockReportForm reportId={report.id} />
                 </CardContent>
@@ -796,7 +768,6 @@ export default async function ReportPage({
                     </CardContent>
                   </Card>
                 ) : null}
-
               </>
             ) : null}
           </div>
@@ -857,68 +828,6 @@ function TechnicalMetricGrid({
   );
 }
 
-function AnalyzingReport({
-  progress,
-  stage,
-  url,
-  status,
-}: {
-  progress: number;
-  stage: string;
-  url: string;
-  status: ReportStatus;
-}) {
-  const normalizedProgress = normalizeAnalysisProgress(progress);
-  const stageLabel = getAnalysisStageLabel(stage);
-
-  return (
-    <div className="flex flex-col gap-6" aria-live="polite">
-      <Alert>
-        {status === ReportStatus.RUNNING ? (
-          <Loader2Icon data-icon="inline-start" className="animate-spin" />
-        ) : (
-          <ClockIcon data-icon="inline-start" />
-        )}
-        <AlertTitle>We&apos;re analyzing your author website.</AlertTitle>
-        <AlertDescription>
-          {stageLabel}. {normalizedProgress}% complete.
-        </AlertDescription>
-      </Alert>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Analysis in progress</CardTitle>
-          <CardDescription className="break-all">{url}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-4 text-sm">
-              <span className="font-medium text-foreground">{stageLabel}</span>
-              <span className="tabular-nums text-muted-foreground">
-                {normalizedProgress}%
-              </span>
-            </div>
-            <Progress value={normalizedProgress} />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <div
-                key={index}
-                className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-muted/20 p-4"
-              >
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-8 w-1/2" />
-                <Skeleton className="h-2 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 function FailedReport({ errorMessage }: { errorMessage: string | null }) {
   return (
     <Card>
@@ -934,8 +843,9 @@ function FailedReport({ errorMessage }: { errorMessage: string | null }) {
           <AlertCircleIcon data-icon="inline-start" />
           <AlertTitle>Analysis failed</AlertTitle>
           <AlertDescription>
-            {errorMessage ??
-              "The scan did not complete. Please try another website."}
+            {errorMessage
+              ? getPublicAnalysisErrorMessage(errorMessage)
+              : "The scan did not complete. Please try another website."}
           </AlertDescription>
         </Alert>
       </CardContent>

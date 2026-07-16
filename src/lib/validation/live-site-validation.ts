@@ -54,7 +54,6 @@ const outcomeStates = [
   "present",
   "absent",
   "unknown",
-  "not_applicable",
   "conflicting",
 ] as const satisfies readonly AnalyzerSignalResolution["state"][];
 
