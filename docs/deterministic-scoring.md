@@ -63,6 +63,8 @@ The category rules consume deterministic evidence saved by the scan, including:
 
 Failed checks create findings with a fixed category, severity, priority, primary recommendation, and several concrete practical actions. The primary recommendation states what to improve; its practical actions explain how to begin. Both are deterministic rule content and are saved with the report, so they do not depend on AI availability. Numeric scores are based only on observable website evidence. Author type and website goal do not change the score.
 
+Passed checks display fixed check-specific confirmation details, a maintenance recommendation, and practical tips. Unknown checks display fixed reason-aware evidence limitations, a manual-verification recommendation, and practical actions. This status guidance is selected from the registered check ID and result state, remains independent of AI, and does not alter points, applicability, or finding creation.
+
 AI receives these saved recommendations and actions as constrained source material. It may make the explanation more author-friendly or select the most relevant supplied action, but it cannot create a failed check, change its score, or replace the deterministic fallback.
 
 PageSpeed data is divided by module rather than scored twice:

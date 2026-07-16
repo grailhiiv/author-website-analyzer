@@ -2,7 +2,6 @@ import {
   AlertCircleIcon,
   ClockIcon,
   ExternalLinkIcon,
-  LockIcon,
 } from "lucide-react";
 
 import {
@@ -10,12 +9,18 @@ import {
   ReportStatus,
   type ReportCategory,
 } from "@/generated/prisma/client";
+import { ReportAuditSections } from "@/components/report/report-audit-sections";
 import { prisma } from "@/lib/db/prisma";
 import {
   reportCategoryDisplay,
   reportCategoryOrder,
 } from "@/lib/reports/category-display";
-import { getDisplayDomain, getReportPath } from "@/lib/reports/domain";
+import {
+  getDisplayDomain,
+  getReportDomainCandidates,
+  getReportPath,
+} from "@/lib/reports/domain";
+import { buildReportAuditSections } from "@/lib/reports/report-check-view-model";
 import { ReportStatusPoller } from "@/app/report/[id]/report-status-poller";
 import { UnlockReportForm } from "@/app/report/[id]/unlock-report-form";
 import { WebsitePreviewTabs } from "@/app/(public-pages)/landing/components/WebsitePreviewTabs";
@@ -26,38 +31,15 @@ const categoryNavigation: Record<
   ReportCategory,
   { id: string; label: string }
 > = {
-  BRAND_CLARITY: { id: "brand-clarity", label: "Brand clarity" },
-  BOOK_VISIBILITY: { id: "book-visibility", label: "Book visibility" },
-  READER_ENGAGEMENT: {
-    id: "reader-engagement",
-    label: "Reader engagement",
-  },
-  SEARCH_VISIBILITY: {
-    id: "search-visibility",
-    label: "Search visibility",
-  },
-  MOBILE_PERFORMANCE: {
-    id: "mobile-performance",
-    label: "Mobile performance",
-  },
-  TECHNICAL_HEALTH: {
-    id: "technical-health",
-    label: "Technical health",
-  },
-  AUTHOR_TRUST: {
-    id: "author-trust",
-    label: "Author trust",
-  },
-  SITE_USABILITY: {
-    id: "site-usability",
-    label: "Site usability",
-  },
+  BRAND_CLARITY: { id: "audit-section-brand_clarity", label: "Brand clarity" },
+  BOOK_VISIBILITY: { id: "audit-section-book_visibility", label: "Book visibility" },
+  READER_ENGAGEMENT: { id: "audit-section-reader_engagement", label: "Reader engagement" },
+  SEARCH_VISIBILITY: { id: "audit-section-search_visibility", label: "Search visibility" },
+  MOBILE_PERFORMANCE: { id: "audit-section-mobile_performance", label: "Mobile performance" },
+  TECHNICAL_HEALTH: { id: "audit-section-technical_health", label: "Technical health" },
+  AUTHOR_TRUST: { id: "audit-section-author_trust", label: "Author trust" },
+  SITE_USABILITY: { id: "audit-section-site_usability", label: "Site usability" },
 };
-
-const wideCategories = new Set<ReportCategory>([
-  "BRAND_CLARITY",
-  "SEARCH_VISIBILITY",
-]);
 
 function scoreColor(score: number) {
   if (score >= 80) return "#16a34a";
@@ -79,11 +61,14 @@ export default async function WebsiteAuditResult({
   domain: string;
 }) {
   const report = await prisma.report.findFirst({
-    where: { domain },
+    where: { domain: { in: getReportDomainCandidates(domain) } },
     orderBy: { createdAt: "desc" },
     include: {
       findings: {
         orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+      },
+      checkResults: {
+        orderBy: { createdAt: "asc" },
       },
       scores: true,
       lead: {
@@ -126,14 +111,13 @@ export default async function WebsiteAuditResult({
     );
   }
 
-  const findingsByCategory = new Map<ReportCategory, number>();
-  report.findings.forEach((finding) => {
-    findingsByCategory.set(
-      finding.category,
-      (findingsByCategory.get(finding.category) ?? 0) + 1,
-    );
-  });
   const reportPath = getReportPath(report.domain);
+  const auditSections = buildReportAuditSections({
+    checkResults: report.checkResults,
+    findings: report.findings,
+    scores: report.scores,
+    siteUrl: report.normalizedUrl,
+  });
   const isComplete = report.status === ReportStatus.COMPLETE;
   const isUnlocked = Boolean(report.lead?.email);
   const progress = report.analysisJob?.progress ?? 0;
@@ -249,17 +233,10 @@ export default async function WebsiteAuditResult({
                     </a>
                   </li>
                 ))}
-                <li>
-                  <a
-                    href="#issues-and-recommendations"
-                    className="inline-flex min-h-9 items-center rounded-full border border-gray-300 px-3.5 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:border-blue-500 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-700 dark:text-gray-200 dark:hover:border-blue-500 dark:hover:bg-blue-950/40 dark:hover:text-blue-300"
-                  >
-                    Recommendations
-                  </a>
-                </li>
               </ul>
             </nav>
           )}
+
         </div>
 
         {!isComplete ? (
@@ -318,7 +295,7 @@ export default async function WebsiteAuditResult({
                     opportunities surfaced first.
                   </p>
                 </div>
-                <div className="grid gap-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[190px_minmax(0,1fr)_340px] xl:gap-7">
+                <div className="grid min-w-0 gap-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[190px_minmax(0,1fr)_340px] xl:gap-7">
                   <div className="flex flex-col items-center justify-center text-center lg:border-r lg:border-gray-200 lg:pr-8 dark:lg:border-gray-800">
                     <div
                       className="grid size-40 place-items-center rounded-full p-3"
@@ -342,11 +319,11 @@ export default async function WebsiteAuditResult({
                     </p>
                   </div>
 
-                  <div className="flex flex-col justify-center">
+                  <div className="min-w-0 flex flex-col justify-center">
                     <p className="text-sm font-semibold uppercase tracking-[0.16em] text-gray-400">
                       Scan overview
                     </p>
-                    <h3 className="mt-2 text-2xl font-semibold text-gray-950 dark:text-white">
+                    <h3 className="mt-2 break-words text-2xl font-semibold text-gray-950 [overflow-wrap:anywhere] dark:text-white">
                       A clear starting point for improving {report.domain}
                     </h3>
                     <p className="mt-3 max-w-3xl leading-7 text-gray-600 dark:text-gray-300">
@@ -382,7 +359,7 @@ export default async function WebsiteAuditResult({
                       </div>
                     </div>
                   </div>
-                  <div className="lg:col-span-2 xl:col-span-1">
+                  <div className="min-w-0 lg:col-span-2 xl:col-span-1">
                     <WebsitePreviewTabs
                       desktopScreenshotUrl={desktopScreenshotUrl}
                       domain={report.domain}
@@ -393,100 +370,12 @@ export default async function WebsiteAuditResult({
               </article>
             </div>
 
-            <div className="grid gap-6 py-10 lg:grid-cols-2">
-              {reportCategoryOrder.map((category) => {
-                const findingCount = findingsByCategory.get(category) ?? 0;
-
-                return (
-                  <article
-                    key={category}
-                    id={categoryNavigation[category].id}
-                    className={`scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6 sm:p-7 dark:border-gray-700 dark:bg-gray-800 ${
-                      wideCategories.has(category) ? "lg:col-span-2" : ""
-                    }`}
-                  >
-                    <h3 className="text-xl font-semibold text-gray-950 sm:text-2xl dark:text-white">
-                      {reportCategoryDisplay[category].title}
-                    </h3>
-                    <p className="mt-3 max-w-4xl leading-7 text-gray-600 dark:text-gray-300">
-                      {reportCategoryDisplay[category].description}
-                    </p>
-
-                    <div className="mt-6 flex flex-col gap-3 border-t border-gray-100 pt-5 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
-                      <span className="font-medium text-gray-700 dark:text-gray-200">
-                        {findingCount} {findingCount === 1 ? "item" : "items"}{" "}
-                        flagged in this module
-                      </span>
-                      <span className="inline-flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                        <LockIcon className="size-4" aria-hidden="true" />
-                        Detailed recommendations in the full report
-                      </span>
-                    </div>
-                  </article>
-                );
-              })}
+            <div className="border-t border-gray-200 py-10 dark:border-gray-800">
+              <ReportAuditSections sections={auditSections} />
             </div>
 
             <div
-              id="issues-and-recommendations"
-              className="scroll-mt-24 border-t border-gray-200 py-10 dark:border-gray-800"
-            >
-              <div className="mb-6 max-w-3xl">
-                <h3 className="text-2xl font-semibold text-gray-950 dark:text-white">
-                  Recommendations
-                </h3>
-                <p className="mt-2 leading-7 text-gray-600 dark:text-gray-300">
-                  This section highlights the most important improvements your
-                  author website needs, with clear action steps to strengthen
-                  your brand, engage readers, and support book sales.
-                </p>
-              </div>
-              <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800">
-                {report.findings.slice(0, 3).map((finding, index) => (
-                  <div
-                    key={finding.id}
-                    className="grid gap-3 border-b border-gray-200 px-5 py-5 last:border-b-0 md:grid-cols-[36px_220px_1fr] md:items-start md:px-6 dark:border-gray-800"
-                  >
-                    {index === 0 ? (
-                      <AlertCircleIcon
-                        className="mt-0.5 size-5 text-amber-500"
-                        aria-hidden="true"
-                      />
-                    ) : (
-                      <LockIcon
-                        className="mt-0.5 size-5 text-gray-400"
-                        aria-hidden="true"
-                      />
-                    )}
-                    <div>
-                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                        Priority {index + 1}
-                      </span>
-                      <p className="mt-1 font-semibold text-gray-950 dark:text-white">
-                        {finding.title}
-                      </p>
-                    </div>
-                    <div className="grid gap-3 text-sm leading-6 text-gray-600 sm:grid-cols-2 dark:text-gray-300">
-                      {index === 0 ? (
-                        <>
-                          <p>{finding.finding}</p>
-                          <p className="font-medium text-gray-800 dark:text-gray-100">
-                            {finding.recommendation}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-gray-500 sm:col-span-2 dark:text-gray-400">
-                          Unlock the full report to view this finding and its
-                          recommendation.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div
+              id="report-unlock"
               className={`${styles.unlockPanel} overflow-hidden rounded-[2rem] px-6 py-16 sm:px-10 sm:py-20 lg:px-16 lg:py-24`}
             >
               {isUnlocked ? (

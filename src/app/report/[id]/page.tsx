@@ -1,6 +1,5 @@
 import {
   AlertCircleIcon,
-  CheckCircle2Icon,
   DownloadIcon,
   ExternalLinkIcon,
   ClockIcon,
@@ -13,12 +12,7 @@ import { notFound } from "next/navigation";
 
 import { GridSection } from "@/components/layout/grid-section";
 import { PageHeader } from "@/components/layout/page-header";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/report/report-accordion";
+import { ReportAuditSections } from "@/components/report/report-audit-sections";
 import {
   Alert,
   AlertDescription,
@@ -37,10 +31,8 @@ import { Progress, Skeleton } from "@/components/report/report-ui";
 import EcmeProgress from "@/components/ui/Progress";
 import {
   FindingSeverity,
-  ReportCategory,
   ReportStatus,
 } from "@/generated/prisma/client";
-import { parseSerializedReportNarrative } from "@/lib/ai/report-narrative.core";
 import {
   getAnalysisStageLabel,
   normalizeAnalysisProgress,
@@ -56,17 +48,14 @@ import {
   reportCategoryOrder,
 } from "@/lib/reports/category-display";
 import { getReportPageState } from "@/lib/reports/report-page-state";
-import { parsePracticalActions } from "@/lib/reports/practical-actions";
+import { buildReportAuditSections } from "@/lib/reports/report-check-view-model";
 import {
   getVisualDesignAnalysis,
-  visualDesignManualReviewPrompts,
   visualDesignPillarLabels,
   type VisualDesignObservation,
   type VisualDesignPillar,
   type VisualViewportVariant,
 } from "@/lib/screenshots/visual-design";
-import type { ReportNarrative } from "@/lib/ai/report-narrative.core";
-import type { ServiceFitLabel } from "@/lib/scoring/engine";
 
 import { ReportStatusPoller } from "./report-status-poller";
 import { UnlockReportForm } from "./unlock-report-form";
@@ -90,33 +79,6 @@ const visualDesignPillars: VisualDesignPillar[] = [
   "ui_ux",
   "conversion_design",
 ];
-
-function PracticalActions({
-  actions,
-  label = "Practical actions",
-  limit,
-}: {
-  actions: unknown;
-  label?: string;
-  limit?: number;
-}) {
-  const items = parsePracticalActions(actions).slice(0, limit);
-
-  if (items.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="mt-3">
-      <p className="text-sm font-medium">{label}</p>
-      <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-muted-foreground">
-        {items.map((action) => (
-          <li key={action}>{action}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
 
 function statusVariant(status: ReportStatus) {
   if (status === ReportStatus.COMPLETE) {
@@ -151,16 +113,6 @@ function scorePercent(score: number, maxScore: number) {
   }
 
   return Math.round((score / maxScore) * 100);
-}
-
-function getLighthouseSource(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-
-  const source = (value as { source?: unknown }).source;
-
-  return typeof source === "string" ? source : null;
 }
 
 function scoreInterpretation(score: number | null, weakestLabel?: string) {
@@ -252,144 +204,6 @@ function selectQuickWins<
         a.title.localeCompare(b.title),
     )
     .slice(0, 5);
-}
-
-function extractServiceFitFromNarrative(
-  narrative: ReportNarrative | null,
-): ServiceFitLabel | null {
-  if (!narrative) {
-    return null;
-  }
-
-  const labels: ServiceFitLabel[] = [
-    "Website redesign",
-    "Website management",
-    "SEO improvement",
-    "Newsletter setup",
-    "New author website",
-    "Website optimization",
-  ];
-
-  return (
-    labels.find((label) =>
-      narrative.finalRecommendation.toLowerCase().includes(label.toLowerCase()),
-    ) ?? null
-  );
-}
-
-function deriveServiceFitLabel(
-  scoresByCategory: Map<ReportCategory, { score: number; maxScore: number }>,
-): ServiceFitLabel {
-  const scoreFor = (category: ReportCategory) => {
-    const score = scoresByCategory.get(category);
-
-    return score ? scorePercent(score.score, score.maxScore) : 0;
-  };
-  const brand = scoreFor(ReportCategory.BRAND_CLARITY);
-  const book = scoreFor(ReportCategory.BOOK_VISIBILITY);
-  const newsletter = scoreFor(ReportCategory.READER_ENGAGEMENT);
-  const seo = scoreFor(ReportCategory.SEARCH_VISIBILITY);
-  const technical = scoreFor(ReportCategory.TECHNICAL_HEALTH);
-  const lowCategoryCount = [...scoresByCategory.values()].filter(
-    (score) => scorePercent(score.score, score.maxScore) < 60,
-  ).length;
-
-  if (lowCategoryCount >= 5) {
-    return "New author website";
-  }
-
-  if (book < 60 && brand < 60) {
-    return "Website redesign";
-  }
-
-  if (technical < 60) {
-    return "Website management";
-  }
-
-  if (seo < 60 && brand >= 70) {
-    return "SEO improvement";
-  }
-
-  if (newsletter < 60) {
-    return "Newsletter setup";
-  }
-
-  return "Website optimization";
-}
-
-function findNarrativeCategoryCritique(
-  narrative: ReportNarrative | null,
-  labels: readonly string[],
-) {
-  return narrative?.categoryCritiques.find((critique) =>
-    labels.some(
-      (label) => critique.category.toLowerCase() === label.toLowerCase(),
-    ),
-  );
-}
-
-function deterministicSummary({
-  overallScore,
-  strongestLabel,
-  weakestLabel,
-  topFindingTitle,
-}: {
-  overallScore: number | null;
-  strongestLabel?: string;
-  weakestLabel?: string;
-  topFindingTitle?: string;
-}) {
-  const parts: string[] = [];
-
-  if (overallScore !== null) {
-    parts.push(`Your website scores ${overallScore}/100.`);
-  }
-
-  if (strongestLabel) {
-    parts.push(`It performs best in ${strongestLabel.toLowerCase()}.`);
-  }
-
-  if (weakestLabel) {
-    parts.push(`The clearest opportunity is ${weakestLabel.toLowerCase()}.`);
-  }
-
-  if (topFindingTitle) {
-    parts.push(`Start by addressing ${topFindingTitle.toLowerCase()}.`);
-  }
-
-  return parts.join(" ");
-}
-
-function actionPlanTitle(checkId: string | null | undefined, fallback: string) {
-  const titles: Record<string, string> = {
-    "usability.primary_navigation": "Make navigation work on every screen",
-    "mobile.pagespeed_performance": "Speed up the homepage on mobile",
-    "engagement.reader_magnet": "Give readers a reason to subscribe",
-    "engagement.subscriber_benefit":
-      "Explain what newsletter subscribers will receive",
-    "mobile.image_alt_text": "Add alt text to important images",
-  };
-
-  return (checkId ? titles[checkId] : undefined) ?? fallback;
-}
-
-function ctaForServiceFit(serviceFitLabel: ServiceFitLabel) {
-  const descriptions: Record<ServiceFitLabel, string> = {
-    "Website redesign":
-      "Turn the findings into a clearer website structure, stronger visual hierarchy, and a more useful path for readers.",
-    "Website management":
-      "Get ongoing help prioritizing updates, maintaining the website, and improving it over time.",
-    "SEO improvement":
-      "Use the search findings to improve how readers discover the author and books through search.",
-    "Newsletter setup":
-      "Build a clearer signup path and give readers a stronger reason to join the author newsletter.",
-    "New author website":
-      "Use the report as a practical brief for an author website built around books, readers, and long-term growth.",
-    "Website optimization":
-      "Work through the highest-impact fixes first, then refine the website’s speed, clarity, and reader journey.",
-  };
-
-  return descriptions[serviceFitLabel];
 }
 
 function visualObservationTitle(title: string) {
@@ -493,6 +307,9 @@ export default async function ReportPage({
         orderBy: { createdAt: "asc" },
       },
       scores: true,
+      checkResults: {
+        orderBy: { createdAt: "asc" },
+      },
       technicalAudit: true,
       lead: true,
       analysisJob: {
@@ -523,22 +340,20 @@ export default async function ReportPage({
     },
     [],
   );
-  const strongestScore = [...orderedScores].sort(
-    (a, b) =>
-      scorePercent(b.score, b.maxScore) - scorePercent(a.score, a.maxScore) ||
-      a.category.localeCompare(b.category),
-  )[0];
   const weakestScore = [...orderedScores].sort(
     (a, b) =>
       scorePercent(a.score, a.maxScore) - scorePercent(b.score, b.maxScore) ||
       a.category.localeCompare(b.category),
   )[0];
-  const priorityFindings = report.findings.slice(0, 3);
   const quickWins = selectQuickWins(report.findings);
   const previewFindings = report.findings.slice(0, 1);
   const previewQuickWins = quickWins.slice(0, 1);
-  const serializedNarrative = parseSerializedReportNarrative(report.summary);
-  const narrative = serializedNarrative?.narrative ?? null;
+  const auditSections = buildReportAuditSections({
+    checkResults: report.checkResults,
+    findings: report.findings,
+    scores: report.scores,
+    siteUrl: report.normalizedUrl,
+  });
   const isFullReportUnlocked = Boolean(report.lead?.email);
   const pageState = getReportPageState({
     status: report.status,
@@ -547,34 +362,12 @@ export default async function ReportPage({
   const weakestLabel = weakestScore
     ? reportCategoryDisplay[weakestScore.category].title
     : undefined;
-  const executiveSummary = deterministicSummary({
-    overallScore: report.overallScore,
-    strongestLabel: strongestScore
-      ? reportCategoryDisplay[strongestScore.category].title
-      : undefined,
-    weakestLabel,
-    topFindingTitle: priorityFindings[0]
-      ? actionPlanTitle(priorityFindings[0].checkId, priorityFindings[0].title)
-      : undefined,
-  });
   const interpretation = scoreInterpretation(report.overallScore, weakestLabel);
   const reportDate = report.completedAt ?? report.createdAt;
   const visualDesignAnalysis = getVisualDesignAnalysis(report.crawlDiagnostics);
   const consolidatedVisualObservations = visualDesignAnalysis
     ? consolidateVisualObservations(visualDesignAnalysis.observations)
     : [];
-  const serviceFitLabel =
-    extractServiceFitFromNarrative(narrative) ??
-    deriveServiceFitLabel(scoresByCategory);
-  const successfulPages = report.pagesScanned.filter(
-    (page) =>
-      page.statusCode && page.statusCode >= 200 && page.statusCode < 400,
-  );
-  const totalWordCount = report.pagesScanned.reduce(
-    (total, page) => total + (page.wordCount ?? 0),
-    0,
-  );
-
   return (
     <GridSection>
       <div className="py-8 sm:py-10 lg:py-12">
@@ -809,7 +602,11 @@ export default async function ReportPage({
             ) : null}
 
             {pageState.showEmailGate ? (
-              <Card>
+              <ReportAuditSections sections={auditSections} />
+            ) : null}
+
+            {pageState.showEmailGate ? (
+              <Card id="report-unlock">
                 <CardHeader>
                   <CardTitle>Want the full author website critique?</CardTitle>
                   <CardDescription>
@@ -831,183 +628,10 @@ export default async function ReportPage({
 
             {pageState.showFullReport ? (
               <>
-                <Card bodyClass="flex flex-col gap-5 p-6 lg:p-8">
-                  <CardHeader>
-                    <CardTitle className="text-xl tracking-tight">
-                      What to focus on first
-                    </CardTitle>
-                    <CardDescription>
-                      The clearest strengths and the best place to begin.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="max-w-4xl text-sm leading-6 text-muted-foreground">
-                      {executiveSummary ||
-                        "No summary has been saved for this report yet."}
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card bodyClass="flex flex-col gap-5 p-6 lg:p-8">
-                  <CardHeader>
-                    <CardTitle className="text-xl tracking-tight">
-                      Your action plan
-                    </CardTitle>
-                    <CardDescription>
-                      Start with these three improvements, in priority order.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="grid gap-4 lg:grid-cols-2">
-                    {priorityFindings.length > 0 ? (
-                      priorityFindings.map((finding, index) => (
-                        <div
-                          key={finding.id}
-                          className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-muted/20 p-5 lg:p-6"
-                        >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-semibold text-muted-foreground">
-                              {index + 1}.
-                            </span>
-                            <Badge variant={severityVariant(finding.severity)}>
-                              {severityLabels[finding.severity]}
-                            </Badge>
-                            <p className="text-base font-semibold leading-6">
-                              {actionPlanTitle(finding.checkId, finding.title)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                              Why it matters
-                            </p>
-                            <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                              {finding.finding}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                              Recommended fix
-                            </p>
-                            <p className="mt-1 text-sm leading-6">
-                              {finding.recommendation}
-                            </p>
-                          </div>
-                          <PracticalActions
-                            actions={finding.practicalActions}
-                            label="Checklist"
-                            limit={3}
-                          />
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No priority findings have been saved for this report
-                        yet.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card bodyClass="flex flex-col gap-5 p-6 lg:p-8">
-                  <CardHeader>
-                    <CardTitle className="text-xl tracking-tight">
-                      Findings by category
-                    </CardTitle>
-                    <CardDescription>
-                      Review every issue and recommendation, grouped by score
-                      category.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Accordion>
-                      {reportCategoryOrder.map((category) => {
-                        const categoryFindings = report.findings.filter(
-                          (finding) => finding.category === category,
-                        );
-                        const narrativeCritique = findNarrativeCategoryCritique(
-                          narrative,
-                          [reportCategoryDisplay[category].title],
-                        );
-                        const categoryScore = scoresByCategory.get(category);
-
-                        return (
-                          <AccordionItem key={category}>
-                            <AccordionTrigger>
-                              <span className="flex w-full items-center justify-between gap-4 pr-3">
-                                <span>
-                                  {reportCategoryDisplay[category].title}
-                                </span>
-                                <span className="text-sm font-semibold tabular-nums text-muted-foreground">
-                                  {categoryScore
-                                    ? `${categoryScore.score}/${categoryScore.maxScore}`
-                                    : "Not scored"}
-                                </span>
-                              </span>
-                            </AccordionTrigger>
-                            <AccordionContent className="flex flex-col gap-4">
-                              {narrativeCritique ? (
-                                <Alert>
-                                  <CheckCircle2Icon data-icon="inline-start" />
-                                  <AlertTitle>Category overview</AlertTitle>
-                                  <AlertDescription>
-                                    {narrativeCritique.critique}
-                                  </AlertDescription>
-                                </Alert>
-                              ) : null}
-
-                              {categoryFindings.length > 0 ? (
-                                <div className="grid gap-3">
-                                  {categoryFindings.map((finding) => (
-                                    <div
-                                      key={finding.id}
-                                      className="rounded-2xl border border-slate-200 bg-muted/20 p-5 lg:p-6"
-                                    >
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <Badge
-                                          variant={severityVariant(
-                                            finding.severity,
-                                          )}
-                                        >
-                                          {severityLabels[finding.severity]}
-                                        </Badge>
-                                        <p className="text-base font-semibold leading-6">
-                                          {finding.title}
-                                        </p>
-                                      </div>
-                                      <div className="mt-4">
-                                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                          What we found
-                                        </p>
-                                        <p className="mt-1 leading-6 text-muted-foreground">
-                                          {finding.finding}
-                                        </p>
-                                      </div>
-                                      <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
-                                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                          Recommended next step
-                                        </p>
-                                        <p className="mt-1 leading-6">
-                                          {finding.recommendation}
-                                        </p>
-                                        <PracticalActions
-                                          actions={finding.practicalActions}
-                                        />
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">
-                                  No priority issues were found in this
-                                  category.
-                                </p>
-                              )}
-                            </AccordionContent>
-                          </AccordionItem>
-                        );
-                      })}
-                    </Accordion>
-                  </CardContent>
-                </Card>
+                <ReportAuditSections
+                  sections={auditSections}
+                  showExpandedGuidance
+                />
 
                 <Card bodyClass="flex flex-col gap-5 p-6 lg:p-8">
                   <CardHeader>
@@ -1173,145 +797,6 @@ export default async function ReportPage({
                   </Card>
                 ) : null}
 
-                <Card bodyClass="flex flex-col gap-5 p-6 lg:p-8">
-                  <CardHeader>
-                    <CardTitle className="text-xl tracking-tight">
-                      About this scan
-                    </CardTitle>
-                    <CardDescription>
-                      Coverage, scoring, and review details for this report.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-5">
-                    <Accordion>
-                      <AccordionItem>
-                        <AccordionTrigger>How scores work</AccordionTrigger>
-                        <AccordionContent className="space-y-4">
-                          <p className="text-sm leading-6 text-muted-foreground">
-                            Numeric scores come from measurable website checks.
-                            AI may help explain saved results, but it does not
-                            determine the scores.
-                          </p>
-                          {visualDesignAnalysis ? (
-                            <p className="text-sm leading-6 text-muted-foreground">
-                              Primary navigation affects Site Usability. Mobile
-                              viewport fit and text contrast affect Mobile
-                              Performance. Other visual observations are
-                              advisory and do not change the score.
-                            </p>
-                          ) : null}
-                        </AccordionContent>
-                      </AccordionItem>
-                      <AccordionItem>
-                        <AccordionTrigger>View scan details</AccordionTrigger>
-                        <AccordionContent className="flex flex-col gap-5">
-                          <div className="grid gap-3 md:grid-cols-3">
-                            <SnapshotMetric
-                              label="Pages scanned"
-                              value={report.pagesScanned.length}
-                            />
-                            <SnapshotMetric
-                              label="Successful pages"
-                              value={successfulPages.length}
-                            />
-                            <SnapshotMetric
-                              label="Words found"
-                              value={totalWordCount}
-                            />
-                          </div>
-                          {report.technicalAudit &&
-                          getLighthouseSource(
-                            report.technicalAudit.lighthouseJson,
-                          ) ? (
-                            <p className="text-xs text-muted-foreground">
-                              Lighthouse source:{" "}
-                              {getLighthouseSource(
-                                report.technicalAudit.lighthouseJson,
-                              )}
-                            </p>
-                          ) : null}
-                          {report.pagesScanned.length > 0 ? (
-                            <div className="grid gap-3">
-                              {report.pagesScanned.map((page) => (
-                                <div
-                                  key={page.id}
-                                  className="grid gap-2 rounded-lg border border-slate-200 bg-muted/20 p-4 md:grid-cols-[1fr_auto]"
-                                >
-                                  <div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <Badge variant="outline">
-                                        {page.pageType ?? "Unknown"}
-                                      </Badge>
-                                      <p className="text-sm font-medium">
-                                        {page.title ?? page.url}
-                                      </p>
-                                    </div>
-                                    <p className="mt-2 break-all text-sm text-muted-foreground">
-                                      {page.url}
-                                    </p>
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground md:justify-end">
-                                    <span>
-                                      Status {page.statusCode ?? "unknown"}
-                                    </span>
-                                    <span>{page.wordCount ?? 0} words</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">
-                              No scanned pages were saved for this report.
-                            </p>
-                          )}
-                        </AccordionContent>
-                      </AccordionItem>
-                      {visualDesignAnalysis ? (
-                        <AccordionItem>
-                          <AccordionTrigger>
-                            Optional human review
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
-                              {visualDesignManualReviewPrompts.map((item) => (
-                                <li key={item.pillar}>{item.prompt}</li>
-                              ))}
-                            </ul>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ) : null}
-                    </Accordion>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <div className="flex flex-col items-start gap-2">
-                      <CardTitle className="text-xl tracking-tight">
-                        Want help turning this report into a plan?
-                      </CardTitle>
-                      <Badge variant="secondary">
-                        Best fit: {serviceFitLabel}
-                      </Badge>
-                    </div>
-                    <CardDescription>
-                      Review the priorities with GrailHiiv and decide what to do
-                      first.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                      {ctaForServiceFit(serviceFitLabel)}
-                    </p>
-                  </CardContent>
-                  <CardFooter>
-                    <form action="/">
-                      <Button type="submit" size="lg">
-                        Book a website review
-                      </Button>
-                    </form>
-                  </CardFooter>
-                </Card>
               </>
             ) : null}
           </div>
@@ -1347,23 +832,6 @@ function CategoryScoreCard({
         <Progress value={percentage ?? 0} />
       </div>
     </div>
-  );
-}
-
-function SnapshotMetric({
-  label,
-  value,
-}: {
-  label: string;
-  value: number | string;
-}) {
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>{label}</CardTitle>
-        <CardDescription>{value}</CardDescription>
-      </CardHeader>
-    </Card>
   );
 }
 

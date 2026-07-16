@@ -32,9 +32,9 @@ Numeric scores must be deterministic. AI may explain findings in clear, author-f
    - All eight category scores
    - One top-priority problem
    - One quick win
-   - Locked or obscured previews of the remaining findings and recommendations
-5. The author enters their Full Name and a valid email address to unlock the full report. These are the only required contact fields.
-6. The full report unlocks immediately in the browser.
+   - Every detailed website check with its actual status and details, plus row-level Tips containing the recommendation and practical actions; these fields are never locked or replaced by unlock placeholders
+5. The author enters their Full Name and a valid email address to receive the complete report. These are the only required contact fields.
+6. The complete report becomes available immediately in the browser.
 7. The app emails the complete PDF report as an attachment together with a secure return link to the online report.
 
 ### Confirmed public page structure
@@ -44,7 +44,7 @@ Numeric scores must be deterministic. AI may explain findings in clear, author-f
 - The first result section is a relatively compact `Overview for authorwebsite.com`. It is followed by eight distinctly titled audit modules matching the confirmed scorecard categories; do not compress the categories into one combined `Category Audit` or category-score block.
 - The eight audit modules use a SEMrush-style report rhythm with a mix of full-width and paired two-column sections, while keeping the current homepage visual theme. A concise issue-and-recommendation preview, a two-column top-problem and quick-win row, and the email unlock prompt follow the modules.
 - The canonical full-report address is `/report/authorwebsite.com`. The domain path identifies the latest saved report for that normalized domain; access control must not depend on the domain being secret or unguessable.
-- Visiting the canonical report address without authorization shows only the partial report.
+- Visiting the canonical report address without authorization shows the partial report, including every detailed website check with its actual status and details, with the recommendation and practical actions grouped inside row-level Tips. Expanded evidence, the prioritized action plan, PDF delivery, and other full-report content remain email-gated.
 - Email submission creates a report access grant associated with that email address and the specific report that was unlocked.
 - The secure emailed link contains an unguessable authorization token that reveals the full report. Unlocking a report does not make it public to everyone who visits the canonical domain route.
 - The secure link is a bearer link: anyone who possesses it can view that specific full report, including a recipient to whom the author forwards it. Do not require an account, active session, or repeated email verification.
@@ -58,7 +58,7 @@ Authors do not need an account in the initial release. The unlocked full report 
 
 ## Full report
 
-The unlocked report includes the complete set of detected problems, quick wins, explanations, and prioritized recommendations. Every failed deterministic scoring check provides one fixed primary recommendation plus several fixed practical actions. These actions are stored with the finding and remain available when AI generation fails.
+The unlocked report includes the complete set of detected problems, quick wins, explanations, and prioritized recommendations. Every failed deterministic scoring check provides one fixed primary recommendation plus several fixed practical actions. These actions are stored with the finding and remain available when AI generation fails. Every passed check provides fixed check-specific details, a maintenance recommendation, and practical tips. Every `unknown` or `Couldn't verify` check provides fixed reason-aware details, a manual-verification recommendation, and practical actions. Passed and unknown guidance is deterministic application content and does not rely on AI generation.
 
 ### Design and reader-experience review
 

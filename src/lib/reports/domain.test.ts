@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   getAdminReportPath,
+  getReportDomainCandidates,
   getReportPath,
   normalizeReportDomain,
 } from "@/lib/reports/domain";
@@ -20,4 +21,15 @@ test("normalizes report route values to their hostname", () => {
     normalizeReportDomain("https://AuthorWebsites.com/books"),
     "authorwebsites.com",
   );
+});
+
+test("builds exact and www report lookup candidates", () => {
+  assert.deepEqual(getReportDomainCandidates("authorwebsites.com"), [
+    "authorwebsites.com",
+    "www.authorwebsites.com",
+  ]);
+  assert.deepEqual(getReportDomainCandidates("www.authorwebsites.com"), [
+    "www.authorwebsites.com",
+    "authorwebsites.com",
+  ]);
 });

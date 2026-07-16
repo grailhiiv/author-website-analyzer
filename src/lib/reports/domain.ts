@@ -8,6 +8,14 @@ export function normalizeReportDomain(value: string) {
   }
 }
 
+export function getReportDomainCandidates(domain: string) {
+  const normalizedDomain = domain.toLowerCase();
+
+  return normalizedDomain.startsWith("www.")
+    ? [normalizedDomain, normalizedDomain.slice(4)]
+    : [normalizedDomain, `www.${normalizedDomain}`];
+}
+
 export function getReportPath(domain: string) {
   return `/report/${encodeURIComponent(domain)}`;
 }
