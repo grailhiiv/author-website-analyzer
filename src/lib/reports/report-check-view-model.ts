@@ -23,6 +23,7 @@ export type ReportCheckViewModel = {
   state: ReportCheckState;
   statusLabel: string;
   details: string;
+  inspectedPageUrl: string | null;
   whyItMatters: string;
   recommendation: string;
   evidenceLinks: ReportCheckLink[];
@@ -102,6 +103,52 @@ function collectHttpUrls(value: unknown, urls: Set<string>) {
   }
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function storedText(value: unknown, key: "details" | "recommendation") {
+  const text = asRecord(value)?.[key];
+
+  return typeof text === "string" && text.trim().length > 0
+    ? text.trim()
+    : null;
+}
+
+function safeHttpUrl(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function inspectedPageUrl(siteUrl: string, evidenceReferences: unknown) {
+  const evidence = asRecord(evidenceReferences)?.evidence;
+
+  if (Array.isArray(evidence)) {
+    for (const entry of evidence) {
+      const pageUrl = safeHttpUrl(asRecord(entry)?.pageUrl);
+
+      if (pageUrl) {
+        return pageUrl;
+      }
+    }
+  }
+
+  return safeHttpUrl(siteUrl);
+}
+
 function buildEvidenceLinks(siteUrl: string, evidenceReferences: unknown) {
   const urls = new Set<string>();
   let normalizedSiteUrl: string | null = null;
@@ -169,9 +216,14 @@ export function buildReportAuditSections({
         category,
         state,
         statusLabel: statusLabels[state],
-        details: statusGuidance.details,
+        details:
+          storedText(result?.evidenceReferences, "details") ??
+          statusGuidance.details,
+        inspectedPageUrl: inspectedPageUrl(siteUrl, result?.evidenceReferences),
         whyItMatters: whyItMattersByCategory[category],
-        recommendation: statusGuidance.recommendation,
+        recommendation:
+          storedText(result?.evidenceReferences, "recommendation") ??
+          statusGuidance.recommendation,
         evidenceLinks: buildEvidenceLinks(siteUrl, result?.evidenceReferences),
         standardReferences: check.standardReferences.map(
           formatStandardReference,

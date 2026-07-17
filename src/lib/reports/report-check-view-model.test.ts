@@ -69,7 +69,7 @@ test("maps the three deterministic states to canonical report content", () => {
   assert.equal(checks.get("brand.genre_positioning")?.statusLabel, "Failed");
   assert.equal(
     checks.get("brand.genre_positioning")?.recommendation,
-    "Add a plain-language genre or writing-category phrase near the author name or homepage introduction, such as “historical romance author.” Use the same primary category consistently in relevant headings and metadata without keyword stuffing.",
+    "Add a plain-language genre, subject, or writing-category statement near the author name or homepage introduction so readers immediately understand what the author writes. Use wording such as “historical romance author” or “writer of practical leadership books,” repeat the terminology naturally in relevant metadata, and avoid excessive or unrelated keywords.",
   );
 
   assert.equal(
@@ -78,7 +78,7 @@ test("maps the three deterministic states to canonical report content", () => {
   );
   assert.match(
     checks.get("brand.homepage_headline")?.recommendation ?? "",
-    /open the homepage in a signed-out browser and verify/i,
+    /open the homepage in a signed-out desktop and mobile browser and confirm/i,
   );
 
   assert.equal(brand.score, 8);
@@ -127,4 +127,39 @@ test("exposes only safe web evidence links and always includes the analyzed site
     ["https://author.example/about", "https://author.example/"],
   );
   assert.equal(links[1].label, "View analyzed website");
+});
+
+test("uses persisted details, recommendations, and the first inspected evidence page", () => {
+  const sections = buildReportAuditSections({
+    checkResults: [
+      {
+        checkId: "brand.author_name",
+        state: "PASSED",
+        reasonCode: "SIGNAL_DETECTED",
+        evidenceReferences: {
+          details: "The author name was found in the About page heading.",
+          recommendation: "Keep the author name visible in the same location.",
+          evidence: [
+            {
+              pageUrl: "https://author.example/about",
+              observedValue: "Jane Author",
+            },
+          ],
+        },
+      },
+    ],
+    scores: [],
+    siteUrl,
+  });
+  const check = sections[0].checks[0];
+
+  assert.equal(
+    check.details,
+    "The author name was found in the About page heading.",
+  );
+  assert.equal(
+    check.recommendation,
+    "Keep the author name visible in the same location.",
+  );
+  assert.equal(check.inspectedPageUrl, "https://author.example/about");
 });

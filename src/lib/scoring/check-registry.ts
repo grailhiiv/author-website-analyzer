@@ -4,7 +4,7 @@ import type {
   VisualViewportVariant,
 } from "@/lib/screenshots/visual-design";
 
-export const SCORING_CHECK_REGISTRY_VERSION = 2;
+export const SCORING_CHECK_REGISTRY_VERSION = 3;
 
 export type ScoringCheckId =
   | "brand.author_name"
@@ -33,18 +33,18 @@ export type ScoringCheckId =
   | "mobile.pagespeed_performance"
   | "mobile.pagespeed_accessibility"
   | "mobile.text_contrast"
-  | "mobile.pagespeed_seo"
+  | "mobile.interactive_controls"
   | "mobile.image_alt_text"
   | "mobile.homepage_structure"
   | "mobile.viewport_fit"
   | "technical.desktop_performance"
-  | "technical.mobile_best_practices"
-  | "technical.desktop_best_practices"
+  | "technical.browser_best_practices"
   | "technical.desktop_accessibility"
   | "technical.https"
   | "technical.page_responses"
   | "technical.indexability"
-  | "technical.canonical_or_schema"
+  | "technical.canonical_url"
+  | "technical.structured_data"
   | "trust.author_bio"
   | "trust.author_photo"
   | "trust.contact_path"
@@ -53,10 +53,23 @@ export type ScoringCheckId =
   | "trust.privacy_policy"
   | "trust.reader_proof"
   | "usability.primary_navigation"
-  | "usability.page_responses"
-  | "usability.privacy_policy"
-  | "usability.canonical_or_schema"
-  | "usability.freshness";
+  | "usability.priority_reader_paths"
+  | "usability.descriptive_calls_to_action"
+  | "usability.forms_and_controls"
+  | "usability.unblocked_content";
+
+export type RootCauseKey =
+  | "AUTHOR_POSITIONING"
+  | "FEATURED_BOOK_PRESENTATION"
+  | "PURCHASE_PATH"
+  | "NEWSLETTER_ACQUISITION"
+  | "SEARCH_METADATA"
+  | "HEADING_STRUCTURE"
+  | "CRAWLER_ACCESS"
+  | "MOBILE_LAYOUT"
+  | "SITE_NAVIGATION"
+  | "AUTHOR_CREDIBILITY"
+  | "PRIVACY_AND_DATA_TRUST";
 
 type ScoringCheckBase = {
   id: ScoringCheckId;
@@ -72,6 +85,7 @@ type ScoringCheckBase = {
   needsReviewRuleId: string;
   deduplicationGroupId: string;
   standardReferences: readonly string[];
+  rootCauseKey: RootCauseKey;
 };
 
 export type SignalScoringCheckDefinition = ScoringCheckBase & {
@@ -103,6 +117,7 @@ type RegisteredCheckInput = Pick<
       | "passRuleId"
       | "needsReviewRuleId"
       | "standardReferences"
+      | "rootCauseKey"
     >
   >;
 
@@ -110,7 +125,7 @@ function registeredCheck(
   input: RegisteredCheckInput,
 ): SignalScoringCheckDefinition {
   return {
-    version: 2,
+    version: SCORING_CHECK_REGISTRY_VERSION,
     status: "active",
     applicablePageRoles: input.applicablePageRoles ?? ["SITE"],
     applicabilityRuleId: input.applicabilityRuleId ?? "eligible-author-site",
@@ -119,8 +134,34 @@ function registeredCheck(
       input.needsReviewRuleId ?? "required-evidence-needs-review",
     deduplicationGroupId: input.id,
     standardReferences: input.standardReferences ?? [],
+    rootCauseKey: input.rootCauseKey ?? rootCauseFor(input.id),
     ...input,
   };
+}
+
+function rootCauseFor(id: ScoringCheckId): RootCauseKey {
+  if (id.startsWith("brand.")) return "AUTHOR_POSITIONING";
+  if (id.startsWith("books.purchase") || id === "books.retailer_options") {
+    return "PURCHASE_PATH";
+  }
+  if (id.startsWith("books.")) return "FEATURED_BOOK_PRESENTATION";
+  if (id.startsWith("engagement.")) return "NEWSLETTER_ACQUISITION";
+  if (id === "search.single_h1" || id === "search.h1_clarity") {
+    return "HEADING_STRUCTURE";
+  }
+  if (id.startsWith("search.")) return "SEARCH_METADATA";
+  if (id.startsWith("mobile.")) return "MOBILE_LAYOUT";
+  if (
+    id === "technical.indexability" ||
+    id === "technical.page_responses" ||
+    id === "technical.https"
+  ) {
+    return "CRAWLER_ACCESS";
+  }
+  if (id.startsWith("technical.")) return "SEARCH_METADATA";
+  if (id === "trust.privacy_policy") return "PRIVACY_AND_DATA_TRUST";
+  if (id.startsWith("trust.")) return "AUTHOR_CREDIBILITY";
+  return "SITE_NAVIGATION";
 }
 
 export const SCORING_CHECK_REGISTRY = [
@@ -199,7 +240,7 @@ export const SCORING_CHECK_REGISTRY = [
   }),
   registeredCheck({
     id: "books.retailer_options",
-    title: "Multiple retailer options are present",
+    title: "Purchase options match book availability",
     category: ReportCategory.BOOK_VISIBILITY,
     points: 2,
     source: "derived",
@@ -259,7 +300,7 @@ export const SCORING_CHECK_REGISTRY = [
     id: "search.title_tag",
     title: "Title tag is present",
     category: ReportCategory.SEARCH_VISIBILITY,
-    points: 2,
+    points: 1,
     source: "signals",
     evidencePolicyId: "title-tag-exists",
   }),
@@ -267,7 +308,7 @@ export const SCORING_CHECK_REGISTRY = [
     id: "search.author_title_format",
     title: "Title supports the author brand",
     category: ReportCategory.SEARCH_VISIBILITY,
-    points: 3,
+    points: 2,
     source: "derived",
     evidencePolicyId: "title-includes-author-or-brand",
   }),
@@ -275,17 +316,17 @@ export const SCORING_CHECK_REGISTRY = [
     id: "search.meta_description",
     title: "Meta description is present",
     category: ReportCategory.SEARCH_VISIBILITY,
-    points: 3,
+    points: 2,
     source: "signals",
     evidencePolicyId: "meta-description-exists",
   }),
   registeredCheck({
     id: "search.single_h1",
-    title: "Page has one main heading",
+    title: "Primary heading structure is clear",
     category: ReportCategory.SEARCH_VISIBILITY,
     points: 2,
     source: "derived",
-    evidencePolicyId: "h1-exists-without-multiple-h1-issue",
+    evidencePolicyId: "primary-heading-structure-is-clear",
   }),
   registeredCheck({
     id: "search.h1_clarity",
@@ -318,7 +359,7 @@ export const SCORING_CHECK_REGISTRY = [
     category: ReportCategory.MOBILE_PERFORMANCE,
     points: 4,
     source: "pagespeed",
-    evidencePolicyId: "mobile-performance-at-least-70",
+    evidencePolicyId: "mobile-performance-graduated-target-90",
   }),
   registeredCheck({
     id: "mobile.pagespeed_accessibility",
@@ -330,7 +371,7 @@ export const SCORING_CHECK_REGISTRY = [
   }),
   {
     id: "mobile.text_contrast",
-    version: 2,
+    version: SCORING_CHECK_REGISTRY_VERSION,
     title: "Mobile text meets baseline contrast",
     category: ReportCategory.MOBILE_PERFORMANCE,
     points: 1,
@@ -349,18 +390,19 @@ export const SCORING_CHECK_REGISTRY = [
     severity: FindingSeverity.MEDIUM,
     priority: 4,
     standardReferences: ["visual-design.typography-colors", "wcag.contrast"],
+    rootCauseKey: "MOBILE_LAYOUT",
   },
   registeredCheck({
-    id: "mobile.pagespeed_seo",
-    title: "Mobile search audit meets target",
+    id: "mobile.interactive_controls",
+    title: "Mobile interactive controls meet usability baseline",
     category: ReportCategory.MOBILE_PERFORMANCE,
     points: 1,
-    source: "pagespeed",
-    evidencePolicyId: "mobile-seo-at-least-90",
+    source: "derived",
+    evidencePolicyId: "mobile-tap-target-observation",
   }),
   registeredCheck({
     id: "mobile.image_alt_text",
-    title: "Images include alt text",
+    title: "Images include appropriate alt text",
     category: ReportCategory.MOBILE_PERFORMANCE,
     points: 1,
     source: "signals",
@@ -376,7 +418,7 @@ export const SCORING_CHECK_REGISTRY = [
   }),
   {
     id: "mobile.viewport_fit",
-    version: 2,
+    version: SCORING_CHECK_REGISTRY_VERSION,
     title: "Mobile page fits the viewport",
     category: ReportCategory.MOBILE_PERFORMANCE,
     points: 1,
@@ -395,6 +437,7 @@ export const SCORING_CHECK_REGISTRY = [
     severity: FindingSeverity.HIGH,
     priority: 3,
     standardReferences: ["visual-design.responsive-design"],
+    rootCauseKey: "MOBILE_LAYOUT",
   },
 
   registeredCheck({
@@ -406,20 +449,12 @@ export const SCORING_CHECK_REGISTRY = [
     evidencePolicyId: "desktop-performance-at-least-70",
   }),
   registeredCheck({
-    id: "technical.mobile_best_practices",
-    title: "Mobile best practices meet target",
+    id: "technical.browser_best_practices",
+    title: "Browser best practices meet target",
     category: ReportCategory.TECHNICAL_HEALTH,
     points: 2,
     source: "pagespeed",
-    evidencePolicyId: "mobile-best-practices-at-least-90",
-  }),
-  registeredCheck({
-    id: "technical.desktop_best_practices",
-    title: "Desktop best practices meet target",
-    category: ReportCategory.TECHNICAL_HEALTH,
-    points: 1,
-    source: "pagespeed",
-    evidencePolicyId: "desktop-best-practices-at-least-90",
+    evidencePolicyId: "mobile-and-desktop-best-practices-at-least-90",
   }),
   registeredCheck({
     id: "technical.desktop_accessibility",
@@ -439,7 +474,7 @@ export const SCORING_CHECK_REGISTRY = [
   }),
   registeredCheck({
     id: "technical.page_responses",
-    title: "Scanned pages load successfully",
+    title: "Critical scanned pages load successfully",
     category: ReportCategory.TECHNICAL_HEALTH,
     points: 1,
     source: "crawl",
@@ -447,19 +482,27 @@ export const SCORING_CHECK_REGISTRY = [
   }),
   registeredCheck({
     id: "technical.indexability",
-    title: "Search engine access is available",
+    title: "Search-engine access is available",
     category: ReportCategory.TECHNICAL_HEALTH,
     points: 1,
     source: "derived",
     evidencePolicyId: "indexability-signals",
   }),
   registeredCheck({
-    id: "technical.canonical_or_schema",
-    title: "Canonical or structured data is present",
+    id: "technical.canonical_url",
+    title: "Canonical URL is valid",
     category: ReportCategory.TECHNICAL_HEALTH,
     points: 1,
     source: "derived",
-    evidencePolicyId: "canonical-person-or-organization",
+    evidencePolicyId: "canonical-url-is-valid",
+  }),
+  registeredCheck({
+    id: "technical.structured_data",
+    title: "Author or site structured data is valid",
+    category: ReportCategory.TECHNICAL_HEALTH,
+    points: 1,
+    source: "derived",
+    evidencePolicyId: "person-or-organization-structured-data",
   }),
 
   registeredCheck({
@@ -521,7 +564,7 @@ export const SCORING_CHECK_REGISTRY = [
 
   {
     id: "usability.primary_navigation",
-    version: 2,
+    version: SCORING_CHECK_REGISTRY_VERSION,
     title: "Primary navigation works across viewports",
     category: ReportCategory.SITE_USABILITY,
     points: 1,
@@ -541,40 +584,93 @@ export const SCORING_CHECK_REGISTRY = [
     severity: FindingSeverity.HIGH,
     priority: 3,
     standardReferences: ["site-structure.navigation-flow"],
+    rootCauseKey: "SITE_NAVIGATION",
   },
   registeredCheck({
-    id: "usability.page_responses",
-    title: "Scanned pages load successfully",
-    category: ReportCategory.SITE_USABILITY,
-    points: 1,
-    source: "crawl",
-    evidencePolicyId: "no-failed-scanned-pages",
-  }),
-  registeredCheck({
-    id: "usability.privacy_policy",
-    title: "Privacy policy is present",
-    category: ReportCategory.SITE_USABILITY,
-    points: 1,
-    source: "signals",
-    evidencePolicyId: "privacy-policy",
-  }),
-  registeredCheck({
-    id: "usability.canonical_or_schema",
-    title: "Canonical or structured data is present",
+    id: "usability.priority_reader_paths",
+    title: "Priority reader paths are easy to reach",
     category: ReportCategory.SITE_USABILITY,
     points: 1,
     source: "derived",
-    evidencePolicyId: "canonical-person-or-organization",
+    evidencePolicyId: "reader-paths-visible-and-linked",
   }),
   registeredCheck({
-    id: "usability.freshness",
-    title: "Site content appears current",
+    id: "usability.descriptive_calls_to_action",
+    title: "Calls to action are clear and descriptive",
     category: ReportCategory.SITE_USABILITY,
     points: 1,
     source: "crawl",
-    evidencePolicyId: "copyright-year-not-stale",
+    evidencePolicyId: "descriptive-call-to-action-text",
+  }),
+  registeredCheck({
+    id: "usability.forms_and_controls",
+    title: "Forms and interactive controls are usable",
+    category: ReportCategory.SITE_USABILITY,
+    points: 1,
+    source: "derived",
+    evidencePolicyId: "rendered-forms-and-controls",
+  }),
+  registeredCheck({
+    id: "usability.unblocked_content",
+    title: "Content is not blocked or visually broken",
+    category: ReportCategory.SITE_USABILITY,
+    points: 1,
+    source: "derived",
+    evidencePolicyId: "rendered-content-is-unobstructed",
   }),
 ] as const satisfies readonly ScoringCheckDefinition[];
+
+const expectedCategoryShape: Record<
+  ReportCategory,
+  { checkCount: number; points: number }
+> = {
+  BRAND_CLARITY: { checkCount: 5, points: 15 },
+  BOOK_VISIBILITY: { checkCount: 7, points: 20 },
+  READER_ENGAGEMENT: { checkCount: 4, points: 15 },
+  SEARCH_VISIBILITY: { checkCount: 7, points: 15 },
+  MOBILE_PERFORMANCE: { checkCount: 7, points: 10 },
+  TECHNICAL_HEALTH: { checkCount: 8, points: 10 },
+  AUTHOR_TRUST: { checkCount: 7, points: 10 },
+  SITE_USABILITY: { checkCount: 5, points: 5 },
+};
+
+function validateScoringRegistry() {
+  const ids = new Set<string>();
+
+  for (const check of SCORING_CHECK_REGISTRY) {
+    if (ids.has(check.id))
+      throw new Error(`Duplicate scoring check: ${check.id}`);
+    ids.add(check.id);
+  }
+
+  if (SCORING_CHECK_REGISTRY.length !== 50) {
+    throw new Error("The scoring registry must contain exactly 50 checks.");
+  }
+
+  const totalPoints = SCORING_CHECK_REGISTRY.reduce(
+    (total, check) => total + check.points,
+    0,
+  );
+  if (totalPoints !== 100) {
+    throw new Error(
+      `The scoring registry must total 100 points, received ${totalPoints}.`,
+    );
+  }
+
+  for (const [category, expected] of Object.entries(expectedCategoryShape)) {
+    const checks = SCORING_CHECK_REGISTRY.filter(
+      (check) => check.category === category,
+    );
+    const points = checks.reduce((total, check) => total + check.points, 0);
+    if (checks.length !== expected.checkCount || points !== expected.points) {
+      throw new Error(
+        `${category} must contain ${expected.checkCount} checks totaling ${expected.points} points.`,
+      );
+    }
+  }
+}
+
+validateScoringRegistry();
 
 export function getScoringCheck(id: ScoringCheckId): ScoringCheckDefinition {
   const check = SCORING_CHECK_REGISTRY.find((entry) => entry.id === id);

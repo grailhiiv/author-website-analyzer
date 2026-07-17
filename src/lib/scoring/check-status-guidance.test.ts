@@ -33,6 +33,6 @@ test("uses the supplied Needs Review and Failed wording", () => {
   );
   assert.equal(
     getCheckStatusGuidance(check, "failed").recommendation,
-    "Identify the element increasing the document width—commonly a fixed-width image, slider, form, iframe, table, transform, or absolutely positioned control—and replace rigid sizing with responsive constraints or wrapping. Confirm that `document.documentElement.scrollWidth` no longer exceeds the viewport at common phone widths.",
+    "Identify and correct the element causing page-level horizontal overflow or clipped content on mobile. Replace rigid widths, oversized media, nonwrapping text, transforms, tables, embeds, or absolutely positioned controls with responsive constraints, then verify that the document width no longer exceeds the viewport at common phone sizes.",
   );
 });

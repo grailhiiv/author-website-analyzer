@@ -10,22 +10,20 @@ import {
 } from "@/lib/scoring/check-registry";
 
 test("scoring check registry exposes every unique, versioned deterministic check", () => {
-  assert.equal(SCORING_CHECK_REGISTRY_VERSION, 2);
+  assert.equal(SCORING_CHECK_REGISTRY_VERSION, 3);
   assert.equal(SCORING_CHECK_REGISTRY.length, 50);
   assert.equal(
     new Set(SCORING_CHECK_REGISTRY.map((check) => check.id)).size,
     SCORING_CHECK_REGISTRY.length,
   );
   assert.equal(
-    new Set(
-      SCORING_CHECK_REGISTRY.map((check) => check.deduplicationGroupId),
-    ).size,
+    new Set(SCORING_CHECK_REGISTRY.map((check) => check.deduplicationGroupId))
+      .size,
     SCORING_CHECK_REGISTRY.length,
   );
   assert.equal(
     SCORING_CHECK_REGISTRY.every(
-      (check) =>
-        check.version === 2 && check.status === "active",
+      (check) => check.version === 3 && check.status === "active",
     ),
     true,
   );
@@ -45,7 +43,7 @@ test("registry preserves every raw category point allocation", () => {
     [ReportCategory.BRAND_CLARITY]: 15,
     [ReportCategory.BOOK_VISIBILITY]: 20,
     [ReportCategory.READER_ENGAGEMENT]: 15,
-    [ReportCategory.SEARCH_VISIBILITY]: 18,
+    [ReportCategory.SEARCH_VISIBILITY]: 15,
     [ReportCategory.MOBILE_PERFORMANCE]: 10,
     [ReportCategory.TECHNICAL_HEALTH]: 10,
     [ReportCategory.AUTHOR_TRUST]: 10,

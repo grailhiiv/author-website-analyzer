@@ -16,22 +16,21 @@ import type {
   HomepageAuditPreviewSection,
 } from "@/lib/reports/homepage-audit-preview";
 import type { ReportCheckState } from "@/lib/reports/report-check-view-model";
+import ActionLink from "@/components/shared/ActionLink";
 
 const placeholderRows = ["first", "second"] as const;
 
-const moduleCtaLabels: Record<
-  HomepageAuditPreviewSection["category"],
-  string
-> = {
-  BRAND_CLARITY: "See all brand clarity checks",
-  BOOK_VISIBILITY: "See all book visibility checks",
-  READER_ENGAGEMENT: "See all reader engagement checks",
-  SEARCH_VISIBILITY: "See all search visibility checks",
-  MOBILE_PERFORMANCE: "See all mobile performance checks",
-  TECHNICAL_HEALTH: "See all technical health checks",
-  AUTHOR_TRUST: "See all author trust checks",
-  SITE_USABILITY: "See all site usability checks",
-};
+const moduleCtaLabels: Record<HomepageAuditPreviewSection["category"], string> =
+  {
+    BRAND_CLARITY: "See all brand clarity checks",
+    BOOK_VISIBILITY: "See all book visibility checks",
+    READER_ENGAGEMENT: "See all reader engagement checks",
+    SEARCH_VISIBILITY: "See all search visibility checks",
+    MOBILE_PERFORMANCE: "See all mobile performance checks",
+    TECHNICAL_HEALTH: "See all technical health checks",
+    AUTHOR_TRUST: "See all author trust checks",
+    SITE_USABILITY: "See all site usability checks",
+  };
 
 const statusStyles: Record<
   ReportCheckState,
@@ -70,6 +69,23 @@ function CheckTips({ check }: { check: HomepageAuditPreviewCheck }) {
         <p>{check.recommendation}</p>
       </div>
     </details>
+  );
+}
+
+function InspectedPageLink({ check }: { check: HomepageAuditPreviewCheck }) {
+  if (!check.inspectedPageUrl) {
+    return null;
+  }
+
+  return (
+    <ActionLink
+      className="mt-2 inline-flex break-all text-xs font-medium"
+      href={check.inspectedPageUrl}
+      rel="noreferrer"
+      target="_blank"
+    >
+      Inspected page: {check.inspectedPageUrl}
+    </ActionLink>
   );
 }
 
@@ -120,6 +136,7 @@ function DesktopAuditTable({
                 </Table.Td>
                 <Table.Td className="px-5 py-4 align-top text-sm leading-6 text-gray-600 dark:text-gray-300">
                   <p>{check.details}</p>
+                  <InspectedPageLink check={check} />
                   {isTipsExpanded ? (
                     <div
                       id={tipsId}
@@ -217,6 +234,7 @@ function MobileAuditList({
           </div>
           <div className="text-sm leading-6 text-gray-600 dark:text-gray-300">
             <p>{check.details}</p>
+            <InspectedPageLink check={check} />
             <CheckTips check={check} />
           </div>
         </div>

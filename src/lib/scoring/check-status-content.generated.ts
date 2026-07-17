@@ -13,702 +13,991 @@ export type AuditCheckStatusContent = {
 export const CHECK_STATUS_CONTENT = {
   "brand.author_name": {
     passed: {
-      details: "The scan found the author name presented clearly in the website content or identity signals.",
-      recommendation: "Keep the published author name as selectable text in the site header or hero, include it in the homepage `<title>` and primary H1, and keep Person schema naming consistent. Recheck these fields after theme, template, or SEO-plugin changes so the identity signal remains available on desktop and mobile.",
+      details:
+        "The scan found the author name presented clearly in the website content or identity signals.",
+      recommendation:
+        "Keep the published author name prominently visible so readers can immediately identify whose website they are visiting. Maintain the same spelling and pen-name format in the homepage header or hero, `<title>`, primary H1, and Person structured data, and recheck these identity signals after theme, branding, or SEO configuration changes.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Inspect the rendered homepage, document `<title>`, primary H1, header text, and Person schema to confirm that the published author name is exposed as text. If the name appears only inside an image, slider, or interaction-dependent component, add an accessible text equivalent or make that component available to the scanner before rescanning.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Verify that the published author name appears as visible text in the homepage header, hero, primary H1, document title, or Person structured data. When the name exists only inside a logo, image, slider, or interaction-dependent component, add a readable HTML equivalent and rerun the scan after confirming the public page renders completely.",
     },
     failed: {
-      details: "The scan did not find a clear author name in the page title, main heading, or structured data.",
-      recommendation: "Add the published author name as selectable text in the homepage H1 or hero and include the same canonical name in the `<title>` and Person schema. Keep spelling and pen-name formatting consistent, and verify that the name remains visible in the mobile header or initial viewport.",
+      details:
+        "The scan did not find a clear author name in the page title, main heading, or structured data.",
+      recommendation:
+        "Add the published author name near the top of the homepage so visitors can immediately identify the author behind the website. Present it as selectable HTML text in the header, hero, or primary H1, use the same canonical name in the `<title>` and Person schema, and verify its visibility on desktop and mobile.",
     },
   },
   "brand.genre_positioning": {
     passed: {
-      details: "The scan found wording that communicates the author's genre or writing category.",
-      recommendation: "Keep the primary genre or writing category in visible homepage copy near the author introduction, and use the same terminology in relevant metadata where natural. Review the wording whenever the author changes genre focus, pen name positioning, or target readership.",
+      details:
+        "The scan found wording that communicates the author's genre or writing category.",
+      recommendation:
+        "Keep the author’s primary genre, subject area, or writing category visible near the homepage introduction so readers can quickly determine whether the books match their interests. Use consistent, natural terminology in relevant headings and metadata, and review the wording whenever the author’s genre focus, readership, or positioning changes.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Review the visible homepage introduction and headings for a plain-language genre or writing-category phrase. If the wording is loaded only after interaction or embedded in artwork, expose it as rendered HTML text and rerun the scan.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Inspect the rendered homepage introduction, hero, and headings to confirm that a clear genre, subject, or writing-category phrase is visible to readers. When this information appears only in artwork, rotating slides, hidden tabs, or script-loaded content, expose it as persistent HTML text and rescan the public homepage.",
     },
     failed: {
-      details: "The scan did not find clear genre, topic, or writing category language.",
-      recommendation: "Add a plain-language genre or writing-category phrase near the author name or homepage introduction, such as “historical romance author.” Use the same primary category consistently in relevant headings and metadata without keyword stuffing.",
+      details:
+        "The scan did not find clear genre, topic, or writing category language.",
+      recommendation:
+        "Add a plain-language genre, subject, or writing-category statement near the author name or homepage introduction so readers immediately understand what the author writes. Use wording such as “historical romance author” or “writer of practical leadership books,” repeat the terminology naturally in relevant metadata, and avoid excessive or unrelated keywords.",
     },
   },
   "brand.homepage_headline": {
     passed: {
-      details: "The homepage includes a headline that gives visitors useful author-brand context.",
-      recommendation: "Retain one dominant homepage headline that identifies the author, books, genre, or reader promise without competing hero messages. After redesigning the hero or adding promotional banners, confirm that the headline remains the primary H1 and is visible before interaction.",
+      details:
+        "The homepage includes a headline that gives visitors useful author-brand context.",
+      recommendation:
+        "Preserve one dominant homepage headline that clearly communicates the author, books, genre, readership, or reader promise. Keep it as visible HTML text in the primary hero area, retain its role as the page’s main heading, and verify that promotional banners, sliders, or campaign messages do not compete with or replace it.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Open the homepage in a signed-out browser and verify that one prominent headline identifies the author, books, genre, or reader promise. Confirm that the headline exists in the rendered DOM and is not hidden behind a carousel, popup, or consent layer before rescanning.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Open the homepage in a signed-out desktop and mobile browser and confirm that one prominent headline clearly identifies the author, books, genre, audience, or reader promise. When the headline is hidden by a carousel, popup, consent layer, artwork, or delayed rendering, expose a default HTML version and rerun the scan.",
     },
     failed: {
-      details: "The homepage did not provide a clear headline that quickly orients readers.",
-      recommendation: "Replace vague or competing hero slogans with one primary H1 that identifies the author, the type of books, or a specific reader promise. Render it as visible HTML text above the fold and keep secondary promotional messages at lower heading levels.",
+      details:
+        "The homepage did not provide a clear headline that quickly orients readers.",
+      recommendation:
+        "Replace vague or generic homepage messaging with one clear headline that tells visitors who the author is, what they write, or what readers can expect. Render the message as the primary visible H1 near the top of the page, keep supporting promotions at lower heading levels, and test the hierarchy across desktop and mobile.",
     },
   },
   "brand.about_path": {
     passed: {
-      details: "The scan found an About page, author biography section, or a clear path to author information.",
-      recommendation: "Keep the About page linked with a standard crawlable `<a href>` from the main navigation or homepage, and return a direct successful response from the destination URL. Review the biography and link target after permalink, menu, or site-structure changes.",
+      details:
+        "The scan found an About page, author biography section, or a clear path to author information.",
+      recommendation:
+        "Keep the author biography easy to reach through a standard About link in the primary navigation, homepage, or footer. Maintain a direct crawlable URL that returns a successful public HTML response, and recheck the destination after permalink, menu, routing, page-builder, or site-structure changes.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Follow the About path from the homepage and primary navigation, confirm that the destination returns a direct successful HTML response, and verify that the biography is visible without login. If the page is unlinked, redirected excessively, or blocked from crawling, correct that access path and rerun the scan.",
+      details:
+        "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Follow the likely About links from the homepage, navigation, footer, and sitemap and confirm that a public biography destination loads successfully. When the page is unlinked, blocked, excessively redirected, protected by login, or unavailable to the scanner, correct the access path and rerun the crawl before assigning a confirmed result.",
     },
     failed: {
-      details: "The scan did not find an About page, author bio path, or clear About section.",
-      recommendation: "Create a public About page with a concise biography and link to it using standard anchors from the primary navigation, homepage, and footer. Ensure the URL returns a direct successful HTML response and is not blocked from crawling.",
+      details:
+        "The scan did not find an About page, author bio path, or clear About section.",
+      recommendation:
+        "Create a public About page or substantive author-biography section so readers, media contacts, and event organizers can learn more about the author. Link to it with a descriptive HTML anchor from the primary navigation and homepage, ensure the destination returns a direct successful response, and verify that it remains accessible without login.",
     },
   },
   "brand.homepage_content_depth": {
     passed: {
-      details: "The homepage contains enough introductory text to give readers useful context about the author or books.",
-      recommendation: "Maintain a short, readable homepage introduction in the rendered page content that explains who the author is, what they write, and the next reader step. Avoid moving the only introduction into an image, slider, popup, or content that appears only after interaction.",
+      details:
+        "The homepage contains enough introductory text to give readers useful context about the author or books.",
+      recommendation:
+        "Maintain a concise homepage introduction that explains who the author is, what they write, who the books are for, and what readers should explore next. Keep the copy as readable HTML in the default page content, and avoid moving the only useful introduction into an image, popup, carousel, or hidden interaction.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Inspect the initial rendered homepage for a readable introduction that explains the author or books. If the only context is inside images, sliders, or content injected after user interaction, add a short HTML introduction that the scanner and assistive technology can read.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Inspect the initial rendered homepage for readable introductory text that explains the author or books and provides a useful next step. When the only context appears inside artwork, sliders, delayed scripts, tabs, or blocked components, add a persistent HTML introduction and rerun the scan after confirming complete rendering.",
     },
     failed: {
-      details: "The homepage scan found limited readable content to explain the author brand.",
-      recommendation: "Add a concise homepage introduction in readable HTML that explains who the author is, what they write, who the books are for, and the next useful reader step. Place it in the default page content rather than relying on an image, carousel, or popup.",
+      details:
+        "The homepage scan found limited readable content to explain the author brand.",
+      recommendation:
+        "Add a short, reader-focused introduction to the homepage so visitors receive useful context before navigating deeper into the site. Explain the author, books, genre or subject, intended readership, and next useful action in visible HTML text, and place the content within the main page rather than an image or popup.",
     },
   },
   "books.cover_visibility": {
     passed: {
-      details: "The scan found a visible book-cover image in the inspected website content.",
-      recommendation: "Continue serving at least one current cover as a responsive `<img>` with intrinsic dimensions, appropriate `srcset` values, and descriptive alt text. Check crop, sharpness, and text legibility at common mobile widths whenever cover artwork is replaced.",
+      details:
+        "The scan found a visible book-cover image in the inspected website content.",
+      recommendation:
+        "Continue displaying at least one current priority-book cover in a prominent reader-facing section. Serve it as a responsive `<img>` with correct intrinsic dimensions, optimized image delivery, and descriptive alt text, associate it with the matching title or book page, and verify sharpness, crop, and legibility at common mobile widths.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Verify that a current cover is rendered as a visible image at the inspected viewport and is not deferred until a carousel click or popup opens. Prefer an `<img>` with a valid `src` or `srcset`, intrinsic dimensions, and descriptive alt text, then rescan the public page.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Verify that a current book cover appears visibly in the inspected homepage or book content and is not loaded only after a carousel click, popup, hover, or unsupported script action. Prefer an accessible `<img>` with a valid source, dimensions, and descriptive alt text, then rescan the fully rendered public page.",
     },
     failed: {
       details: "The scan did not find an image that looked like a book cover.",
-      recommendation: "Display a current priority-book cover as a responsive `<img>` with correct intrinsic dimensions, `srcset` or equivalent responsive delivery, and descriptive alt text. Link it to the matching book page and verify that it is sharp, uncropped, and legible on mobile.",
+      recommendation:
+        "Add a visible cover for the current priority book so readers can immediately recognize the title being promoted. Use a responsive `<img>` with valid `src` or `srcset`, intrinsic dimensions, descriptive alt text, and a link to the matching book page, then check that the artwork remains sharp, uncropped, and readable on mobile.",
     },
   },
   "books.title_visibility": {
     passed: {
-      details: "The scan found book-title text presented in the inspected website content.",
-      recommendation: "Keep each book title as real HTML text, preferably in a semantic heading near its cover, description, and purchase controls. Do not rely on the title printed inside the cover image as the only machine-readable or accessible title.",
+      details:
+        "The scan found book-title text presented in the inspected website content.",
+      recommendation:
+        "Keep every featured book title as visible HTML text near its corresponding cover, description, and purchase controls. Use a semantic heading or clearly identified title element, preserve the complete edition name where relevant, and avoid relying on the title printed inside the cover image as the only readable or machine-detectable version.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Confirm that each featured book has its full title in visible HTML text near the cover. If the title exists only inside cover artwork or appears after interaction, add a semantic text heading and rerun the scan.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Inspect each featured-book presentation and confirm that the full title appears as visible HTML text near the correct cover and actions. When the title exists only inside cover artwork, a hidden tab, rotating slide, or delayed component, add a semantic text heading and rerun the scan after the default view renders.",
     },
     failed: {
-      details: "The scan did not find a clear book title in headings or book structured data.",
-      recommendation: "Add the complete book title as real text in a semantic heading beside or below the cover. Keep the title, description, and purchase controls grouped in the same book component across desktop and mobile layouts.",
+      details:
+        "The scan did not find a clear book title in headings or book structured data.",
+      recommendation:
+        "Add the complete book title as visible text beside or below its cover so readers and assistive technology can identify the promoted book. Use a semantic heading, group it with the matching description and purchase controls, and verify that the title remains visible and correctly associated at desktop and mobile widths.",
     },
   },
   "books.description": {
     passed: {
-      details: "The scan found descriptive copy that explains a book or gives readers a useful story hook.",
-      recommendation: "Keep the book hook or synopsis in visible page text close to the matching cover and purchase links. Review the copy after edition or campaign changes so it remains accurate, concise, and associated with the correct book.",
+      details:
+        "The scan found descriptive copy that explains a book or gives readers a useful story hook.",
+      recommendation:
+        "Maintain a concise hook, blurb, or synopsis near each featured book so readers can understand its central promise before choosing an action. Keep the copy as visible HTML associated with the correct cover and title, and update it when editions, positioning, availability, or promotional priorities change.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Check the public page for a visible hook, blurb, or synopsis associated with at least one featured book. Place the description in rendered HTML rather than an image, inaccessible accordion, or script-dependent fragment, then rescan.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Review the public book presentation for visible descriptive copy associated with at least one featured title. When the hook or synopsis appears only in artwork, an inaccessible accordion, a blocked widget, or script-dependent content, expose a readable HTML version and rerun the scan after the relevant section loads completely.",
     },
     failed: {
-      details: "The scan did not find a book description, blurb, synopsis, or similar book copy.",
-      recommendation: "Add a concise hook or two-to-three-sentence synopsis as visible HTML near each featured book. Explain the central conflict, promise, or reader appeal and position the copy before the primary purchase control.",
+      details:
+        "The scan did not find a book description, blurb, synopsis, or similar book copy.",
+      recommendation:
+        "Add a concise book hook or two-to-three-sentence synopsis so readers can understand the story, subject, conflict, or benefit before purchasing. Place the copy as visible HTML near the matching cover and title, position it before the primary purchase action, and confirm that it is not hidden behind an unnecessary interaction.",
     },
   },
   "books.purchase_links": {
     passed: {
-      details: "The scan found a visible link or action that can take readers toward purchasing a book.",
-      recommendation: "Keep purchase controls as descriptive links or buttons with valid destinations, and associate each one with the correct title and edition. Periodically test final URLs, redirects, regional storefronts, and mobile behavior, especially after retailer or affiliate-link changes.",
+      details:
+        "The scan found a visible link or action that can take readers toward purchasing a book.",
+      recommendation:
+        "Keep each purchase control clearly labeled and connected to the correct title, edition, format, or retailer destination. Test final URLs, redirects, regional storefront routing, affiliate links, direct-store actions, accessible naming, and mobile activation regularly, especially after changing retailers, editions, link-management tools, or promotional campaigns.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Test every visible purchase control and confirm that it is a standard link or accessible button leading to the intended book or retailer page. Replace JavaScript-only click handlers or blocked redirectors with crawlable final URLs where possible, then rerun the scan.",
+      details:
+        "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Test every visible purchase control and confirm that it functions as a standard link or accessible button leading to the intended book or retailer destination. When the action depends on JavaScript-only handlers, blocked redirectors, third-party widgets, or inaccessible regional routing, provide a crawlable final URL and rerun the scan.",
     },
     failed: {
-      details: "The scan did not find clear buy, order, preorder, or purchase links.",
-      recommendation: "Add a clearly labeled purchase link or button for each featured book using a valid final URL for the correct edition and format. Test desktop and mobile activation, redirect behavior, regional storefront routing, and accessible link naming.",
+      details:
+        "The scan did not find clear buy, order, preorder, or purchase links.",
+      recommendation:
+        "Add a clearly labeled purchase, order, or preorder action for each promoted book so readers can move directly from discovery to acquisition. Use a standard link or accessible button with a valid final destination, associate it with the correct edition and format, and test redirects, regional routing, and mobile activation before publishing.",
     },
   },
   "books.retailer_options": {
     passed: {
-      details: "The scan found more than one retailer or purchase destination for readers.",
-      recommendation: "Group only current retailer destinations beneath the correct book and use direct, descriptive links for each store. Test edition, format, and regional routing regularly, and remove links that lead to unavailable or incorrect listings.",
+      details:
+        "The inspected evidence met the configured requirement for purchase options match book availability.",
+      recommendation:
+        "Keep the displayed purchase options aligned with the book’s actual distribution model, whether the title is widely distributed, retailer-exclusive, or sold directly. Show only valid destinations, clearly identify exclusivity where applicable, group options beneath the correct book, and periodically verify edition, format, regional availability, and final URLs.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Verify that at least two currently valid retailer destinations are shown for the same featured book when the edition is distributed to multiple stores. Use direct, crawlable links and ensure regional or affiliate routing does not block the scanner before rescanning.",
+      details:
+        "The available evidence was incomplete or inconclusive, so purchase options match book availability requires review.",
+      recommendation:
+        "Confirm whether the featured book is widely distributed, retailer-exclusive, or direct-only, then compare that model with the purchase options shown on the site. When availability cannot be reliably determined from the inspected pages or external destinations, verify it manually, update the links or exclusivity wording as needed, and rescan.",
     },
     failed: {
-      details: "The scan did not find links to more than one common book retailer.",
-      recommendation: "Add direct links to every retailer where the same edition is genuinely available and group them beneath the correct book. Do not create unavailable destinations; when a title is intentionally exclusive, document that state or adjust the audit rule rather than presenting false choices.",
+      details:
+        "The inspected evidence did not meet the configured requirement for purchase options match book availability.",
+      recommendation:
+        "Correct the purchase options so they accurately represent where the featured book is currently available. Add missing valid retailer or direct-store destinations, remove unavailable or incorrect listings, clearly state legitimate exclusivity when relevant, and test that every link reaches the correct title, edition, format, and regional storefront.",
     },
   },
   "books.reader_proof": {
     passed: {
-      details: "The scan found reader proof such as reviews, praise, endorsements, ratings, or awards.",
-      recommendation: "Keep reviews, endorsements, ratings, or awards visibly attributed to a verifiable source and place the strongest proof near the relevant book. Update or remove claims when source pages change, permissions expire, or stronger recent proof becomes available.",
+      details:
+        "The scan found reader proof such as reviews, praise, endorsements, ratings, or awards.",
+      recommendation:
+        "Maintain credible book-level proof such as reviews, ratings, endorsements, awards, or praise near the relevant title. Keep every claim accurately attributed, preserve enough source context for readers to evaluate it, link to supporting evidence where useful, and update or remove statements when ratings, permissions, or source pages change.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Inspect visible review excerpts, endorsements, ratings, and awards and confirm that each includes a recognizable attribution. If proof is injected through a third-party widget or hidden carousel, add a readable HTML version or ensure the widget renders for the scanner.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Inspect visible review excerpts, ratings, awards, and endorsements and confirm that they relate to the featured book and include recognizable attribution. When proof is supplied only through a blocked third-party widget, hidden carousel, inaccessible embed, or ambiguous copy, add a readable attributed HTML version and rerun the scan.",
     },
     failed: {
-      details: "The scan did not find reviews, praise, endorsements, awards, or reader proof.",
-      recommendation: "Add two or three credible review excerpts, endorsements, ratings, or awards near the relevant book and identify each source clearly. Use exact supported wording, link to evidence where appropriate, and avoid unattributed or unverifiable claims.",
+      details:
+        "The scan did not find reviews, praise, endorsements, awards, or reader proof.",
+      recommendation:
+        "Add two or three credible reviews, endorsements, ratings, awards, or praise statements near the relevant book to strengthen reader confidence. Attribute each item to a recognizable source, use exact supported wording, provide a source link where appropriate, and avoid anonymous, unverifiable, outdated, or misleading claims.",
     },
   },
   "books.featured_book": {
     passed: {
-      details: "The scan found a featured-book presentation in the inspected website content.",
-      recommendation: "Maintain one clearly structured featured-book section containing the cover, text title, concise hook, and primary purchase path. Update the selected book and associated links whenever the current release or promotional priority changes.",
+      details:
+        "The scan found a featured-book presentation in the inspected website content.",
+      recommendation:
+        "Maintain one clearly grouped featured-book section that helps readers understand and act on the current promotional priority. Keep the cover, text title, concise hook, and primary purchase path together in the default page content, and update the complete section whenever the featured release, campaign, or availability changes.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Confirm that one current book is intentionally presented with its cover, text title, hook, and purchase path in the public page content. If these elements are split across sliders, tabs, or interaction-dependent components, expose a complete default view and rerun the scan.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Confirm that one current title is intentionally presented as a complete default section containing its cover, text title, useful description, and purchase path. When these elements are separated across tabs, sliders, popups, or interaction-dependent components, expose a complete initial presentation and rerun the fully rendered page scan.",
     },
     failed: {
-      details: "The scan did not find a clear featured book, latest release, or available-now section.",
-      recommendation: "Create one prominent featured-book section containing the cover, text title, concise hook, and primary purchase path. Render the complete section in the default homepage content and update it when the current release or campaign priority changes.",
+      details:
+        "The scan did not find a clear featured book, latest release, or available-now section.",
+      recommendation:
+        "Create one complete featured-book section so readers can identify, understand, and purchase the current priority title without searching across the site. Group a responsive cover, visible text title, concise description, and primary purchase action in the same homepage component, then test the full section on desktop and mobile.",
     },
   },
   "engagement.newsletter_signup": {
     passed: {
-      details: "The scan found a newsletter signup path or an email subscription form.",
-      recommendation: "Keep the subscription form connected to the intended mailing-list audience and limit fields to information required for signup. Test validation, consent text, success messaging, confirmation email, and subscriber routing after form or email-platform changes.",
+      details:
+        "The scan found a newsletter signup path or an email subscription form.",
+      recommendation:
+        "Keep the newsletter form or signup path connected to the correct mailing-list audience and request only the information required for subscription. Regularly test field validation, consent wording, success messaging, confirmation or double opt-in, subscriber routing, and delivery automation after changing the form, website platform, or email provider.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Submit the newsletter form manually with a test address and verify validation, consent, confirmation, and list delivery. Ensure the form or subscription link is available in the public rendered page and not blocked by an inaccessible iframe, popup trigger, or bot challenge.",
+      details:
+        "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Locate and manually test the newsletter form or subscription destination to confirm that it is publicly accessible and accepts an email address. When the signup is blocked by an iframe, bot challenge, popup trigger, delayed script, or inaccessible provider page, expose a persistent usable path and rerun the scan.",
     },
     failed: {
-      details: "The scan did not find a newsletter, subscribe form, or email signup field.",
-      recommendation: "Add an accessible email signup form connected to the intended mailing-list audience and request only necessary subscriber data. Configure validation, consent text, success messaging, confirmation or double opt-in, and automation delivery, then test the full subscriber flow.",
+      details:
+        "The scan did not find a newsletter, subscribe form, or email signup field.",
+      recommendation:
+        "Add an accessible newsletter signup path so interested readers can join the author’s owned audience. Use a visible email field or clearly labeled subscription destination, request only necessary information, configure validation, consent, success messaging, confirmation, and subscriber routing, and test the complete flow with a controlled address before launch.",
     },
   },
   "engagement.homepage_signup": {
     passed: {
-      details: "The scan found a newsletter signup form or clear subscription link on the homepage.",
-      recommendation: "Keep a visible newsletter form or descriptive subscription link in the homepage content, with a second opportunity near the footer when appropriate. Verify its placement and usability at mobile widths after layout, popup, or form-builder updates.",
+      details:
+        "The scan found a newsletter signup form or clear subscription link on the homepage.",
+      recommendation:
+        "Keep a visible newsletter form or descriptive subscription link in the homepage content so readers can join without first locating another page. Maintain an additional compact opportunity near the footer where appropriate, and verify that popups, redesigns, form-builder changes, and mobile layouts do not hide or replace the persistent signup path.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Open the homepage at desktop and mobile widths and confirm that a newsletter form or clearly labeled subscription link is visible without navigating elsewhere. If it appears only after a popup delay or interaction, add a persistent inline signup path and rescan.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Open the homepage at desktop and mobile widths and confirm that a newsletter form or clearly labeled signup link is visible without waiting for a popup or performing an unsupported interaction. When only a delayed or blocked subscription prompt exists, add a persistent inline path and rerun the scan.",
     },
     failed: {
       details: "The scan did not find the newsletter signup on the homepage.",
-      recommendation: "Place a persistent newsletter form or clearly labeled subscription link in the homepage content, with an additional compact opportunity near the footer if appropriate. Do not rely solely on a timed popup, and verify that the form is usable on mobile.",
+      recommendation:
+        "Place a visible newsletter form or clearly labeled subscription link on the homepage so interested readers can join without searching through the site. Use an inline section or persistent call to action rather than relying only on a timed popup, and verify that the control remains readable and usable on mobile.",
     },
   },
   "engagement.reader_magnet": {
     passed: {
-      details: "The scan found a reader incentive such as a sample, bonus scene, free book, or reading guide.",
-      recommendation: "Keep the reader-magnet offer, delivery terms, and file or landing-page destination current. Test the complete subscriber flow periodically, including form submission, automation trigger, email delivery, download permissions, and expired-link behavior.",
+      details:
+        "The scan found a reader incentive such as a sample, bonus scene, free book, or reading guide.",
+      recommendation:
+        "Keep the reader-magnet offer specific, current, and directly relevant to the author’s audience. Clearly state what subscribers receive, maintain the correct delivery file or landing page, and periodically test form submission, automation triggers, confirmation messages, email delivery, download permissions, expired links, and mobile access.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Verify that the page clearly offers a reader incentive and explains what is delivered after signup. Make the offer and delivery path available as readable page content rather than relying only on a popup, image, or email-platform script that the scanner cannot render.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Verify that the site clearly offers a reader incentive and that the offer explains what is delivered after signup. When the magnet appears only in a popup, image, inaccessible iframe, or email-platform script the scanner cannot inspect, expose the offer as readable page content and test delivery before rescanning.",
     },
     failed: {
-      details: "The scan did not find a reader magnet such as a free chapter, bonus scene, free book, or sample download.",
-      recommendation: "Create a relevant reader magnet such as a sample chapter, bonus scene, short story, or reading guide and describe exactly what subscribers receive. Connect the form to an automated delivery email or secure download, then test permissions, expiry, and delivery.",
+      details:
+        "The scan did not find a reader magnet such as a free chapter, bonus scene, free book, or sample download.",
+      recommendation:
+        "Create a relevant reader incentive such as a sample chapter, bonus scene, short story, free book, or reading guide to strengthen the signup offer. Explain exactly what subscribers receive, connect the form to an automated delivery email or secure download, and test the complete submission and fulfillment process before promotion.",
     },
   },
   "engagement.subscriber_benefit": {
     passed: {
-      details: "The scan found wording that explains what readers receive by subscribing.",
-      recommendation: "Keep the subscriber value proposition immediately beside the signup control and state what readers receive in specific language. Update the copy whenever the newsletter cadence, content mix, incentive, or privacy terms change.",
+      details:
+        "The scan found wording that explains what readers receive by subscribing.",
+      recommendation:
+        "Keep the newsletter value proposition immediately beside the signup control so readers understand why they should subscribe. State the content, immediate incentive, or realistic communication frequency in specific language, keep the explanation outside placeholders, and update it whenever the newsletter cadence, content mix, offer, or privacy terms change.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Read the copy immediately surrounding the signup control and confirm that it states what subscribers receive and, where appropriate, how often. If the benefit is supplied only through placeholder text, an image, or delayed script, add persistent HTML copy and rerun the scan.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Read the copy immediately surrounding the newsletter form or subscription link and confirm that it clearly explains what subscribers receive. When the benefit appears only in placeholder text, an image, delayed script, popup, or blocked embed, add persistent HTML copy and rerun the scan after the form renders fully.",
     },
     failed: {
-      details: "The scan did not find clear wording that explains why readers should subscribe.",
-      recommendation: "Add one specific sentence beside the signup control explaining the newsletter content, immediate incentive, and realistic frequency where useful. Keep this copy visible outside placeholders so readers and assistive technology can understand the value before submitting.",
+      details:
+        "The scan did not find clear wording that explains why readers should subscribe.",
+      recommendation:
+        "Add a specific benefit statement beside the signup control so readers know what they will receive after subscribing. Describe the newsletter content, immediate incentive, or realistic frequency in visible HTML text, avoid generic wording such as “Join my newsletter,” and ensure assistive technology can read the explanation before submission.",
     },
   },
   "search.title_tag": {
     passed: {
       details: "The homepage includes a non-empty HTML title tag.",
-      recommendation: "Keep one unique, non-empty homepage `<title>` generated consistently in the server-rendered document head. Review the final rendered title after SEO-plugin, theme, routing, or homepage-setting changes to prevent duplication or fallback text.",
+      recommendation:
+        "Keep one unique, meaningful homepage `<title>` in the initial document head so browsers and search engines receive a stable page identity. Review the final rendered value after SEO-plugin, framework, routing, theme, or homepage-setting changes to prevent empty titles, fallback text, duplicate elements, or client-side overwrites.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Inspect the final rendered document head or browser tab and confirm that the homepage contains one meaningful `<title>` element. If metadata is added only client-side or omitted from the initial response, configure the framework or SEO system to render it consistently and rescan.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Inspect both the initial page source and final rendered document head to confirm that one meaningful homepage `<title>` is present. When metadata is added only client-side, overwritten by a plugin, duplicated, or unavailable because rendering failed, correct the metadata configuration and rerun the scan.",
     },
     failed: {
-      details: "The scan did not find a page title tag, which helps browsers and search engines understand the page.",
-      recommendation: "Generate one unique homepage `<title>` in the rendered document head, beginning with the published author name and adding concise genre or role context. Configure the CMS or framework so the title is present in the initial response and not overwritten by duplicate templates.",
+      details:
+        "The scan did not find a page title tag, which helps browsers and search engines understand the page.",
+      recommendation:
+        "Add one meaningful homepage `<title>` so browsers and search engines can identify the page. Generate it in the initial rendered document head through the site’s CMS, framework, or SEO configuration, avoid duplicate or empty title elements, and verify the final result in the page source and browser tab.",
     },
   },
   "search.author_title_format": {
     passed: {
-      details: "The homepage title contains useful author or brand-identifying wording.",
-      recommendation: "Keep the published author name near the beginning of the homepage title and add concise genre or author-role context where it improves clarity. Preview the final title at common search-result widths after brand or metadata changes.",
+      details:
+        "The homepage title contains useful author or brand-identifying wording.",
+      recommendation:
+        "Keep the published author name or established author brand near the beginning of the homepage title, adding concise genre or author-role context where it improves clarity. Review the final rendered title after branding, pen-name, SEO, campaign, or template changes and ensure slogans do not replace essential identity wording.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Confirm that the homepage title begins with or clearly includes the published author name and useful author or genre context. Review the final rendered `<title>` rather than only the CMS field, because plugins or templates may overwrite it.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Check the final rendered homepage title and confirm that it contains the published author name, recognized pen name, or another clear author-brand identifier. When plugins, templates, or client-side scripts overwrite the expected value, correct the metadata output and rerun the scan against the live public URL.",
     },
     failed: {
-      details: "The homepage title did not clearly include the author name, author role, books, or writing category.",
-      recommendation: "Rewrite the homepage title to clearly identify the published author and primary genre or author role, for example `Author Name | Historical Romance Author`. Put the identifying terms near the beginning and remove slogans that do not explain the site.",
+      details:
+        "The homepage title did not clearly include the author name, author role, books, or writing category.",
+      recommendation:
+        "Rewrite the homepage title so it clearly identifies the published author or established pen name and provides useful genre, book, or author-role context. Place the identifying terms near the beginning, remove vague slogans that do not explain the site, and verify the final rendered title rather than only the CMS field.",
     },
   },
   "search.meta_description": {
     passed: {
       details: "The homepage includes a non-empty meta description.",
-      recommendation: "Maintain a distinct homepage meta description in the rendered `<head>` that accurately summarizes the author, books, and useful reader action. Recheck it after campaign, featured-book, SEO-plugin, or template changes so stale or duplicate descriptions are not introduced.",
+      recommendation:
+        "Maintain one distinct, non-empty homepage meta description that accurately summarizes the author, books or writing category, and a useful reader action. Recheck the final rendered `<head>` after SEO-plugin, campaign, featured-book, template, or routing changes to prevent stale, duplicate, conflicting, or empty description tags.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Inspect the homepage source and rendered head for one distinct non-empty `<meta name=\"description\">`. If it is missing from the server response, duplicated, or overwritten client-side, correct the metadata template and rerun the scan.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        'Inspect the initial source and final rendered head for one distinct, non-empty `<meta name="description">`. When the description is missing from the server response, duplicated, overwritten client-side, or unavailable because rendering failed, correct the metadata template and rerun the scan on the public homepage.',
     },
     failed: {
-      details: "The scan did not find a meta description for the scanned pages.",
-      recommendation: "Add one distinct `<meta name=\"description\">` to the homepage head that summarizes the author, books or genre, and a useful reader action. Render it consistently through the CMS or application metadata layer and avoid duplicate or empty description tags.",
+      details:
+        "The scan did not find a meta description for the scanned pages.",
+      recommendation:
+        "Add one concise homepage meta description that explains the author, books or genre, and a useful next action for readers. Generate it consistently through the CMS or application metadata layer, prevent duplicate or empty tags, and verify the final rendered source rather than relying only on an administrative preview field.",
     },
   },
   "search.single_h1": {
     passed: {
-      details: "The inspected page has one identifiable main heading without a multiple-H1 conflict.",
-      recommendation: "Preserve exactly one page-level H1 for the main topic and use H2–H6 elements in a logical hierarchy for supporting sections. Reinspect the rendered DOM after page-builder or template edits because visually styled text can accidentally introduce missing or duplicate H1 elements.",
+      details:
+        "The inspected evidence met the configured requirement for primary heading structure is clear.",
+      recommendation:
+        "Preserve one clearly identifiable page-level heading for the homepage’s main topic and use lower heading levels for supporting sections. After theme, page-builder, hero, logo, or promotional changes, inspect the rendered hierarchy to ensure decorative elements do not introduce missing, duplicated, or competing primary headings.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Inspect the rendered heading structure and confirm that the page has exactly one primary H1. If the H1 is missing, duplicated by the theme, or inserted only after interaction, correct the template or page-builder hierarchy and rescan.",
+      details:
+        "The available evidence was incomplete or inconclusive, so primary heading structure is clear requires review.",
+      recommendation:
+        "Inspect the final rendered heading hierarchy and determine whether one clear page-level H1 identifies the homepage’s primary topic. When headings are inserted only after interaction, duplicated by the theme, hidden behind overlays, or unavailable because rendering failed, correct the template or component and rerun the scan.",
     },
     failed: {
-      details: "The scan either did not find an H1 or found multiple H1 headings on a page.",
-      recommendation: "Set one page-specific H1 for the homepage's primary topic and change decorative, logo, or repeated H1 elements to appropriate lower levels or non-heading markup. Verify the final rendered hierarchy so H2–H6 sections follow a logical structure.",
+      details:
+        "The inspected evidence did not meet the configured requirement for primary heading structure is clear.",
+      recommendation:
+        "Create a clear page-level heading structure so visitors and assistive technology can identify the homepage’s main topic. Add one meaningful primary H1, convert decorative or competing headings to appropriate lower levels or non-heading markup, and verify that the rendered H2–H6 hierarchy follows the content logically.",
     },
   },
   "search.h1_clarity": {
     passed: {
-      details: "The main heading includes useful wording that supports author or book clarity.",
-      recommendation: "Keep the homepage H1 understandable without relying on surrounding imagery and connect it directly to the author, genre, books, or reader promise. Reevaluate the wording when the hero design or author positioning changes.",
+      details:
+        "The main heading includes useful wording that supports author or book clarity.",
+      recommendation:
+        "Keep the homepage’s primary heading understandable without relying on nearby images and ensure it communicates the author, books, genre, audience, or reader promise. Reevaluate the wording whenever the hero, positioning, pen name, featured release, or promotional strategy changes, and retain the heading as visible semantic HTML.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Read the visible H1 without relying on images or nearby copy and confirm that it identifies the author, books, genre, or reader promise. If the scanner cannot see it because it is rendered as artwork, pseudo-content, or delayed JavaScript, replace or supplement it with semantic HTML text.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Read the visible primary heading independently from nearby imagery and confirm that it identifies the author, books, genre, audience, or reader promise. When the heading is artwork, pseudo-content, delayed JavaScript, or hidden by an overlay, replace or supplement it with semantic HTML and rerun the scan.",
     },
     failed: {
-      details: "The main heading did not clearly connect the page to the author, books, or genre.",
-      recommendation: "Rewrite the homepage H1 so a new visitor can identify the author, genre, books, or reader promise without relying on surrounding images. Keep it concise, specific, and rendered as semantic text rather than artwork or pseudo-content.",
+      details:
+        "The main heading did not clearly connect the page to the author, books, or genre.",
+      recommendation:
+        "Rewrite the homepage’s primary heading so a new visitor can understand the author, books, genre, audience, or reader promise without relying on surrounding artwork. Keep the wording concise and specific, render it as semantic HTML text, and verify that the complete message remains visible across desktop and mobile layouts.",
     },
   },
   "search.indexability": {
     passed: {
-      details: "The scan did not find an obvious robots or noindex signal blocking the inspected page from search engines.",
-      recommendation: "Keep important public pages free of unintended `noindex`, `nofollow`, X-Robots-Tag, authentication, and robots.txt restrictions. After migrations, staging deployments, or SEO configuration changes, verify the live URL with a search-engine inspection tool.",
+      details:
+        "The scan did not find an obvious robots or noindex signal blocking the inspected page from search engines.",
+      recommendation:
+        "Keep important public pages free from unintended page-level `noindex`, conflicting canonical signals, or other metadata that discourages indexing. After migrations, staging deployments, SEO configuration changes, or domain updates, inspect the live rendered page and verify the preferred URL with an appropriate search-engine inspection tool.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Check robots.txt, page-level meta robots, X-Robots-Tag response headers, authentication, and canonical routing for the inspected URL. Remove accidental access barriers or expose the final public URL to the crawler, then verify it with a search-engine inspection tool and rerun the scan.",
+      details:
+        "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Inspect the live page’s meta robots directives, canonical destination, authentication state, and rendered metadata to determine whether the page is intended to be indexable. When headers, redirects, page access, or rendering are incomplete, correct the access condition and rerun the scan before treating the page as blocked.",
     },
     failed: {
-      details: "The scan found a noindex or similar signal that may keep the page out of search results.",
-      recommendation: "Remove unintended `noindex` directives, X-Robots-Tag restrictions, robots.txt blocks, authentication, or environment settings from important public pages. Verify the deployed canonical URL with a search-engine inspection tool and request indexing after the fix.",
+      details:
+        "The scan found a noindex or similar signal that may keep the page out of search results.",
+      recommendation:
+        "Remove unintended page-level indexing restrictions from important public content so search engines can consider it for results. Correct `noindex` meta directives, conflicting canonical targets, or template-level metadata errors, verify that the live preferred URL returns the intended settings, and request reinspection after deployment.",
     },
   },
   "search.internal_links": {
     passed: {
-      details: "The scan found useful internal links connecting visitors to important website content.",
-      recommendation: "Maintain descriptive, crawlable internal links to Books, About, Contact, newsletter, and other priority pages using final canonical URLs. Run a link crawl after permalink or navigation changes to catch broken links, redirect chains, and orphaned destinations.",
+      details:
+        "The scan found useful internal links connecting visitors to important website content.",
+      recommendation:
+        "Maintain descriptive, crawlable internal links from the homepage and primary navigation to Books, About, Contact, newsletter, series, and other priority reader destinations. Link directly to final canonical URLs, and run a focused crawl after permalink, navigation, content-removal, or site-structure changes to catch broken links and redirect chains.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Follow the homepage's important links and inspect the rendered HTML for standard anchors to Books, About, Contact, newsletter, and other priority pages. Replace script-only navigation or blocked redirect links with crawlable final URLs before rescanning.",
+      details:
+        "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Inspect the rendered homepage and navigation for standard crawlable anchors to important reader pages, then follow each destination to confirm it loads correctly. When navigation depends on JavaScript-only controls, blocked redirects, incomplete rendering, or uncrawled pages, expose direct final URLs and rerun the crawl.",
     },
     failed: {
-      details: "The scan did not find enough internal links to key author website pages.",
-      recommendation: "Add descriptive internal anchors from the main navigation and relevant homepage sections to Books, About, Contact, newsletter, and other priority reader pages. Link directly to final canonical URLs and eliminate broken links or avoidable redirect chains.",
+      details:
+        "The scan did not find enough internal links to key author website pages.",
+      recommendation:
+        "Add descriptive internal links that help readers and search engines reach the website’s priority content. Connect the homepage and navigation directly to Books, About, Contact, newsletter, series, and other important destinations using standard HTML anchors, then repair broken links, remove unnecessary redirects, and verify each final URL.",
     },
   },
   "mobile.pagespeed_performance": {
     passed: {
-      details: "PageSpeed reported a mobile performance score at or above the current target.",
-      recommendation: "Protect the current mobile performance score by serving responsive compressed images, limiting render-blocking resources, deferring nonessential third-party code, and retaining effective page and browser caching. Rerun PageSpeed Insights after adding plugins, fonts, embeds, tracking scripts, or large media.",
+      details:
+        "PageSpeed reported a mobile performance score at or above the current target.",
+      recommendation:
+        "Protect the current mobile performance result by serving responsive compressed images, limiting render-blocking resources, deferring nonessential third-party code, reducing main-thread work, and preserving effective caching. Rerun PageSpeed after adding fonts, plugins, analytics, embeds, advertising, or large media, and prioritize only diagnostics actually reported for the tested URL.",
     },
     needs_review: {
-      details: "The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Run PageSpeed Insights directly against the same public homepage URL and record whether a mobile result is returned. If the audit is blocked, remove authentication or challenge pages for legitimate testing, adjust WAF or consent behavior, and retry before rerunning the analyzer.",
+      details:
+        "The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Run a current mobile PageSpeed or Lighthouse audit against the exact public homepage and confirm that a complete result is returned. When authentication, bot protection, consent interstitials, server errors, or blocked resources prevent testing, correct the access condition and rerun the analyzer before evaluating performance.",
     },
     failed: {
-      details: "PageSpeed measured a mobile performance score below the target of 70.",
-      recommendation: "Improve the mobile score to at least the configured target by resizing and compressing images, serving modern formats, reducing render-blocking CSS and JavaScript, deferring nonessential third-party code, and enabling effective caching. Use the individual PageSpeed diagnostics to prioritize the largest LCP, INP, CLS, and transfer-size contributors, then retest.",
+      details:
+        "PageSpeed measured a mobile performance score below the target of 70.",
+      recommendation:
+        "Improve mobile loading performance by addressing the largest diagnostics reported for the tested page, prioritizing oversized images, render-blocking CSS or JavaScript, excessive third-party code, weak caching, and heavy main-thread work. Deploy the highest-impact fixes first, then rerun PageSpeed on the same public URL and compare the measured score.",
     },
   },
   "mobile.pagespeed_accessibility": {
     passed: {
-      details: "PageSpeed reported a mobile accessibility score at or above the current target.",
-      recommendation: "Preserve accessible mobile behavior by maintaining sufficient contrast, programmatic labels, meaningful alternative text, logical focus order, and adequately sized touch targets. Retest with Lighthouse plus keyboard and screen-reader checks after changes to navigation, forms, dialogs, or interactive controls.",
+      details:
+        "PageSpeed reported a mobile accessibility score at or above the current target.",
+      recommendation:
+        "Preserve accessible mobile behavior by maintaining sufficient contrast, meaningful alternative text, programmatic labels, logical focus order, visible focus states, and adequately sized controls. Repeat automated audits and manual keyboard or screen-reader checks after changing navigation, forms, dialogs, page builders, interactive widgets, or brand styling.",
     },
     needs_review: {
-      details: "The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Run a current mobile Lighthouse or PageSpeed accessibility audit and review the individual findings, not only the score. Ensure the public page can load without authentication, bot challenges, or an overlay that prevents Lighthouse from reaching the content.",
+      details:
+        "The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Run a complete mobile accessibility audit and manually inspect the page’s navigation, forms, controls, focus behavior, and readable content. When a login gate, bot challenge, persistent overlay, rendering error, or blocked asset prevents reliable testing, remove the obstruction and rerun the analyzer before assigning a confirmed result.",
     },
     failed: {
-      details: "PageSpeed measured a mobile accessibility score below the target of 90.",
-      recommendation: "Resolve the failed mobile accessibility audits, prioritizing low contrast, missing accessible names, unlabeled form fields, incorrect alternative text, focus problems, and undersized or overlapping targets. Rerun Lighthouse and manually test keyboard and screen-reader behavior because the score alone does not confirm accessibility.",
+      details:
+        "PageSpeed measured a mobile accessibility score below the target of 90.",
+      recommendation:
+        "Resolve the specific mobile accessibility audits reported for the page, prioritizing missing labels, inaccessible names, low contrast, incorrect alternative text, focus problems, and undersized or overlapping controls. Rerun the automated audit after deployment and manually test key navigation, forms, and dialogs because the score alone does not confirm accessibility.",
     },
   },
   "mobile.text_contrast": {
     passed: {
-      details: "Measured mobile text samples met the analyzer's baseline contrast requirement with sufficient coverage.",
-      recommendation: "Keep text and controls above the required contrast ratio against their actual rendered backgrounds, including image overlays and hover, focus, disabled, and active states. Recalculate contrast whenever brand colors, transparency, background imagery, or button styles change.",
+      details:
+        "Measured mobile text samples met the analyzer's baseline contrast requirement with sufficient coverage.",
+      recommendation:
+        "Keep text, links, buttons, and form controls above the required contrast ratio against their actual rendered backgrounds, including image overlays and interactive states. Recalculate contrast whenever brand colors, transparency, background imagery, button styles, themes, or mobile breakpoints change, and verify representative samples in the live rendered page.",
     },
     needs_review: {
-      details: "The required rendered-page or viewport evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Measure representative mobile text, links, and controls against their actual rendered backgrounds with a contrast-testing tool. If the required viewport cannot render cleanly because of overlays, animation, or blocked assets, correct those rendering conditions and rescan.",
+      details:
+        "The required rendered-page or viewport evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Measure representative mobile text, links, buttons, and controls against their actual rendered backgrounds using a contrast-testing method. When overlays, missing assets, animation, blocked content, or incomplete viewport capture prevents reliable measurement, correct the rendering condition and rerun the scan before confirming compliance or failure.",
     },
     failed: {
-      details: "The rendered mobile homepage contains measured text that falls below the baseline contrast threshold.",
-      recommendation: "Adjust text, overlay, and background colors until each flagged mobile element meets the applicable WCAG contrast ratio in its normal and interactive states. Test the actual rendered combinations at mobile breakpoints, including text over images, transparent layers, links, and buttons.",
+      details:
+        "The rendered mobile homepage contains measured text that falls below the baseline contrast threshold.",
+      recommendation:
+        "Adjust the foreground, background, overlay, or transparency values of each flagged mobile element until the rendered combination meets the applicable contrast requirement. Test normal, hover, focus, active, and disabled states where relevant, including text over images, and verify the corrected values at common mobile breakpoints.",
     },
   },
-  "mobile.pagespeed_seo": {
+  "mobile.interactive_controls": {
     passed: {
-      details: "PageSpeed reported a mobile SEO score at or above the current target.",
-      recommendation: "Maintain complete mobile metadata, crawlable anchor links, valid status responses, and content that remains available in the rendered page without blocked resources. Review individual Lighthouse SEO audits after changes to routing, metadata generation, JavaScript rendering, or navigation.",
+      details:
+        "The inspected evidence met the configured requirement for mobile interactive controls meet usability baseline.",
+      recommendation:
+        "Maintain usable mobile controls by preserving adequately sized tap targets, sufficient spacing, visible labels, operable menu buttons, and unobstructed form actions. Retest navigation, dialogs, sliders, accordions, purchase buttons, and signup forms after layout or plugin changes to ensure fixed banners, chat widgets, and overlays do not interfere.",
     },
     needs_review: {
-      details: "The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Run the mobile Lighthouse SEO audit on the exact public URL and inspect crawlability, metadata, status-code, and link findings. Resolve any access or rendering condition that prevents PageSpeed from returning a complete result, then rerun the analyzer.",
+      details:
+        "The available evidence was incomplete or inconclusive, so mobile interactive controls meet usability baseline requires review.",
+      recommendation:
+        "Operate the homepage’s mobile menu, forms, purchase controls, dialogs, and other interactive components using touch and keyboard input where applicable. When rendering errors, overlays, blocked scripts, or incomplete interaction testing prevent a reliable conclusion, correct those conditions and rerun the mobile scan.",
     },
     failed: {
-      details: "PageSpeed measured a mobile search audit score below the target of 90.",
-      recommendation: "Open the failed Lighthouse SEO audits and correct each reported crawlability, metadata, status-code, or link issue. Confirm that the public URL returns complete rendered metadata and crawlable anchors, then rerun the mobile audit.",
+      details:
+        "The inspected evidence did not meet the configured requirement for mobile interactive controls meet usability baseline.",
+      recommendation:
+        "Correct undersized, overlapping, hidden, or difficult-to-operate mobile controls so readers can navigate and complete important actions reliably. Increase tap-target dimensions and spacing, provide clear labels and accessible states, remove obstructing overlays, and manually test menus, forms, book links, and dialogs at common phone widths.",
     },
   },
   "mobile.image_alt_text": {
     passed: {
-      details: "The scan did not find the current missing-alt-text signal on inspected meaningful images.",
-      recommendation: "Continue providing accurate `alt` attributes for meaningful images and empty `alt=\"\"` values for decorative images. Review newly uploaded book covers, portraits, banners, and linked graphics so their alternative text describes purpose without duplicating nearby text unnecessarily.",
+      details:
+        "The inspected evidence met the configured requirement for images include appropriate alt text.",
+      recommendation:
+        'Continue providing accurate `alt` attributes for meaningful images and empty `alt=""` values for decorative images. Review newly uploaded book covers, author portraits, banners, linked graphics, and promotional assets so their alternative text communicates purpose without unnecessarily duplicating nearby visible text.',
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Inspect meaningful images in the rendered DOM and verify that each has an appropriate `alt` attribute while decorative images use `alt=\"\"`. If images are supplied as CSS backgrounds or generated by a widget, add accessible equivalents or configure the component to expose alternative text.",
+      details:
+        "The available evidence was incomplete or inconclusive, so images include appropriate alt text requires review.",
+      recommendation:
+        'Inspect meaningful images in the rendered mobile DOM and confirm that each has useful alternative text while decorative images use `alt=""`. When images are generated by inaccessible widgets, supplied only as CSS backgrounds, lazy-loaded after interaction, or unavailable to the scanner, add accessible equivalents and rescan.',
     },
     failed: {
-      details: "The scan found images without alt text.",
-      recommendation: "Add an `alt` attribute to every meaningful `<img>`, describing the image's purpose or content; identify covers by title and portraits by author name when that information is not already adjacent. Use `alt=\"\"` for decorative images so screen readers can ignore them.",
+      details:
+        "The inspected evidence did not meet the configured requirement for images include appropriate alt text.",
+      recommendation:
+        'Add an appropriate `alt` attribute to every meaningful image so screen-reader users receive equivalent information. Identify book covers by title and author portraits by name when that context is not already adjacent, use `alt=""` for decorative assets, and review CSS background images that may require a separate accessible text equivalent.',
     },
   },
   "mobile.homepage_structure": {
     passed: {
-      details: "The homepage loaded successfully and exposed a readable main heading to the scan.",
-      recommendation: "Keep the public homepage returning a successful response and expose one visible text H1 in the initial rendered content without requiring login, consent, or user interaction. Retest in a signed-out mobile session after changes to popups, cookie tools, client-side rendering, or hero components.",
+      details:
+        "The homepage loaded successfully and exposed a readable main heading to the scan.",
+      recommendation:
+        "Keep the public homepage returning a successful response and expose one visible, readable text H1 in the initial mobile content. Retest the page in a signed-out session after changing cookie tools, popups, client-side rendering, hero components, routing, or page builders to ensure the heading remains available without interaction.",
     },
     needs_review: {
-      details: "The required rendered-page or viewport evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Load the homepage in a signed-out mobile browser and confirm that it returns successfully with one visible text H1 in the initial rendered content. Remove or reconfigure login gates, persistent overlays, or client-side failures that prevent the heading from being rendered, then rescan.",
+      details:
+        "The required rendered-page or viewport evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Load the homepage in a signed-out mobile browser and confirm that it returns successfully with one visible, readable text H1 in the initial rendered content. When authentication, overlays, delayed scripts, or client-side failures prevent inspection, correct the rendering condition and rerun the scan.",
     },
     failed: {
-      details: "The homepage loaded, but the scan did not find a visible, readable main heading in the initial page content.",
-      recommendation: "Ensure the homepage returns a successful public response and includes one visible text H1 in the initial rendered DOM. Remove persistent overlays or rendering errors that hide the heading, and verify the result in a signed-out mobile browser before rescanning.",
+      details:
+        "The homepage loaded, but the scan did not find a visible, readable main heading in the initial page content.",
+      recommendation:
+        "Add one visible text H1 to the initial mobile homepage content so readers and assistive technology can identify the page’s main topic immediately. Correct rendering errors, hidden styles, or persistent overlays that obscure the heading, then verify the result in a signed-out mobile browser before rescanning.",
     },
   },
   "mobile.viewport_fit": {
     passed: {
-      details: "The rendered mobile homepage showed no confirmed page-level horizontal overflow.",
-      recommendation: "Preserve responsive sizing with fluid containers, wrapping text, scalable media, and constrained embeds so the document width never exceeds the viewport. Test common phone widths after adding sliders, forms, tables, iframes, badges, or fixed-position elements.",
+      details:
+        "The rendered mobile homepage showed no confirmed page-level horizontal overflow.",
+      recommendation:
+        "Preserve responsive sizing with fluid containers, wrapping text, scalable media, and constrained embeds so the document remains within the mobile viewport. Test common phone widths after adding sliders, tables, forms, iframes, badges, fixed-position controls, or promotional widgets, and correct any element that increases page-level width.",
     },
     needs_review: {
-      details: "The required rendered-page or viewport evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Test the page at common phone widths and check whether the document itself scrolls horizontally or clips essential controls. If rendering evidence was incomplete, disable blocking overlays and inspect oversized fixed-width elements, transforms, tables, embeds, and sliders before rescanning.",
+      details:
+        "The required rendered-page or viewport evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Test the rendered page at common mobile widths and determine whether the document itself scrolls horizontally or clips essential content. When overlays, missing assets, blocked scripts, or incomplete capture prevent reliable measurement, correct those conditions, inspect oversized elements, and rerun the viewport scan.",
     },
     failed: {
-      details: "The rendered mobile homepage contains page-level horizontal overflow that can cause sideways scrolling or clipped content.",
-      recommendation: "Identify the element increasing the document width—commonly a fixed-width image, slider, form, iframe, table, transform, or absolutely positioned control—and replace rigid sizing with responsive constraints or wrapping. Confirm that `document.documentElement.scrollWidth` no longer exceeds the viewport at common phone widths.",
+      details:
+        "The rendered mobile homepage contains page-level horizontal overflow that can cause sideways scrolling or clipped content.",
+      recommendation:
+        "Identify and correct the element causing page-level horizontal overflow or clipped content on mobile. Replace rigid widths, oversized media, nonwrapping text, transforms, tables, embeds, or absolutely positioned controls with responsive constraints, then verify that the document width no longer exceeds the viewport at common phone sizes.",
     },
   },
   "technical.desktop_performance": {
     passed: {
-      details: "PageSpeed reported a desktop performance score at or above the current target.",
-      recommendation: "Protect the current desktop performance result by optimizing image delivery, minimizing unused CSS and JavaScript, and retaining effective server, browser, and CDN caching. Rerun the desktop PageSpeed audit after major template, plugin, font, analytics, or media changes.",
+      details:
+        "PageSpeed reported a desktop performance score at or above the current target.",
+      recommendation:
+        "Protect the current desktop performance result by maintaining optimized image delivery, limiting unused CSS and JavaScript, reducing main-thread work, and preserving effective server, browser, and CDN caching. Rerun the desktop audit after major template, font, analytics, plugin, embed, or media changes and prioritize diagnostics returned for the tested page.",
     },
     needs_review: {
-      details: "The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Run PageSpeed Insights directly against the exact public URL in desktop mode and confirm that a complete performance result is returned. If the request is blocked by authentication, WAF rules, consent interstitials, or server errors, correct that access condition and retry the analyzer.",
+      details:
+        "The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Run a complete desktop PageSpeed or Lighthouse performance audit against the exact public URL. When authentication, WAF rules, consent interstitials, bot challenges, server errors, or unavailable assets prevent a valid result, correct the access or rendering condition and rerun the analyzer before assigning a confirmed status.",
     },
     failed: {
-      details: "PageSpeed measured a desktop performance score below the target of 70.",
-      recommendation: "Improve the desktop score to at least the configured target by serving appropriately sized modern images, removing unused CSS and JavaScript, reducing main-thread work, and configuring server, browser, or CDN caching. Use PageSpeed diagnostics to address the largest LCP, INP, CLS, and transfer-size contributors, then retest.",
+      details:
+        "PageSpeed measured a desktop performance score below the target of 70.",
+      recommendation:
+        "Improve desktop performance by addressing the largest audit findings for the exact public page, prioritizing oversized images, unused code, excessive JavaScript execution, render-blocking resources, and ineffective caching. Deploy the highest-impact corrections first, then rerun the desktop PageSpeed test and compare the resulting score and diagnostics.",
     },
   },
-  "technical.mobile_best_practices": {
+  "technical.browser_best_practices": {
     passed: {
-      details: "PageSpeed reported a mobile best-practices score at or above the current target.",
-      recommendation: "Maintain modern and secure mobile browser behavior by keeping dependencies current, eliminating console errors, avoiding mixed content, and using safe APIs and embeds. Review the individual Lighthouse best-practices audits after updating plugins, scripts, analytics, or third-party widgets.",
+      details:
+        "The inspected evidence met the configured requirement for browser best practices meet target.",
+      recommendation:
+        "Maintain secure and modern browser behavior across mobile and desktop by keeping dependencies current, removing console errors, avoiding mixed content, and using supported APIs and embeds. Review both Lighthouse result sets after changing third-party scripts, plugins, analytics, advertising, media players, or frontend libraries.",
     },
     needs_review: {
-      details: "The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Run the mobile Lighthouse best-practices audit and inspect console, security, image, and browser-API findings. Ensure the page and its required resources are available to Lighthouse without a bot challenge or persistent overlay, then rerun the analyzer.",
+      details:
+        "The available evidence was incomplete or inconclusive, so browser best practices meet target requires review.",
+      recommendation:
+        "Run complete mobile and desktop browser best-practice audits and inspect console, security, image-delivery, API, and dependency findings. When either result is blocked or incomplete because of access restrictions, persistent overlays, resource failures, or rendering errors, correct the underlying condition and rerun both audits.",
     },
     failed: {
-      details: "PageSpeed measured a mobile best-practices score below the target of 90.",
-      recommendation: "Resolve every failed mobile best-practices audit, including console errors, insecure resource requests, deprecated APIs, image-delivery problems, and outdated libraries or embeds. Test the deployed page in the browser console and rerun Lighthouse after the fixes.",
-    },
-  },
-  "technical.desktop_best_practices": {
-    passed: {
-      details: "PageSpeed reported a desktop best-practices score at or above the current target.",
-      recommendation: "Keep desktop integrations free of console errors, insecure requests, deprecated browser APIs, and outdated dependencies. Validate the deployed page with a fresh Lighthouse best-practices run whenever frontend libraries, embeds, or tracking tools change.",
-    },
-    needs_review: {
-      details: "The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Run the desktop Lighthouse best-practices audit on the public URL and review every incomplete or failed audit. Resolve access restrictions, resource failures, or rendering errors that prevent a complete result before rescanning.",
-    },
-    failed: {
-      details: "PageSpeed measured a desktop best-practices score below the target of 90.",
-      recommendation: "Correct all failed desktop best-practices findings, prioritizing console errors, mixed content, deprecated APIs, unsafe browser behavior, and outdated third-party integrations. Deploy the fixes and verify the exact public URL with a fresh Lighthouse audit.",
+      details:
+        "The inspected evidence did not meet the configured requirement for browser best practices meet target.",
+      recommendation:
+        "Resolve the browser best-practice audits reported across mobile and desktop, prioritizing console errors, insecure resource requests, deprecated APIs, unsafe browser behavior, outdated libraries, and problematic embeds. Test the deployed page in the browser console, rerun both Lighthouse modes, and confirm that the specific failed audits have cleared.",
     },
   },
   "technical.desktop_accessibility": {
     passed: {
-      details: "PageSpeed reported a desktop accessibility score at or above the current target.",
-      recommendation: "Preserve desktop accessibility by maintaining semantic headings, descriptive link and control names, form labels, visible focus indicators, sufficient contrast, and full keyboard operation. Pair automated audits with manual keyboard testing after changes to menus, forms, templates, or interactive components.",
+      details:
+        "PageSpeed reported a desktop accessibility score at or above the current target.",
+      recommendation:
+        "Preserve accessible desktop behavior by maintaining semantic headings, descriptive control names, form labels, sufficient contrast, visible focus indicators, and full keyboard operation. Pair automated audits with manual keyboard checks after changes to navigation, templates, forms, dialogs, page builders, or interactive content.",
     },
     needs_review: {
-      details: "The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Run a current desktop accessibility audit and manually test keyboard focus, form labels, link names, and dialog behavior. If PageSpeed cannot inspect the page, remove the authentication, challenge, or blocking layer responsible and rerun the analyzer.",
+      details:
+        "The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Run a current desktop accessibility audit and manually inspect keyboard focus, navigation, form labels, link names, dialogs, and interactive controls. When authentication, a bot challenge, persistent overlay, blocked resource, or rendering failure prevents complete inspection, correct the access condition and rerun the analyzer.",
     },
     failed: {
-      details: "PageSpeed measured a desktop accessibility score below the target of 90.",
-      recommendation: "Fix the highest-impact desktop accessibility findings, including contrast, form labels, accessible names, heading order, focus visibility, and keyboard operation. Rerun automated checks and complete a manual keyboard pass to confirm that interactive content remains usable.",
+      details:
+        "PageSpeed measured a desktop accessibility score below the target of 90.",
+      recommendation:
+        "Fix the specific desktop accessibility findings reported for the page, prioritizing heading structure, form labels, accessible names, contrast, focus visibility, and keyboard operation. Rerun the automated audit after deployment and manually complete key reader journeys to confirm that navigation, forms, dialogs, and purchase controls remain usable.",
     },
   },
   "technical.https": {
     passed: {
       details: "The inspected homepage uses an HTTPS address.",
-      recommendation: "Keep a valid TLS certificate installed for every public hostname, force permanent HTTP-to-HTTPS redirects, and load all page assets over HTTPS. Monitor certificate renewal and check for mixed-content or redirect errors after hosting, CDN, proxy, or domain changes.",
+      recommendation:
+        "Keep a valid TLS certificate active for every public hostname, maintain permanent HTTP-to-HTTPS redirects, and load all page assets through secure URLs. Monitor certificate renewal, redirect behavior, hostname coverage, and browser mixed-content warnings after hosting, domain, CDN, proxy, or platform changes.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Open the homepage and key public URLs and inspect the certificate chain, browser security indicator, redirects, and mixed-content console warnings. Correct expired certificates, hostname mismatches, HTTP endpoints, or inaccessible final URLs before rescanning.",
+      details:
+        "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Open the homepage and priority public URLs and inspect the certificate, browser security state, redirect chain, hostname coverage, and mixed-content warnings. When the final destination is unavailable, blocked, or inconsistently redirected, correct the access path and rerun the scan before confirming whether HTTPS is properly implemented.",
     },
     failed: {
       details: "The scanned homepage did not use a secure HTTPS address.",
-      recommendation: "Install or renew a valid TLS certificate for every public hostname, configure permanent HTTP-to-HTTPS redirects, and update internal links and assets to secure URLs. Check the browser console for mixed content and verify the certificate chain and hostname coverage.",
+      recommendation:
+        "Move the homepage and all public assets to HTTPS so readers receive a secure connection and browsers do not display trust warnings. Install or renew a valid certificate, configure permanent HTTP-to-HTTPS redirects, update insecure internal links and resources, and verify the certificate chain, hostname coverage, and mixed-content console.",
     },
   },
   "technical.page_responses": {
     passed: {
-      details: "The homepage and inspected pages returned successful responses under this technical-health check.",
-      recommendation: "Keep each reader-facing URL returning the intended successful response and link directly to its final canonical destination. Run a crawl after permalink, navigation, hosting, or content-removal changes to catch 4xx/5xx responses and unnecessary redirect chains.",
+      details:
+        "The inspected evidence met the configured requirement for critical scanned pages load successfully.",
+      recommendation:
+        "Keep the homepage, Books, About, Contact, newsletter, and featured-book destinations returning their intended successful responses and link directly to final canonical URLs. Run a focused crawl after permalink, navigation, hosting, content-removal, or migration changes to identify new errors and avoid unnecessary redirect chains.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Open every URL recorded by the scan and capture its final HTTP status, redirect chain, and rendered page. Restore inaccessible pages, correct server errors, or point the scanner and internal links to the final public URL, then rerun the crawl.",
+      details:
+        "The available evidence was incomplete or inconclusive, so critical scanned pages load successfully requires review.",
+      recommendation:
+        "Open every critical URL recorded by the scan and capture its final response status, redirect chain, and rendered destination. When the crawler could not complete the request because of timeouts, access restrictions, bot challenges, or server instability, correct the condition and rerun the crawl before confirming failure.",
     },
     failed: {
-      details: "The scan confirmed that at least one inspected URL returned a non-success response or an avoidable redirect chain.",
-      recommendation: "Repair every inspected URL returning a 4xx or 5xx response and replace unnecessary redirect chains with direct links to the final page. Restore required content or configure appropriate permanent redirects, then run a fresh crawl to confirm successful responses.",
+      details:
+        "The inspected evidence did not meet the configured requirement for critical scanned pages load successfully.",
+      recommendation:
+        "Repair each confirmed critical reader-facing URL that returns a 4xx, 5xx, incorrect destination, or avoidable redirect chain. Restore the required page or configure an appropriate permanent redirect, update internal links to the final URL, and rerun the crawl to verify the complete reader path.",
     },
   },
   "technical.indexability": {
     passed: {
-      details: "The technical scan did not find an obvious indexing block on the inspected public content.",
-      recommendation: "Preserve crawler access to important public pages by keeping robots.txt, meta robots directives, and X-Robots-Tag headers aligned with indexing intent. Verify the live homepage and priority pages after deployments, SEO-plugin changes, or staging-to-production migrations.",
+      details:
+        "The inspected evidence met the configured requirement for search-engine access is available.",
+      recommendation:
+        "Preserve crawler access to important public pages by keeping robots.txt, X-Robots-Tag headers, authentication settings, and server responses aligned with the site’s indexing intent. Recheck the production environment after deployments, staging migrations, security changes, CDN updates, or SEO configuration changes.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Inspect robots.txt, meta robots tags, X-Robots-Tag headers, authentication, and response status for the homepage and priority pages. Remove unintended crawler restrictions or provide the scanner with the correct final public URL before rescanning.",
+      details:
+        "The available evidence was incomplete or inconclusive, so search-engine access is available requires review.",
+      recommendation:
+        "Inspect robots.txt, X-Robots-Tag response headers, authentication, server status, and final routing for the homepage and priority pages. When the crawler cannot retrieve complete technical evidence because of access restrictions, redirects, bot protection, or response failures, correct the condition and rerun the scan.",
     },
     failed: {
-      details: "The scan found a robots rule, response directive, or page-level noindex signal that blocks important public content from search engines.",
-      recommendation: "Remove confirmed robots.txt blocks, meta robots directives, X-Robots-Tag headers, authentication, or environment restrictions from public pages intended for search. Verify the live URL with a search-engine inspection tool and confirm that the canonical destination is crawlable.",
+      details:
+        "The inspected evidence did not meet the configured requirement for search-engine access is available.",
+      recommendation:
+        "Remove confirmed technical barriers that prevent search engines from accessing important public content. Correct blocking robots.txt rules, X-Robots-Tag headers, authentication gates, server restrictions, or unsuccessful responses, then verify the live preferred URL with an appropriate search-engine inspection tool after deployment.",
     },
   },
-  "technical.canonical_or_schema": {
+  "technical.canonical_url": {
     passed: {
-      details: "The scan found a canonical URL or relevant Person or Organization structured data.",
-      recommendation: "Keep canonical tags self-referencing and consistent with the preferred public URL, and maintain accurate Person or Organization structured data with stable identity fields. Validate the rendered markup after domain, author-name, SEO-plugin, or template changes to catch conflicts and syntax errors.",
+      details:
+        "The inspected evidence met the configured requirement for canonical url is valid.",
+      recommendation:
+        "Keep a single self-referencing canonical URL on each important indexable page and ensure it matches the preferred protocol, hostname, path, and final public destination. Validate the rendered output after domain, permalink, routing, SEO-plugin, migration, or template changes to prevent conflicting or obsolete canonical signals.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Inspect the rendered `<head>` for a valid canonical link and the page source for parsable Person or Organization JSON-LD. If markup is inserted only after unsupported interaction or is malformed, correct the output and validate it before rerunning the analyzer.",
+      details:
+        "The available evidence was incomplete or inconclusive, so canonical url is valid requires review.",
+      recommendation:
+        "Inspect the initial source and rendered document head for a valid canonical URL, then compare it with the final response URL, protocol, hostname, and page identity. When source and rendered values conflict or the page cannot be fully retrieved, correct the output and rerun the scan.",
     },
     failed: {
-      details: "The scan did not find a canonical URL or basic author/site structured data.",
-      recommendation: "Add a self-referencing canonical link to each important indexable page and publish valid Person or Organization JSON-LD with a consistent author name, URL, and official profiles. Validate the live rendered markup and remove duplicate, malformed, or conflicting identity data.",
+      details:
+        "The inspected evidence did not meet the configured requirement for canonical url is valid.",
+      recommendation:
+        'Add or correct the canonical URL so the page identifies its preferred public version consistently. Use one valid `<link rel="canonical">` that matches the final HTTPS hostname and intended path, remove duplicate or conflicting canonicals, and verify the rendered head after redirects and template processing.',
+    },
+  },
+  "technical.structured_data": {
+    passed: {
+      details:
+        "The inspected evidence met the configured requirement for author or site structured data is valid.",
+      recommendation:
+        "Maintain valid Person or Organization JSON-LD with a consistent author name, preferred URL, official profiles, and relevant identity fields. Validate the live rendered markup after changing the domain, pen name, social accounts, theme, SEO plugin, or application templates, and remove malformed, duplicate, or conflicting entities.",
+    },
+    needs_review: {
+      details:
+        "The available evidence was incomplete or inconclusive, so author or site structured data is valid requires review.",
+      recommendation:
+        "Inspect the rendered page source for parsable Person or Organization JSON-LD and compare its name, URL, and profiles with the visible author brand. When markup is malformed, inserted only after unsupported interaction, duplicated, conflicting, or unavailable because rendering failed, correct and validate it before rescanning.",
+    },
+    failed: {
+      details:
+        "The inspected evidence did not meet the configured requirement for author or site structured data is valid.",
+      recommendation:
+        "Add valid Person or Organization structured data so search systems can interpret the author or site identity consistently. Publish parsable JSON-LD containing the canonical author name, preferred URL, and verified official profiles, remove conflicting entities, and validate the live rendered markup after deployment.",
     },
   },
   "trust.author_bio": {
     passed: {
-      details: "The scan found author-biography content in the inspected website pages.",
-      recommendation: "Keep the author biography current, specific, and available as readable HTML on an accessible About page, with a concise homepage summary where appropriate. Update titles, publications, awards, representation, credentials, and contact references when they change.",
+      details:
+        "The scan found author-biography content in the inspected website pages.",
+      recommendation:
+        "Keep the author biography current, specific, and available as readable HTML on a public About page, with a concise homepage summary where useful. Update publications, genre positioning, credentials, awards, representation, contact references, and biographical details whenever they change, and verify that the page remains linked and accessible.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Open the public About page or biography section and confirm that substantive author information is present as readable HTML. If the bio is hidden behind a tab, image, login, or client-side failure, expose a default accessible version and rescan.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Open the public About page or biography section and confirm that substantive author information appears as readable HTML. When the biography is hidden behind a tab, image, login, blocked page, or client-side failure, expose a default accessible version and rerun the scan after the page loads completely.",
     },
     failed: {
       details: "The scan did not find a clear author bio or biography page.",
-      recommendation: "Publish a substantive author biography as readable HTML on a public About page and add a concise homepage summary. Include genre, notable work, and relevant credentials, and keep the text current for readers, press, and event organizers.",
+      recommendation:
+        "Publish a substantive author biography so readers, media contacts, booksellers, and event organizers can understand the author’s background and work. Add readable HTML to a public About page, include genre, notable books, and relevant credentials, link it from the navigation or homepage, and keep the information current.",
     },
   },
   "trust.author_photo": {
     passed: {
-      details: "The scan found an image signal consistent with a visible author photo.",
-      recommendation: "Continue serving a current portrait as a responsive image with appropriate dimensions, compression, and alt text identifying the author when the image conveys identity. Check crop, sharpness, and focal positioning across mobile and desktop layouts after replacing the photo.",
+      details:
+        "The scan found an image signal consistent with a visible author photo.",
+      recommendation:
+        "Continue serving a current author portrait as a responsive image with appropriate dimensions, compression, crop, and focal positioning. Provide useful alt text identifying the author when the image conveys identity, associate the portrait with biography content, and review its presentation whenever the image or layout changes.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Confirm that a recognizable author portrait is visible on the public homepage or About page and represented by an accessible image element with useful alt text. If the image is lazy-loaded only after interaction or rendered as an inaccessible background, correct the component and rerun the scan.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Confirm that a recognizable author portrait is visible near biography or identity content and represented by an accessible image element. When the image is lazy-loaded only after interaction, used as an inaccessible background, ambiguously classified, or unavailable because rendering failed, correct the component and rerun the scan.",
     },
     failed: {
-      details: "The scan did not find an author photo, portrait, or headshot signal.",
-      recommendation: "Add a current high-resolution author portrait to the About page or homepage trust section using a responsive image element. Supply appropriate dimensions, compression, and alt text identifying the author, and verify the crop at desktop and mobile widths.",
+      details:
+        "The scan did not find an author photo, portrait, or headshot signal.",
+      recommendation:
+        "Add a current professional author portrait to the homepage or About page so readers can connect the name with a recognizable person. Use a responsive image with appropriate dimensions, compression, crop, and alt text, place it near the biography, and verify its quality across desktop and mobile layouts.",
     },
   },
   "trust.contact_path": {
     passed: {
-      details: "The scan found a contact form, email path, or clearly identified contact destination.",
-      recommendation: "Keep the Contact page linked with a direct crawlable URL and ensure the form or email destination reaches a monitored inbox. Test required fields, validation, spam protection, confirmation messaging, email delivery, and accessibility after form or hosting changes.",
+      details:
+        "The scan found a contact form, email path, or clearly identified contact destination.",
+      recommendation:
+        "Keep the Contact page linked through a direct crawlable URL and ensure its form or email destination reaches a monitored inbox. Regularly test required fields, validation, spam protection, confirmation messaging, accessibility, and basic delivery after changing the form builder, hosting, email routing, or security configuration.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Follow the Contact link, confirm a direct successful page response, and test the form or email path through completion. Correct broken routes, inaccessible embedded forms, bot challenges, or script failures that prevent the scanner from reaching the contact destination.",
+      details:
+        "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Follow the Contact link, confirm that the destination returns a successful public page, and manually test the form or email path. When broken routes, embedded-form restrictions, bot challenges, authentication, or script failures prevent inspection, correct the access condition and rerun the scan before confirming the result.",
     },
     failed: {
       details: "The scan did not find a contact form or contact email.",
-      recommendation: "Create a clearly labeled Contact page with a working accessible form or purpose-specific email address. Configure validation, spam protection, success messaging, and inbox delivery, then submit a test message to verify the complete path.",
+      recommendation:
+        "Create a clearly labeled public Contact page so readers, press contacts, event organizers, and business partners can reach the appropriate destination. Provide an accessible form or purpose-specific email address, configure validation, spam protection, success messaging, and inbox routing, and submit a controlled test before publishing.",
     },
   },
   "trust.social_profiles": {
     passed: {
       details: "The scan found links to one or more social profiles.",
-      recommendation: "Keep only active official profiles and expose them as descriptive links with correct destinations and accessible names. Test each URL after username, platform, icon library, or footer changes, and remove abandoned accounts.",
+      recommendation:
+        "Keep only active official social profiles and expose them as descriptive links with correct destinations and accessible names. Test each profile after username, platform, icon-library, footer, or branding changes, remove abandoned or unrelated accounts, and avoid generic platform links or share buttons that do not represent the author.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Open each visible social link and confirm that it is a standard anchor leading to the author's active official profile. Replace icon-only controls without accessible names, JavaScript-only navigation, or blocked redirectors, then rescan.",
+      details:
+        "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Open each visible social control and confirm that it is a standard link leading to an active official author profile rather than a share action or generic platform homepage. When icon-only controls lack accessible names, redirects are blocked, or destinations cannot be verified, correct the links and rescan.",
     },
     failed: {
       details: "The scan did not find links to author social profiles.",
-      recommendation: "Add standard links to the author's active official social profiles in a consistent header, footer, or contact area. Give icon-only links accessible names, use final profile URLs, and remove abandoned or unrelated accounts.",
+      recommendation:
+        "Add links to the author’s active official social profiles so readers can continue engaging on the platforms the author currently maintains. Use final profile URLs, provide accessible names for icon-only controls, place the links consistently in the footer, header, or Contact area, and remove inactive or unrelated accounts.",
     },
   },
   "trust.media_kit": {
     passed: {
-      details: "The scan found a media-kit or press-resource signal in the inspected website content.",
-      recommendation: "Keep the media kit reachable from About or Contact and maintain current downloadable bios, headshots, covers, book data, usage notes, and press contact information. Verify file permissions, file sizes, and direct download links after every release or asset update.",
+      details:
+        "The scan found a media-kit or press-resource signal in the inspected website content.",
+      recommendation:
+        "Keep the media kit publicly reachable from the About or Contact area and maintain current short and long biographies, headshots, cover files, book information, usage notes, and press contact details. Verify file permissions, download behavior, file sizes, stable URLs, and content accuracy after each release or branding update.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Open the media or press path and confirm that biographies, book information, downloadable assets, and contact details are publicly reachable. Repair broken file permissions, inaccessible cloud links, or unlinked pages before rerunning the scan.",
+      details:
+        "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Open the likely media or press destination and confirm that biographies, book information, downloadable images, and contact details are publicly accessible. When the page is unlinked, blocked, protected, or dependent on inaccessible cloud files, correct the permissions and navigation path and rerun the scan.",
     },
     failed: {
       details: "The scan did not find a media kit, press kit, or press page.",
-      recommendation: "Create a public media page containing approved short and long biographies, high-resolution headshots, cover files, book information, usage notes, and press contact details. Use stable downloadable URLs with correct permissions and link the page from About or Contact.",
+      recommendation:
+        "Create a public media or press page so journalists, bloggers, event organizers, and booksellers can access approved author materials efficiently. Include short and long biographies, high-resolution portraits, cover files, book information, usage notes, and press contact details, then verify that every asset is downloadable through a stable public URL.",
     },
   },
   "trust.privacy_policy": {
     passed: {
-      details: "The scan found a privacy-policy page or link.",
-      recommendation: "Keep the privacy policy publicly accessible and aligned with the site's actual forms, newsletter provider, analytics, cookies, embeds, and data-retention practices. Review the policy and nearby consent disclosures whenever a data-collection or marketing integration changes.",
+      details:
+        "The scan found a privacy-policy path available to website visitors.",
+      recommendation:
+        "Keep the privacy policy publicly accessible and aligned with the site’s actual forms, newsletter provider, analytics, cookies, embeds, and data-handling practices. Maintain a persistent footer link and appropriate form disclosures, and review the content whenever marketing, tracking, hosting, or data-collection tools change.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Open the Privacy link from the footer and relevant forms and confirm that the policy returns a successful public page with current text. Fix broken routes, authentication, empty policy templates, or inaccessible embedded documents before rescanning.",
+      details:
+        "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Open the privacy-policy link from the footer and relevant forms and confirm that it returns a successful public page with substantive content. When the destination is broken, protected, empty, script-only, or unavailable to the scanner, correct the route or access settings and rerun the scan.",
     },
     failed: {
-      details: "The scan did not find a visible privacy-policy link.",
-      recommendation: "Publish a privacy policy that accurately reflects the site's forms, newsletter provider, analytics, cookies, embeds, data uses, retention, and user choices. Link it persistently from the footer and near relevant data-collection forms, and have the wording reviewed for the jurisdictions served.",
+      details:
+        "The scan did not find a privacy-policy link, creating a maintenance and trust concern for forms and newsletter collection.",
+      recommendation:
+        "Publish a privacy policy that accurately describes the website’s forms, email provider, analytics, cookies, embeds, data uses, retention practices, and user choices. Link it persistently from the footer and near relevant data-collection forms, ensure the page loads publicly, and obtain appropriate legal review for the jurisdictions served.",
     },
   },
   "trust.reader_proof": {
     passed: {
-      details: "The scan found credibility proof such as praise, reviews, awards, ratings, or related structured data.",
-      recommendation: "Maintain credible trust proof with clear attribution and enough context for visitors to understand the source. Check quoted wording, ratings, awards, and source links periodically, and remove unsupported or outdated claims.",
+      details:
+        "The scan found credibility proof such as praise, reviews, awards, ratings, or related structured data.",
+      recommendation:
+        "Maintain credible author-level proof such as awards, media coverage, professional endorsements, notable appearances, publisher credentials, or recognized achievements. Clearly attribute each claim, retain enough context for visitors to understand its source, link to supporting evidence where useful, and remove unsupported or outdated statements.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Inspect visible reviews, praise, awards, and ratings and confirm that each includes a credible source or enough supporting context. If proof is loaded only through a blocked widget or hidden interaction, add a readable attributed version to the page and rescan.",
+      details:
+        "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Inspect visible awards, media mentions, credentials, endorsements, and professional claims and confirm that they relate to the author and include credible attribution. When proof is supplied through a blocked widget, hidden component, ambiguous statement, or inaccessible source, add a readable supported version and rerun the scan.",
     },
     failed: {
-      details: "The scan did not find reviews, praise, ratings, or similar trust proof.",
-      recommendation: "Add credible, attributable reviews, awards, ratings, endorsements, or reader testimonials near the author bio or featured book. Include enough source context to support each claim and link to evidence when useful.",
+      details:
+        "The scan did not find reviews, praise, ratings, or similar trust proof.",
+      recommendation:
+        "Add credible author-level proof to strengthen confidence in the author’s professional identity. Present attributable awards, media coverage, publisher credentials, speaking appearances, professional endorsements, or recognized achievements near the biography, include supporting context or source links, and avoid vague, anonymous, unverifiable, or outdated claims.",
     },
   },
   "usability.primary_navigation": {
     passed: {
-      details: "The rendered homepage provided usable primary navigation across every required viewport.",
-      recommendation: "Preserve a semantic, keyboard-accessible primary navigation with a visible desktop menu and an operable mobile menu button that exposes priority links. Test focus order, expanded state, escape behavior, link targets, and viewport transitions after theme or menu changes.",
+      details:
+        "The rendered homepage provided usable primary navigation across every required viewport.",
+      recommendation:
+        "Preserve a semantic, keyboard-accessible primary navigation with a visible desktop menu and an operable mobile menu button that communicates its expanded state. Retest focus order, opening and closing behavior, escape handling, link targets, and viewport transitions after theme, menu, plugin, or layout changes.",
     },
     needs_review: {
-      details: "The required rendered-page or viewport evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Operate the primary navigation at desktop, tablet, and mobile widths using both pointer and keyboard input. Correct missing menu controls, focus traps, hidden links, viewport-specific rendering failures, or overlays that prevent the scanner from capturing a usable menu.",
+      details:
+        "The required rendered-page or viewport evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
+      recommendation:
+        "Operate the primary navigation at desktop, tablet, and mobile widths using both pointer and keyboard input. When missing controls, hidden links, focus traps, overlays, viewport-specific rendering failures, or blocked scripts prevent complete testing, correct those conditions and rerun the usability scan.",
     },
     failed: {
-      details: "The rendered homepage did not provide usable primary navigation in every tested viewport.",
-      recommendation: "Implement a semantic primary navigation with a visible desktop menu and an accessible mobile menu button that communicates its expanded state. Ensure Books, About, Newsletter, and Contact remain reachable by keyboard and pointer at desktop, tablet, and mobile widths.",
+      details:
+        "The rendered homepage did not provide usable primary navigation in every tested viewport.",
+      recommendation:
+        "Implement usable primary navigation across desktop, tablet, and mobile so readers can reliably reach important pages. Provide a semantic navigation region, visible desktop links, an accessible mobile menu button with expanded-state communication, and working Books, About, newsletter, and Contact destinations, then test with keyboard and pointer input.",
     },
   },
-  "usability.page_responses": {
+  "usability.priority_reader_paths": {
     passed: {
-      details: "The pages inspected for site usability returned successful responses.",
-      recommendation: "Keep all usability-critical reader paths returning successful responses and linking directly to their final destinations. Perform a focused crawl of navigation, homepage calls to action, book links, contact routes, and footer links after structural changes.",
+      details:
+        "The inspected evidence met the configured requirement for priority reader paths are easy to reach.",
+      recommendation:
+        "Keep Books, About, newsletter, Contact, and featured-book purchase paths reachable from the homepage within one or two clear actions. Review the complete reader journey after navigation, permalink, campaign, or layout changes, and avoid hiding priority destinations inside ambiguous menus, sliders, or deeply nested page structures.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Open each reader-facing path recorded for the usability scan and verify a direct successful response without unnecessary redirects. Repair unavailable routes or update internal links to the final public destinations before rerunning the scan.",
+      details:
+        "The available evidence was incomplete or inconclusive, so priority reader paths are easy to reach requires review.",
+      recommendation:
+        "Follow the homepage’s main reader journeys and determine whether Books, About, newsletter, Contact, and featured purchase destinations can be reached within one or two clear actions. When pages were not crawled or navigation depends on blocked interactions, correct the access condition and rerun the usability test.",
     },
     failed: {
-      details: "At least one scanned page did not return a successful response.",
-      recommendation: "Repair each unsuccessful reader-facing URL and update menus, homepage calls to action, and content links to point directly to working final destinations. Remove avoidable redirect chains and verify the full reader path with a fresh crawl.",
+      details:
+        "The inspected evidence did not meet the configured requirement for priority reader paths are easy to reach.",
+      recommendation:
+        "Make the website’s priority reader destinations easy to reach from the homepage. Add clear links to Books, About, newsletter, Contact, and the featured purchase path within one or two actions, use descriptive labels, remove unnecessary navigation depth, and test every route on desktop and mobile.",
     },
   },
-  "usability.privacy_policy": {
+  "usability.descriptive_calls_to_action": {
     passed: {
-      details: "The scan found a privacy-policy path available to website visitors.",
-      recommendation: "Keep the Privacy link persistent in the footer and available near forms where users submit personal information. Confirm that the destination loads without authentication and that form disclosures remain consistent after theme or form-builder updates.",
+      details:
+        "The inspected evidence met the configured requirement for calls to action are clear and descriptive.",
+      recommendation:
+        "Maintain concise, descriptive calls to action that tell readers what will happen next, such as “Buy the Book,” “Read a Sample,” or “Join the Newsletter.” Keep labels consistent with their destinations, provide sufficient surrounding context, and recheck wording whenever campaigns, buttons, links, or page layouts change.",
     },
     needs_review: {
-      details: "The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Use the public footer and forms to confirm that visitors can reach the Privacy page through a standard link. Restore a missing link, correct the destination, or expose the policy without login or script-only navigation, then rescan.",
+      details:
+        "The available evidence was incomplete or inconclusive, so calls to action are clear and descriptive requires review.",
+      recommendation:
+        "Inspect prominent homepage buttons and links and confirm that each label clearly communicates the resulting action or destination. When controls rely on icons, surrounding images, hidden context, script-generated labels, or inaccessible components, add descriptive visible and accessible text and rerun the scan.",
     },
     failed: {
-      details: "The scan did not find a privacy-policy link, creating a maintenance and trust concern for forms and newsletter collection.",
-      recommendation: "Publish or update a privacy policy that matches the site's current forms, analytics, cookies, embeds, and email tools, then add a persistent footer link and appropriate form disclosures. Confirm that the policy URL is public, stable, and returns a successful response.",
+      details:
+        "The inspected evidence did not meet the configured requirement for calls to action are clear and descriptive.",
+      recommendation:
+        "Replace vague or ambiguous calls to action with labels that clearly describe the next step and destination. Use wording such as “Buy the Book,” “Read a Sample,” “View All Books,” or “Join the Newsletter,” associate each label with the correct content, and verify clarity on desktop and mobile.",
     },
   },
-  "usability.canonical_or_schema": {
+  "usability.forms_and_controls": {
     passed: {
-      details: "The scan found canonical or structured identity markup that supports consistent site interpretation.",
-      recommendation: "Keep the canonical URL and author identity markup synchronized with the preferred hostname, protocol, page URL, and public author name. Validate rendered canonical and structured-data output after template, domain, routing, or SEO-plugin changes.",
+      details:
+        "The inspected evidence met the configured requirement for forms and interactive controls are usable.",
+      recommendation:
+        "Preserve usable forms and interactive controls by maintaining visible labels, accessible names, logical focus behavior, readable validation, and controls that are not clipped or overlapping. Retest newsletter forms, Contact forms, menus, dialogs, accordions, sliders, and purchase actions after plugin, layout, or script changes.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Inspect the final rendered canonical URL and Person or Organization markup and compare their name, hostname, protocol, and page identity. Correct malformed, conflicting, or client-only markup and validate the live page before rerunning the analyzer.",
+      details:
+        "The available evidence was incomplete or inconclusive, so forms and interactive controls are usable requires review.",
+      recommendation:
+        "Operate the website’s visible forms, menus, dialogs, accordions, sliders, and primary action controls to confirm that they can be understood and used. When blocked scripts, overlays, third-party embeds, rendering errors, or incomplete interaction testing prevent verification, correct those conditions and rerun the usability scan.",
     },
     failed: {
-      details: "The scan did not find a canonical URL or basic site/author structured data.",
-      recommendation: "Add self-referencing canonical tags and accurate Person or Organization structured data to the homepage and other important public pages. Keep protocol, hostname, URL, author name, and official-profile references consistent, then validate the live markup.",
+      details:
+        "The inspected evidence did not meet the configured requirement for forms and interactive controls are usable.",
+      recommendation:
+        "Correct unusable forms and interactive controls so readers can complete important actions without confusion or obstruction. Add visible labels and accessible names, repair validation and focus behavior, prevent clipping or overlap, and manually test newsletter forms, Contact forms, menus, dialogs, and purchase controls across common viewports.",
     },
   },
-  "usability.freshness": {
+  "usability.unblocked_content": {
     passed: {
-      details: "The scan found a current-enough freshness signal in the inspected website content.",
-      recommendation: "Maintain current book availability, release information, event dates, biography details, contact information, and external links rather than relying on the copyright year alone. Establish a scheduled editorial review and update visible timestamps only when the associated content has genuinely changed.",
+      details:
+        "The inspected evidence met the configured requirement for content is not blocked or visually broken.",
+      recommendation:
+        "Keep priority content visible and readable without obstruction from cookie notices, popups, chat tools, promotional overlays, missing images, collapsed sections, or layout failures. Test representative desktop and mobile widths after adding third-party widgets, campaigns, consent tools, banners, or responsive components.",
     },
     needs_review: {
-      details: "The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.",
-      recommendation: "Review visible dates, book availability, event listings, biography details, contact information, and external links rather than relying only on the footer year. If current content is hidden from the scanner by interaction-dependent components, expose the relevant text in the default rendered page and rescan.",
+      details:
+        "The available evidence was incomplete or inconclusive, so content is not blocked or visually broken requires review.",
+      recommendation:
+        "Inspect the rendered homepage at representative desktop and mobile widths and confirm that key content is not hidden by overlays, broken assets, collapsed components, or layout failures. When incomplete rendering or blocked resources prevent reliable inspection, correct the page condition and rerun the visual usability scan.",
     },
     failed: {
-      details: "The scan found a footer copyright year that appears several years out of date.",
-      recommendation: "Update stale copyright, book-availability, event, biography, contact, and external-link information based on the actual content state. Add a scheduled editorial review process; an automatically changing footer year should not substitute for reviewing substantive content.",
+      details:
+        "The inspected evidence did not meet the configured requirement for content is not blocked or visually broken.",
+      recommendation:
+        "Remove or reconfigure overlays, broken components, missing assets, or layout errors that obscure important author, book, navigation, signup, or purchase content. Ensure banners and dialogs can be dismissed, repair collapsed or unreadable sections, and verify the complete page at common desktop and mobile viewport sizes.",
     },
   },
 } as const satisfies Record<

@@ -28,7 +28,7 @@ Numeric scores must be deterministic. AI may explain findings in clear, author-f
 2. The app checks that the site is reachable, inspectable, and reasonably identifiable as an author website.
 3. The app scans the site and produces deterministic findings and scores.
 4. The author immediately sees a partial report containing:
-   - The overall website score
+   - The overall website score when verified coverage is sufficient, or a clear score-withheld state when it is not
    - All eight category scores
    - One top-priority problem
    - One quick win
@@ -60,13 +60,23 @@ Authors do not need an account in the initial release. The unlocked full report 
 
 ## Full report
 
-The unlocked report includes the complete set of detected problems, quick wins, explanations, and prioritized recommendations. Every active audit check uses exactly one of three statuses: `Passed`, `Needs Review`, or `Failed`. Each status provides fixed check-specific details and one deterministic recommendation. The recommendation contains the complete guidance for maintaining, manually verifying, or fixing the check; there is no separate Action field. This guidance does not rely on AI generation. No additional audit-check statuses are active.
+The unlocked report includes the complete set of detected problems, quick wins, explanations, and prioritized recommendations. Every active audit check uses exactly one of three statuses: `Passed`, `Needs Review`, or `Failed`. Details must state the actual inspected source, observed value, comparison, page, or threshold instead of generic status copy. Each status has one deterministic 35-60 word recommendation from the canonical combined recommendation catalog. The recommendation contains the complete guidance for maintaining, manually verifying, or fixing the check; there is no separate Action field. This guidance does not rely on AI generation. No additional audit-check statuses are active.
+
+### Deterministic scoring model
+
+- Scoring registry version 3 contains exactly 50 active checks worth exactly 100 registered points. The category allocations are Brand Clarity 5 checks/15 points, Book Visibility 7/20, Email Growth 4/15, Search Visibility 7/15, Mobile Experience 7/10, Technical Health 8/10, Author Trust 7/10, and Site Usability 5/5. Existing stored category enum names remain compatible even where the public category label changes.
+- A `Passed` check earns and verifies its full registered weight. A `Failed` check earns zero and verifies its full registered weight. A `Needs Review` check earns zero, verifies zero, and is excluded from the score denominator; it never receives half credit.
+- The score is `earned verified weight / total verified weight × 100`. Coverage is the verified registered weight out of 100. Coverage of 85-100% produces a normal score, 60-84% produces a provisional score with a visible label, and coverage below 60% withholds the numeric score.
+- The only graduated-point exception is `mobile.performance`: PageSpeed mobile performance earns 4 points at 90-100, 3 at 75-89, 2 at 60-74, 1 at 40-59, and 0 below 40. It is `Passed` only at 90 or above and otherwise remains `Failed` while retaining the deterministic partial points.
+- Every check persists structured evidence with the source type, observed value, expected value or threshold, inspected page URL, and supporting references. The homepage preview displays the primary inspected page link immediately below each check's Details text.
+- No signal may award points to more than one active check. Findings that share a deterministic root cause are grouped for prioritization so the primary recommendation carries the combined recoverable weight without changing individual check results.
+- Conditional series or bibliography observations remain outside the standard 50-check registry and do not affect the 100-point score.
 
 ### Design and reader-experience review
 
 - The full report may include a separate `Design & reader experience` review under three lenses: Site Structure, Visual Design, and Conversion Design.
 - Three objective rendered checks are approved for deterministic scoring: `usability.primary_navigation` contributes one existing Site Usability raw point, while `mobile.viewport_fit` and `mobile.text_contrast` each contribute one existing Mobile Performance raw point. They replace earlier proxy rules without changing the eight category maxima or overall 100-point model.
-- A confirmed rendered failure receives the `Failed` status, zero points, and fixed guidance. Missing capture evidence, failed collection, or insufficient measurement coverage receives `Needs Review`, retains the existing half-credit treatment, and creates no site-problem finding. These checks are universal for eligible author homepages.
+- A confirmed rendered failure receives the `Failed` status, zero points, and deterministic guidance. Missing capture evidence, failed collection, or insufficient measurement coverage receives `Needs Review`, contributes no earned or verified points, and creates no site-problem finding. These checks are universal for eligible author homepages.
 - Browser inspection may automatically flag only repeatable rendered evidence: navigation availability, horizontal overflow, first-screen H1 and primary-action visibility, unusually long forms, measurable text contrast, mobile text and tap-target size, and large fixed overlays. Each flag must retain its viewport, evidence, stable check ID, and fixed recommendation. Unmeasurable scored-check states become `Needs Review` rather than being treated as failures.
 - Capture desktop and mobile homepage previews. Reuse the desktop browser page at a tablet viewport to collect layout evidence without storing a third screenshot or launching a separate browser.
 - Treat genre and book-brand alignment, professionalism, audience fit, emotional tone, visual hierarchy, book-cover integration, image relevance and quality, typography and color suitability, freshness, cross-page consistency, and the quality of the reader journey as guided manual review. These judgments must not be inferred from aesthetic taste or scored by AI.

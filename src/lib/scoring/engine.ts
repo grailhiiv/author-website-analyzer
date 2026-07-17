@@ -4,10 +4,16 @@ import type {
   ScannedPageSignalInput,
   SignalDetection,
 } from "@/lib/signals/author-website-signals";
-import type { VisualDesignAnalysis } from "@/lib/screenshots/visual-design";
+import type {
+  VisualDesignAnalysis,
+  VisualDesignObservation,
+  VisualViewportVariant,
+} from "@/lib/screenshots/visual-design";
 import {
   getScoringCheck,
+  SCORING_CHECK_REGISTRY,
   SCORING_CHECK_REGISTRY_VERSION,
+  type RootCauseKey,
   type ScoringCheckId,
 } from "@/lib/scoring/check-registry";
 import { getCheckStatusContent } from "@/lib/scoring/check-status-content.generated";
@@ -42,9 +48,37 @@ export type ScoringFinding = {
   recommendation: string;
   priority: number;
   checkId?: ScoringCheckId;
+  rootCauseKey: RootCauseKey;
+  recoverablePoints: number;
+  relatedCheckIds?: ScoringCheckId[];
 };
 
 export type ScoringCheckState = "passed" | "needs_review" | "failed";
+
+export type CheckEvidenceSource =
+  | "html"
+  | "rendered_dom"
+  | "screenshot"
+  | "http_response"
+  | "sitemap"
+  | "robots"
+  | "pagespeed"
+  | "structured_data"
+  | "manual_rule";
+
+export type CheckEvidence = {
+  source: CheckEvidenceSource;
+  pageUrl?: string;
+  selector?: string;
+  observedText?: string;
+  observedValue?: string | number | boolean;
+  expectedValue?: string | number | boolean;
+  threshold?: string | number;
+  confidence: number;
+  pagesChecked?: number;
+  reasonCode?: string;
+  metadata?: Record<string, unknown>;
+};
 
 export type ScoringCheckResult = {
   registryVersion: number;
@@ -55,6 +89,10 @@ export type ScoringCheckResult = {
   availablePoints: number;
   earnedPoints: number;
   reasonCode: string;
+  rootCauseKey: RootCauseKey;
+  details: string;
+  recommendation: string;
+  evidence: CheckEvidence[];
   evidenceReferences: Record<string, unknown>;
 };
 
@@ -67,13 +105,34 @@ export type CategoryScoreResult = {
   percentageScore: number;
   earnedPoints: number;
   availablePoints: number;
+  verifiedPoints: number;
+  verifiedScore: number | null;
+  coveragePercentage: number;
+  statusCounts: Record<ScoringCheckState, number>;
   summary: string;
 };
 
+export type ScoringCoverageLevel = "normal" | "provisional" | "insufficient";
+
+export type ScoringCoverage = {
+  registeredWeight: number;
+  passedWeight: number;
+  failedWeight: number;
+  needsReviewWeight: number;
+  verifiedWeight: number;
+  earnedWeight: number;
+  coveragePercentage: number;
+  calculatedScore: number | null;
+  level: ScoringCoverageLevel;
+  statusCounts: Record<ScoringCheckState, number>;
+};
+
 export type ScoringResult = {
-  overallScore: number;
+  overallScore: number | null;
+  coverage: ScoringCoverage;
   categoryScores: CategoryScoreResult[];
   findings: ScoringFinding[];
+  priorityRecommendations: ScoringFinding[];
   quickWins: ScoringFinding[];
   serviceFitLabel: ServiceFitLabel;
   checkResults: ScoringCheckResult[];
@@ -96,6 +155,8 @@ type ScoreRule = {
   checkId: ScoringCheckId;
   reasonCode?: string;
   evidenceReferences?: Record<string, unknown>;
+  evidence?: CheckEvidence[];
+  earnedPoints?: number;
 };
 
 export type DeterministicScoringCategory = {
@@ -104,48 +165,37 @@ export type DeterministicScoringCategory = {
   weight: number;
 };
 
-export const DETERMINISTIC_SCORING_CATEGORIES = [
-  {
-    category: ReportCategory.BRAND_CLARITY,
-    label: "Brand Clarity",
-    weight: 15,
-  },
-  {
-    category: ReportCategory.BOOK_VISIBILITY,
-    label: "Book Visibility",
-    weight: 20,
-  },
-  {
-    category: ReportCategory.READER_ENGAGEMENT,
-    label: "Reader Engagement",
-    weight: 15,
-  },
-  {
-    category: ReportCategory.SEARCH_VISIBILITY,
-    label: "Search Visibility",
-    weight: 15,
-  },
-  {
-    category: ReportCategory.MOBILE_PERFORMANCE,
-    label: "Mobile Performance",
-    weight: 10,
-  },
-  {
-    category: ReportCategory.TECHNICAL_HEALTH,
-    label: "Technical Health",
-    weight: 10,
-  },
-  {
-    category: ReportCategory.AUTHOR_TRUST,
-    label: "Author Trust",
-    weight: 10,
-  },
-  {
-    category: ReportCategory.SITE_USABILITY,
-    label: "Site Usability",
-    weight: 5,
-  },
-] as const satisfies readonly DeterministicScoringCategory[];
+const categoryLabels: Record<ReportCategory, string> = {
+  BRAND_CLARITY: "Brand Clarity",
+  BOOK_VISIBILITY: "Book Visibility",
+  READER_ENGAGEMENT: "Email Growth",
+  SEARCH_VISIBILITY: "Search Visibility",
+  MOBILE_PERFORMANCE: "Mobile Experience",
+  TECHNICAL_HEALTH: "Technical Health",
+  AUTHOR_TRUST: "Author Trust",
+  SITE_USABILITY: "Site Usability",
+};
+
+const categoryOrder = [
+  ReportCategory.BRAND_CLARITY,
+  ReportCategory.BOOK_VISIBILITY,
+  ReportCategory.READER_ENGAGEMENT,
+  ReportCategory.SEARCH_VISIBILITY,
+  ReportCategory.MOBILE_PERFORMANCE,
+  ReportCategory.TECHNICAL_HEALTH,
+  ReportCategory.AUTHOR_TRUST,
+  ReportCategory.SITE_USABILITY,
+] as const;
+
+export const DETERMINISTIC_SCORING_CATEGORIES = categoryOrder.map(
+  (category): DeterministicScoringCategory => ({
+    category,
+    label: categoryLabels[category],
+    weight: SCORING_CHECK_REGISTRY.filter(
+      (check) => check.category === category,
+    ).reduce((total, check) => total + check.points, 0),
+  }),
+);
 
 export const DETERMINISTIC_SCORING_TOTAL =
   DETERMINISTIC_SCORING_CATEGORIES.reduce(
@@ -189,9 +239,58 @@ function scoreSummary(score: number) {
   return "Important author website basics are missing or unclear in the scan.";
 }
 
+function safeEvidenceText(value: unknown, fallback: string) {
+  const text = textFromUnknown(value)
+    .replaceAll(/\s+/g, " ")
+    .trim()
+    .slice(0, 240);
+
+  return text || fallback;
+}
+
+function buildEvidenceDetails(
+  title: string,
+  state: ScoringCheckState,
+  evidence: readonly CheckEvidence[],
+  reasonCode: string,
+) {
+  const primary = evidence[0];
+  const page = primary?.pageUrl ? ` on ${primary.pageUrl}` : "";
+  const observation = safeEvidenceText(
+    primary?.observedText ?? primary?.observedValue,
+    state === "needs_review" ? "the required evidence was unavailable" : state,
+  );
+  const comparison = safeEvidenceText(
+    primary?.threshold ?? primary?.expectedValue,
+    "the registered audit rule",
+  );
+
+  if (state === "passed") {
+    return `The scan inspected ${primary?.source ?? "the available evidence"}${page} and observed ${observation}, which met ${comparison} for ${title.toLowerCase()}.`;
+  }
+
+  if (state === "failed") {
+    return `The scan inspected ${primary?.source ?? "the available evidence"}${page} and observed ${observation}, which did not meet ${comparison} for ${title.toLowerCase()}.`;
+  }
+
+  return `The scan inspected ${primary?.source ?? "the available evidence"}${page}, but could not verify ${title.toLowerCase()} because ${observation} (${reasonCode}).`;
+}
+
+function primitiveEvidenceValue(
+  value: unknown,
+  fallback: string | number | boolean,
+) {
+  return typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+    ? value
+    : fallback;
+}
+
 function scoreCategory(
   config: DeterministicScoringCategory,
   rules: ScoreRule[],
+  defaultPageUrl: string | null,
 ): {
   score: CategoryScoreResult;
   findings: ScoringFinding[];
@@ -214,42 +313,28 @@ function scoreCategory(
   });
 
   const availablePoints = rules.reduce((sum, rule) => sum + rule.points, 0);
-  const earnedPoints = rules.reduce(
-    (sum, rule) =>
-      rule.passed === true
-        ? sum + rule.points
-        : rule.passed === null
-          ? sum + rule.points / 2
-          : sum,
+  const verifiedPoints = rules.reduce(
+    (sum, rule) => sum + (rule.passed === null ? 0 : rule.points),
     0,
   );
-  const score =
-    availablePoints > 0
+  const earnedPoints = rules.reduce((sum, rule) => {
+    if (rule.passed === null) return sum;
+    if (typeof rule.earnedPoints === "number") return sum + rule.earnedPoints;
+    return sum + (rule.passed ? rule.points : 0);
+  }, 0);
+  const verifiedScore =
+    verifiedPoints > 0
       ? Math.max(
           0,
           Math.min(
             config.weight,
-            Math.round((earnedPoints / availablePoints) * config.weight),
+            Math.round((earnedPoints / verifiedPoints) * config.weight),
           ),
         )
-      : 0;
+      : null;
+  const score = verifiedScore ?? 0;
   const percentageScore =
     config.weight > 0 ? clampScore((score / config.weight) * 100) : 0;
-  const findings = rules
-    .filter((rule) => rule.passed === false)
-    .map<ScoringFinding>((rule) => {
-      const content = getCheckStatusContent(rule.checkId, "failed");
-
-      return {
-        category: config.category,
-        severity: rule.severity,
-        title: rule.title,
-        finding: content.details,
-        recommendation: content.recommendation,
-        priority: rule.priority,
-        checkId: rule.checkId,
-      };
-    });
   const checkResults = rules.map<ScoringCheckResult>((rule) => {
     const check = getScoringCheck(rule.checkId);
     const state: ScoringCheckState =
@@ -259,6 +344,54 @@ function scoreCategory(
           ? "failed"
           : "needs_review";
 
+    const reasonCode =
+      rule.reasonCode ??
+      (state === "passed"
+        ? "DETERMINISTIC_EVIDENCE_PASSED"
+        : state === "failed"
+          ? "DETERMINISTIC_EVIDENCE_FAILED"
+          : "PAGE_NOT_CRAWLED");
+    const content = getCheckStatusContent(check.id, state);
+    const evidence = rule.evidence?.length
+      ? rule.evidence
+      : [
+          {
+            source:
+              check.source === "rendered"
+                ? "rendered_dom"
+                : check.source === "pagespeed"
+                  ? "pagespeed"
+                  : check.source === "crawl"
+                    ? "http_response"
+                    : check.source === "signals"
+                      ? "html"
+                      : "manual_rule",
+            ...(defaultPageUrl ? { pageUrl: defaultPageUrl } : {}),
+            observedValue: primitiveEvidenceValue(
+              rule.evidenceReferences?.observedValue,
+              state,
+            ),
+            expectedValue: check.evidencePolicyId,
+            confidence: state === "needs_review" ? 0 : 1,
+            reasonCode,
+            metadata: rule.evidenceReferences,
+          } satisfies CheckEvidence,
+        ];
+    const details = buildEvidenceDetails(
+      check.title,
+      state,
+      evidence,
+      reasonCode,
+    );
+    const earnedPoints =
+      state === "needs_review"
+        ? 0
+        : typeof rule.earnedPoints === "number"
+          ? rule.earnedPoints
+          : state === "passed"
+            ? rule.points
+            : 0;
+
     return {
       registryVersion: SCORING_CHECK_REGISTRY_VERSION,
       checkId: check.id,
@@ -266,22 +399,41 @@ function scoreCategory(
       category: check.category,
       state,
       availablePoints: rule.points,
-      earnedPoints:
-        state === "passed"
-          ? rule.points
-          : state === "needs_review"
-            ? rule.points / 2
-            : 0,
-      reasonCode:
-        rule.reasonCode ??
-        (state === "passed"
-          ? "deterministic_evidence_passed"
-          : state === "failed"
-            ? "deterministic_evidence_failed"
-            : "required_evidence_missing"),
-      evidenceReferences: rule.evidenceReferences ?? {},
+      earnedPoints,
+      reasonCode,
+      rootCauseKey: check.rootCauseKey,
+      details,
+      recommendation: content.recommendation,
+      evidence,
+      evidenceReferences: {
+        details,
+        recommendation: content.recommendation,
+        rootCauseKey: check.rootCauseKey,
+        evidence,
+      },
     };
   });
+  const checkResultById = new Map(
+    checkResults.map((result) => [result.checkId, result]),
+  );
+  const findings = rules
+    .filter((rule) => rule.passed === false)
+    .map<ScoringFinding>((rule) => {
+      const result = checkResultById.get(rule.checkId);
+      const content = getCheckStatusContent(rule.checkId, "failed");
+
+      return {
+        category: config.category,
+        severity: rule.severity,
+        title: rule.title,
+        finding: result?.details ?? content.details,
+        recommendation: result?.recommendation ?? content.recommendation,
+        priority: rule.priority,
+        checkId: rule.checkId,
+        rootCauseKey: getScoringCheck(rule.checkId).rootCauseKey,
+        recoverablePoints: rule.points - (rule.earnedPoints ?? 0),
+      };
+    });
 
   return {
     score: {
@@ -293,6 +445,16 @@ function scoreCategory(
       percentageScore,
       earnedPoints,
       availablePoints,
+      verifiedPoints,
+      verifiedScore,
+      coveragePercentage: Math.round((verifiedPoints / config.weight) * 100),
+      statusCounts: checkResults.reduce<Record<ScoringCheckState, number>>(
+        (counts, check) => {
+          counts[check.state] += 1;
+          return counts;
+        },
+        { passed: 0, needs_review: 0, failed: 0 },
+      ),
       summary: scoreSummary(percentageScore),
     },
     findings,
@@ -365,31 +527,112 @@ function successfulPage(page: ScoringPageInput) {
   );
 }
 
-function hasFailedPages(pages: ScoringPageInput[]) {
-  return pages.some((page) => !successfulPage(page));
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
-function buildVisualCheckRule(
+function pageEvidence(
+  source: CheckEvidenceSource,
+  pageUrl: string | null | undefined,
+  observedValue: string | number | boolean | undefined,
+  expectedValue: string | number | boolean,
+  reasonCode: string,
+  extras: Partial<CheckEvidence> = {},
+): CheckEvidence {
+  return {
+    source,
+    ...(pageUrl ? { pageUrl } : {}),
+    ...(observedValue !== undefined ? { observedValue } : {}),
+    expectedValue,
+    confidence: reasonCode.includes("MISSING") ? 0 : 1,
+    reasonCode,
+    ...extras,
+  };
+}
+
+function signalRule(
+  input: ScoringInput,
+  checkId: ScoringCheckId,
+  signal: SignalDetection,
+  title: string,
+  severity: FindingSeverity,
+  priority: number,
+  pageUrl = homepage(input.pagesScanned)?.url ?? null,
+): ScoreRule {
+  const hasCrawlEvidence = input.pagesScanned.length > 0;
+  const passed = hasCrawlEvidence ? signal.detected : null;
+  const reasonCode = !hasCrawlEvidence
+    ? "PAGE_NOT_CRAWLED"
+    : signal.detected
+      ? "SIGNAL_DETECTED"
+      : "SIGNAL_NOT_DETECTED";
+
+  return {
+    checkId,
+    points: getScoringCheck(checkId).points,
+    passed,
+    title,
+    severity,
+    priority,
+    reasonCode,
+    evidence: [
+      pageEvidence(
+        "html",
+        pageUrl,
+        signal.evidence.join("; ") || "No matching signal was found",
+        getScoringCheck(checkId).evidencePolicyId,
+        reasonCode,
+        { confidence: passed === null ? 0 : 1 },
+      ),
+    ],
+    evidenceReferences: { signalEvidence: signal.evidence },
+  };
+}
+
+function observationEvidence(
+  observation: VisualDesignObservation,
+  pageUrl: string | null,
+): CheckEvidence {
+  return pageEvidence(
+    "rendered_dom",
+    pageUrl,
+    observation.evidence,
+    "passed rendered observation",
+    `RENDERED_${observation.status.toUpperCase()}`,
+    {
+      confidence: observation.status === "needs_review" ? 0 : 1,
+      metadata: {
+        observationId: observation.id,
+        viewport: observation.viewport,
+        summary: observation.summary,
+      },
+    },
+  );
+}
+
+function buildObservationRule(
   checkId: ScoringCheckId,
   analysis: VisualDesignAnalysis | null | undefined,
+  observationIds: readonly VisualDesignObservation["id"][],
+  requiredViewports: readonly VisualViewportVariant[],
+  pageUrl: string | null,
+  title: string,
+  severity: FindingSeverity,
+  priority: number,
 ): ScoreRule {
-  const check = getScoringCheck(checkId);
-  if (check.source !== "rendered") {
-    throw new Error(`Scoring check ${checkId} is not a rendered check.`);
-  }
-  const matchingObservations = analysis?.observations.filter(
-    (observation) =>
-      observation.id === check.requiredObservationId &&
-      check.requiredViewports.includes(observation.viewport as never),
+  const requiredKeys = observationIds.flatMap((observationId) =>
+    requiredViewports.map((viewport) => `${observationId}:${viewport}`),
   );
-  const observationsByViewport = new Map(
-    matchingObservations?.map((observation) => [
-      observation.viewport,
+  const observationsByKey = new Map(
+    analysis?.observations.map((observation) => [
+      `${observation.id}:${observation.viewport}`,
       observation,
     ]) ?? [],
   );
-  const requiredObservations = check.requiredViewports.map((viewport) =>
-    observationsByViewport.get(viewport),
+  const requiredObservations = requiredKeys.map((key) =>
+    observationsByKey.get(key),
   );
   const hasConfirmedFailure = requiredObservations.some(
     (observation) => observation?.status === "failed",
@@ -405,33 +648,56 @@ function buildVisualCheckRule(
     : hasMissingEvidence || hasInsufficientEvidence
       ? null
       : true;
+  const reasonCode = hasConfirmedFailure
+    ? "RENDERED_EVIDENCE_FAILED"
+    : hasMissingEvidence
+      ? "REQUIRED_VIEWPORT_EVIDENCE_MISSING"
+      : hasInsufficientEvidence
+        ? "EVIDENCE_COVERAGE_INSUFFICIENT"
+        : "RENDERED_EVIDENCE_PASSED";
 
   return {
-    points: check.points,
+    points: getScoringCheck(checkId).points,
     passed,
-    title: check.findingTitle,
-    severity: check.severity,
-    priority: check.priority,
+    title,
+    severity,
+    priority,
     checkId,
-    reasonCode: hasConfirmedFailure
-      ? "rendered_evidence_failed"
-      : hasMissingEvidence
-        ? "required_viewport_evidence_missing"
-        : hasInsufficientEvidence
-          ? "evidence_coverage_insufficient"
-          : "rendered_evidence_passed",
+    reasonCode,
+    evidence: requiredObservations
+      .filter((observation): observation is VisualDesignObservation =>
+        Boolean(observation),
+      )
+      .map((observation) => observationEvidence(observation, pageUrl)),
     evidenceReferences: {
       analysisVersion: analysis?.version ?? null,
-      observationId: check.requiredObservationId,
-      requiredViewports: [...check.requiredViewports],
-      observations: requiredObservations.filter(Boolean).map((observation) => ({
-        viewport: observation?.viewport,
-        status: observation?.status,
-        evidence: observation?.evidence,
-      })),
+      observationIds,
+      requiredViewports,
       errors: analysis?.errors ?? [],
     },
   };
+}
+
+function buildVisualCheckRule(
+  checkId: ScoringCheckId,
+  analysis: VisualDesignAnalysis | null | undefined,
+  pageUrl: string | null,
+): ScoreRule {
+  const check = getScoringCheck(checkId);
+  if (check.source !== "rendered") {
+    throw new Error(`Scoring check ${checkId} is not a rendered check.`);
+  }
+
+  return buildObservationRule(
+    checkId,
+    analysis,
+    [check.requiredObservationId],
+    check.requiredViewports,
+    pageUrl,
+    check.findingTitle,
+    check.severity,
+    check.priority,
+  );
 }
 
 function hasUsefulInternalLinks(pages: ScoringPageInput[]) {
@@ -466,15 +732,256 @@ function homepageNewsletterDetected(
   return evidence.includes(homeUrl);
 }
 
-function multipleRetailers(signals: AuthorWebsiteSignals) {
-  return (
-    Object.values(signals.retailers).filter((retailer) => retailer.detected)
-      .length >= 2
-  );
+function retailerCount(signals: AuthorWebsiteSignals) {
+  return Object.values(signals.retailers).filter(
+    (retailer) => retailer.detected,
+  ).length;
 }
 
 function scoreAtLeast(score: number | null | undefined, target: number) {
   return typeof score === "number" ? score >= target : null;
+}
+
+function pageSpeedRule(
+  checkId: ScoringCheckId,
+  score: number | null | undefined,
+  target: number,
+  pageUrl: string | null,
+  title: string,
+  severity: FindingSeverity,
+  priority: number,
+  earnedPoints?: number,
+): ScoreRule {
+  const passed = scoreAtLeast(score, target);
+  const reasonCode =
+    typeof score !== "number"
+      ? "PAGESPEED_RESULT_MISSING"
+      : score >= target
+        ? "PAGESPEED_TARGET_MET"
+        : "PAGESPEED_TARGET_NOT_MET";
+
+  return {
+    checkId,
+    points: getScoringCheck(checkId).points,
+    passed,
+    title,
+    severity,
+    priority,
+    reasonCode,
+    ...(typeof earnedPoints === "number" ? { earnedPoints } : {}),
+    evidence: [
+      pageEvidence(
+        "pagespeed",
+        pageUrl,
+        typeof score === "number" ? score : "PageSpeed result unavailable",
+        target,
+        reasonCode,
+        {
+          threshold: target,
+          confidence: typeof score === "number" ? 1 : 0,
+          metadata: { score, target },
+        },
+      ),
+    ],
+    evidenceReferences: { score: score ?? null, target },
+  };
+}
+
+function mobilePerformancePoints(score: number | null | undefined) {
+  if (typeof score !== "number" || score < 40) return 0;
+  if (score < 60) return 1;
+  if (score < 75) return 2;
+  if (score < 90) return 3;
+  return 4;
+}
+
+function headingRecord(page: ScoringPageInput | null) {
+  return asRecord(page?.headingsJson);
+}
+
+function homepageRobots(page: ScoringPageInput | null) {
+  const headings = headingRecord(page);
+  const seo = asRecord(headings?.seo);
+  const value = headings?.robots ?? seo?.robots;
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function homepageH1Count(page: ScoringPageInput | null) {
+  const value = headingRecord(page)?.h1Count;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : page?.h1
+      ? 1
+      : 0;
+}
+
+function homepageCanonical(page: ScoringPageInput | null) {
+  const headings = headingRecord(page);
+  const seo = asRecord(headings?.seo);
+  const value = headings?.canonicalUrl ?? seo?.canonicalUrl;
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function validCanonicalUrl(value: string) {
+  if (!value) return false;
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+type ExtractedCta = { text: string; href: string | null };
+
+function extractedCtas(pages: ScoringPageInput[]) {
+  const results: Array<ExtractedCta & { pageUrl: string }> = [];
+
+  for (const page of pages) {
+    const links = asRecord(page.linksJson);
+    const candidates = Array.isArray(links?.ctas) ? links.ctas : [];
+
+    for (const candidate of candidates) {
+      const record = asRecord(candidate);
+      if (!record) continue;
+      const text = typeof record.text === "string" ? record.text.trim() : "";
+      const href = typeof record.href === "string" ? record.href.trim() : null;
+      if (text || href) results.push({ text, href, pageUrl: page.url });
+    }
+  }
+
+  return results;
+}
+
+function genericCtaText(value: string) {
+  return /^(?:click here|here|learn more|read more|more|submit|go)$/i.test(
+    value.trim(),
+  );
+}
+
+type ExtractedInternalLink = {
+  text: string;
+  href: string;
+  pageUrl: string;
+};
+
+function extractedInternalLinks(pages: ScoringPageInput[]) {
+  const results: ExtractedInternalLink[] = [];
+
+  for (const page of pages) {
+    const links = asRecord(page.linksJson);
+    const candidates = Array.isArray(links?.internal) ? links.internal : [];
+
+    for (const candidate of candidates) {
+      const record = asRecord(candidate);
+      if (!record || typeof record.href !== "string") continue;
+      results.push({
+        text: typeof record.text === "string" ? record.text.trim() : "",
+        href: record.href.trim(),
+        pageUrl: page.url,
+      });
+    }
+  }
+
+  return results;
+}
+
+function canonicalMatchesHomepage(canonical: string, homepageUrl: string) {
+  try {
+    const canonicalUrl = new URL(canonical);
+    const homeUrl = new URL(homepageUrl);
+    const normalizePath = (path: string) =>
+      path === "/" ? path : path.replace(/\/+$/, "");
+
+    return (
+      canonicalUrl.protocol === homeUrl.protocol &&
+      canonicalUrl.host === homeUrl.host &&
+      normalizePath(canonicalUrl.pathname) === normalizePath(homeUrl.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+type StructuredIdentityCandidate = {
+  type: string;
+  name: string;
+  url: string | null;
+};
+
+function structuredIdentityCandidates(page: ScoringPageInput | null) {
+  const candidates: StructuredIdentityCandidate[] = [];
+  const roots = headingRecord(page)?.jsonLd;
+
+  const visit = (value: unknown) => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+
+    const record = asRecord(value);
+    if (!record) return;
+
+    const rawTypes = Array.isArray(record["@type"])
+      ? record["@type"]
+      : [record["@type"]];
+    const types = rawTypes.filter(
+      (entry): entry is string => typeof entry === "string",
+    );
+    const matchedType = types.find((type) =>
+      /^(?:Person|Organization)$/i.test(type),
+    );
+    const name = typeof record.name === "string" ? record.name.trim() : "";
+    const url = typeof record.url === "string" ? record.url.trim() : null;
+
+    if (matchedType && name) {
+      candidates.push({ type: matchedType, name, url });
+    }
+
+    Object.values(record).forEach(visit);
+  };
+
+  visit(roots);
+  return candidates;
+}
+
+function structuredIdentityIsValid(
+  candidate: StructuredIdentityCandidate,
+  homeUrl: string,
+  expectedAuthorName: string | null,
+) {
+  const nameMatches = expectedAuthorName
+    ? candidate.name
+        .toLocaleLowerCase()
+        .includes(expectedAuthorName.toLocaleLowerCase()) ||
+      expectedAuthorName
+        .toLocaleLowerCase()
+        .includes(candidate.name.toLocaleLowerCase())
+    : true;
+  const urlMatches = candidate.url
+    ? (() => {
+        try {
+          return new URL(candidate.url, homeUrl).host === new URL(homeUrl).host;
+        } catch {
+          return false;
+        }
+      })()
+    : true;
+
+  return nameMatches && urlMatches;
+}
+
+function authorLevelTrustProof(pages: ScoringPageInput[]) {
+  const pattern =
+    /\b(?:award[- ]winning author|bestselling author|winner of|recipient of|featured in|appeared on|media coverage|published by|keynote speaker|speaking appearance|professional endorsement)\b/i;
+
+  for (const page of pages) {
+    const match = pageText(page).match(pattern);
+    if (match) return { pageUrl: page.url, observation: match[0] };
+  }
+
+  return null;
 }
 
 function titleIncludesAuthorOrBrand(
@@ -507,13 +1014,6 @@ function h1GivesAuthorClarity(
   );
 }
 
-function pageAppearsIndexable(signals: AuthorWebsiteSignals) {
-  return (
-    !signals.seo.indexabilitySignals.detected ||
-    signals.seo.indexabilitySignals.indexable !== false
-  );
-}
-
 function siteLooksWordPress(pages: ScoringPageInput[]) {
   return /\bwp-content\b|\bwp-includes\b|\bwordpress\b/i.test(
     allPageText(pages),
@@ -534,113 +1034,159 @@ function oldCopyrightYear(pages: ScoringPageInput[]) {
 function buildBrandRules(input: ScoringInput): ScoreRule[] {
   const { signals, pagesScanned } = input;
   const home = homepage(pagesScanned);
+  const homepageDepthPassed = home
+    ? successfulPage(home) && (home.wordCount ?? 0) >= 50
+    : null;
+  const homepageDepthReason = !home
+    ? "PAGE_NOT_CRAWLED"
+    : homepageDepthPassed
+      ? "HOMEPAGE_CONTENT_DEPTH_MET"
+      : "HOMEPAGE_CONTENT_TOO_THIN";
 
   return [
-    {
-      checkId: "brand.author_name",
-      points: 4,
-      passed: has(signals.authorBrand.authorNameVisible),
-      title: "Author name is not clear",
-      severity: FindingSeverity.HIGH,
-      priority: 1,
-    },
-    {
-      checkId: "brand.genre_positioning",
-      points: 3,
-      passed: has(signals.authorBrand.genreOrCategoryMentioned),
-      title: "Writing category is unclear",
-      severity: FindingSeverity.MEDIUM,
-      priority: 2,
-    },
-    {
-      checkId: "brand.homepage_headline",
-      points: 4,
-      passed: has(signals.authorBrand.clearHomepageHeadline),
-      title: "Homepage headline needs clarity",
-      severity: FindingSeverity.HIGH,
-      priority: 2,
-    },
-    {
-      checkId: "brand.about_path",
-      points: 3,
-      passed: has(signals.authorBrand.aboutSectionOrPage),
-      title: "About path is hard to confirm",
-      severity: FindingSeverity.MEDIUM,
-      priority: 4,
-    },
+    signalRule(
+      input,
+      "brand.author_name",
+      signals.authorBrand.authorNameVisible,
+      "Author name is not clear",
+      FindingSeverity.HIGH,
+      1,
+    ),
+    signalRule(
+      input,
+      "brand.genre_positioning",
+      signals.authorBrand.genreOrCategoryMentioned,
+      "Writing category is unclear",
+      FindingSeverity.MEDIUM,
+      2,
+    ),
+    signalRule(
+      input,
+      "brand.homepage_headline",
+      signals.authorBrand.clearHomepageHeadline,
+      "Homepage headline needs clarity",
+      FindingSeverity.HIGH,
+      2,
+    ),
+    signalRule(
+      input,
+      "brand.about_path",
+      signals.authorBrand.aboutSectionOrPage,
+      "About path is hard to confirm",
+      FindingSeverity.MEDIUM,
+      4,
+    ),
     {
       checkId: "brand.homepage_content_depth",
       points: 1,
-      passed: Boolean(
-        home && successfulPage(home) && (home.wordCount ?? 0) >= 50,
-      ),
+      passed: homepageDepthPassed,
       title: "Homepage content looks thin",
       severity: FindingSeverity.LOW,
       priority: 6,
+      reasonCode: homepageDepthReason,
+      evidence: [
+        pageEvidence(
+          "html",
+          home?.url,
+          home ? `${home.wordCount ?? 0} words` : "Homepage was not crawled",
+          "at least 50 words of useful introductory content",
+          homepageDepthReason,
+          { threshold: 50, confidence: home ? 1 : 0 },
+        ),
+      ],
     },
   ];
 }
 
 function buildBookRules(input: ScoringInput): ScoreRule[] {
-  const { signals } = input;
+  const { signals, pagesScanned } = input;
+  const homeUrl = homepage(pagesScanned)?.url ?? null;
+  const retailers = retailerCount(signals);
+  const retailerPassed =
+    pagesScanned.length === 0
+      ? null
+      : retailers >= 2
+        ? true
+        : retailers === 0
+          ? false
+          : null;
+  const retailerReason =
+    pagesScanned.length === 0
+      ? "PAGE_NOT_CRAWLED"
+      : retailers >= 2
+        ? "MULTIPLE_RETAILERS_DETECTED"
+        : retailers === 1
+          ? "RETAILER_AVAILABILITY_UNCLEAR"
+          : "RETAILER_OPTIONS_NOT_DETECTED";
 
   return [
-    {
-      checkId: "books.cover_visibility",
-      points: 4,
-      passed: has(signals.bookPromotion.bookCoverImages),
-      title: "Book cover was not detected",
-      severity: FindingSeverity.HIGH,
-      priority: 1,
-    },
-    {
-      checkId: "books.title_visibility",
-      points: 3,
-      passed: has(signals.bookPromotion.bookTitles),
-      title: "Book title was not detected",
-      severity: FindingSeverity.HIGH,
-      priority: 1,
-    },
-    {
-      checkId: "books.description",
-      points: 4,
-      passed: has(signals.bookPromotion.bookDescriptionOrBlurb),
-      title: "Book description is missing or unclear",
-      severity: FindingSeverity.HIGH,
-      priority: 2,
-    },
-    {
-      checkId: "books.purchase_links",
-      points: 4,
-      passed: has(signals.bookPromotion.buyLinks),
-      title: "Buy links were not detected",
-      severity: FindingSeverity.HIGH,
-      priority: 1,
-    },
+    signalRule(
+      input,
+      "books.cover_visibility",
+      signals.bookPromotion.bookCoverImages,
+      "Book cover was not detected",
+      FindingSeverity.HIGH,
+      1,
+    ),
+    signalRule(
+      input,
+      "books.title_visibility",
+      signals.bookPromotion.bookTitles,
+      "Book title was not detected",
+      FindingSeverity.HIGH,
+      1,
+    ),
+    signalRule(
+      input,
+      "books.description",
+      signals.bookPromotion.bookDescriptionOrBlurb,
+      "Book description is missing or unclear",
+      FindingSeverity.HIGH,
+      2,
+    ),
+    signalRule(
+      input,
+      "books.purchase_links",
+      signals.bookPromotion.buyLinks,
+      "Buy links were not detected",
+      FindingSeverity.HIGH,
+      1,
+    ),
     {
       checkId: "books.retailer_options",
       points: 2,
-      passed: multipleRetailers(signals),
-      title: "Multiple retailer options were not detected",
+      passed: retailerPassed,
+      title: "Purchase options do not match confirmed availability",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
+      reasonCode: retailerReason,
+      evidence: [
+        pageEvidence(
+          "html",
+          homeUrl,
+          `${retailers} retailer option(s) detected`,
+          "at least two confirmed retailer options, or enough availability evidence to verify the offered options",
+          retailerReason,
+          { confidence: retailerPassed === null ? 0 : 1 },
+        ),
+      ],
     },
-    {
-      checkId: "books.reader_proof",
-      points: 2,
-      passed: has(signals.bookPromotion.reviewsOrPraise),
-      title: "Reader proof was not detected",
-      severity: FindingSeverity.MEDIUM,
-      priority: 5,
-    },
-    {
-      checkId: "books.featured_book",
-      points: 1,
-      passed: has(signals.bookPromotion.featuredBookSection),
-      title: "Featured book section was not detected",
-      severity: FindingSeverity.LOW,
-      priority: 6,
-    },
+    signalRule(
+      input,
+      "books.reader_proof",
+      signals.bookPromotion.reviewsOrPraise,
+      "Reader proof was not detected",
+      FindingSeverity.MEDIUM,
+      5,
+    ),
+    signalRule(
+      input,
+      "books.featured_book",
+      signals.bookPromotion.featuredBookSection,
+      "Featured book section was not detected",
+      FindingSeverity.LOW,
+      6,
+    ),
   ];
 }
 
@@ -658,101 +1204,257 @@ function buildNewsletterRules(input: ScoringInput): ScoreRule[] {
     has(signals.newsletter.updatesSignup);
 
   return [
-    {
-      checkId: "engagement.newsletter_signup",
-      points: 5,
-      passed: hasForm,
-      title: "Newsletter signup was not detected",
-      severity: FindingSeverity.HIGH,
-      priority: 1,
-    },
+    signalRule(
+      input,
+      "engagement.newsletter_signup",
+      {
+        detected: hasForm,
+        evidence: [
+          ...signals.newsletter.newsletterSignupForm.evidence,
+          ...signals.newsletter.subscribeForm.evidence,
+          ...signals.newsletter.emailInput.evidence,
+        ],
+      },
+      "Newsletter signup was not detected",
+      FindingSeverity.HIGH,
+      1,
+    ),
     {
       checkId: "engagement.homepage_signup",
       points: 3,
-      passed: homepageNewsletterDetected(signals, pagesScanned),
+      passed:
+        pagesScanned.length > 0
+          ? homepageNewsletterDetected(signals, pagesScanned)
+          : null,
       title: "Newsletter is not visible on the homepage",
       severity: FindingSeverity.MEDIUM,
       priority: 3,
+      reasonCode:
+        pagesScanned.length === 0
+          ? "PAGE_NOT_CRAWLED"
+          : homepageNewsletterDetected(signals, pagesScanned)
+            ? "HOMEPAGE_SIGNUP_DETECTED"
+            : "HOMEPAGE_SIGNUP_NOT_DETECTED",
+      evidence: [
+        pageEvidence(
+          "html",
+          homepage(pagesScanned)?.url,
+          homepageNewsletterDetected(signals, pagesScanned)
+            ? "Newsletter form evidence references the homepage"
+            : "No newsletter form evidence references the homepage",
+          "a newsletter signup visible on the homepage",
+          pagesScanned.length === 0
+            ? "PAGE_NOT_CRAWLED"
+            : homepageNewsletterDetected(signals, pagesScanned)
+              ? "HOMEPAGE_SIGNUP_DETECTED"
+              : "HOMEPAGE_SIGNUP_NOT_DETECTED",
+          { confidence: pagesScanned.length > 0 ? 1 : 0 },
+        ),
+      ],
     },
-    {
-      checkId: "engagement.reader_magnet",
-      points: 4,
-      passed: has(signals.newsletter.readerMagnetPhrases),
-      title: "Reader magnet was not detected",
-      severity: FindingSeverity.MEDIUM,
-      priority: 4,
-    },
-    {
-      checkId: "engagement.subscriber_benefit",
-      points: 3,
-      passed: hasReaderBenefit,
-      title: "Subscriber benefit is unclear",
-      severity: FindingSeverity.MEDIUM,
-      priority: 4,
-    },
+    signalRule(
+      input,
+      "engagement.reader_magnet",
+      signals.newsletter.readerMagnetPhrases,
+      "Reader magnet was not detected",
+      FindingSeverity.MEDIUM,
+      4,
+    ),
+    signalRule(
+      input,
+      "engagement.subscriber_benefit",
+      {
+        detected: hasReaderBenefit,
+        evidence: [
+          ...signals.newsletter.readerMagnetPhrases.evidence,
+          ...signals.newsletter.freeChapter.evidence,
+          ...signals.newsletter.bonusScene.evidence,
+          ...signals.newsletter.freeBook.evidence,
+          ...signals.newsletter.updatesSignup.evidence,
+        ],
+      },
+      "Subscriber benefit is unclear",
+      FindingSeverity.MEDIUM,
+      4,
+    ),
   ];
 }
 
 function buildSeoRules(input: ScoringInput): ScoreRule[] {
   const { signals, pagesScanned } = input;
-  const oneH1 = has(signals.seo.h1Exists) && !has(signals.seo.multipleH1Issue);
+  const home = homepage(pagesScanned);
+  const homeUrl = home?.url ?? null;
+  const h1Count = home ? homepageH1Count(home) : null;
+  const indexability = signals.seo.indexabilitySignals;
+  const indexable =
+    pagesScanned.length === 0
+      ? null
+      : indexability.indexable === false
+        ? false
+        : true;
+  const robots = homepageRobots(home);
+  const internalLinksPresent = home
+    ? hasUsefulInternalLinks(pagesScanned)
+    : null;
 
   return [
-    {
-      checkId: "search.title_tag",
-      points: 2,
-      passed: has(signals.seo.titleTagExists),
-      title: "Title tag is missing",
-      severity: FindingSeverity.HIGH,
-      priority: 2,
-    },
+    signalRule(
+      input,
+      "search.title_tag",
+      signals.seo.titleTagExists,
+      "Title tag is missing",
+      FindingSeverity.HIGH,
+      2,
+    ),
     {
       checkId: "search.author_title_format",
-      points: 3,
-      passed: titleIncludesAuthorOrBrand(signals, pagesScanned),
+      points: 2,
+      passed: home ? titleIncludesAuthorOrBrand(signals, pagesScanned) : null,
       title: "Title does not clearly support the author brand",
       severity: FindingSeverity.MEDIUM,
       priority: 3,
+      reasonCode: !home
+        ? "PAGE_NOT_CRAWLED"
+        : titleIncludesAuthorOrBrand(signals, pagesScanned)
+          ? "TITLE_SUPPORTS_AUTHOR_BRAND"
+          : "TITLE_AUTHOR_BRAND_NOT_DETECTED",
+      evidence: [
+        pageEvidence(
+          "html",
+          homeUrl,
+          home?.title ?? "Homepage title unavailable",
+          "a title that identifies the author or writing brand",
+          !home
+            ? "PAGE_NOT_CRAWLED"
+            : titleIncludesAuthorOrBrand(signals, pagesScanned)
+              ? "TITLE_SUPPORTS_AUTHOR_BRAND"
+              : "TITLE_AUTHOR_BRAND_NOT_DETECTED",
+          { confidence: home ? 1 : 0 },
+        ),
+      ],
     },
-    {
-      checkId: "search.meta_description",
-      points: 3,
-      passed: has(signals.seo.metaDescriptionExists),
-      title: "Meta description is missing",
-      severity: FindingSeverity.MEDIUM,
-      priority: 4,
-    },
+    signalRule(
+      input,
+      "search.meta_description",
+      signals.seo.metaDescriptionExists,
+      "Meta description is missing",
+      FindingSeverity.MEDIUM,
+      4,
+    ),
     {
       checkId: "search.single_h1",
       points: 2,
-      passed: oneH1,
+      passed: home ? h1Count !== null && h1Count > 0 : null,
       title: "Main heading structure needs cleanup",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
+      reasonCode: !home
+        ? "PAGE_NOT_CRAWLED"
+        : h1Count && h1Count > 0
+          ? "PRIMARY_HEADING_PRESENT"
+          : "PRIMARY_HEADING_MISSING",
+      evidence: [
+        pageEvidence(
+          "html",
+          homeUrl,
+          h1Count === null
+            ? "Heading structure unavailable"
+            : `${h1Count} H1 element(s)`,
+          "at least one clear primary heading",
+          !home
+            ? "PAGE_NOT_CRAWLED"
+            : h1Count && h1Count > 0
+              ? "PRIMARY_HEADING_PRESENT"
+              : "PRIMARY_HEADING_MISSING",
+          { threshold: 1, confidence: home ? 1 : 0 },
+        ),
+      ],
     },
     {
       checkId: "search.h1_clarity",
       points: 3,
-      passed: h1GivesAuthorClarity(signals, pagesScanned),
+      passed: home ? h1GivesAuthorClarity(signals, pagesScanned) : null,
       title: "H1 does not clearly orient readers",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
+      reasonCode: !home
+        ? "PAGE_NOT_CRAWLED"
+        : h1GivesAuthorClarity(signals, pagesScanned)
+          ? "H1_GIVES_AUTHOR_CLARITY"
+          : "H1_AUTHOR_CLARITY_NOT_DETECTED",
+      evidence: [
+        pageEvidence(
+          "html",
+          homeUrl,
+          home?.h1 ?? "Homepage H1 unavailable",
+          "a main heading that identifies the author, category, or book",
+          !home
+            ? "PAGE_NOT_CRAWLED"
+            : h1GivesAuthorClarity(signals, pagesScanned)
+              ? "H1_GIVES_AUTHOR_CLARITY"
+              : "H1_AUTHOR_CLARITY_NOT_DETECTED",
+          { confidence: home ? 1 : 0 },
+        ),
+      ],
     },
     {
       checkId: "search.indexability",
       points: 3,
-      passed: pageAppearsIndexable(signals),
+      passed: indexable,
       title: "Indexability may be blocked",
       severity: FindingSeverity.CRITICAL,
       priority: 1,
+      reasonCode: !home
+        ? "PAGE_NOT_CRAWLED"
+        : indexability.indexable === false
+          ? "NOINDEX_DETECTED"
+          : "NO_INDEXING_BLOCK_DETECTED",
+      evidence: [
+        pageEvidence(
+          "robots",
+          homeUrl,
+          robots ||
+            indexability.evidence.join("; ") ||
+            "No noindex directive was detected",
+          "no blocking noindex directive on the inspected page",
+          !home
+            ? "PAGE_NOT_CRAWLED"
+            : indexability.indexable === false
+              ? "NOINDEX_DETECTED"
+              : "NO_INDEXING_BLOCK_DETECTED",
+          { confidence: home ? 1 : 0 },
+        ),
+      ],
     },
     {
       checkId: "search.internal_links",
       points: 2,
-      passed: hasUsefulInternalLinks(pagesScanned),
+      passed: internalLinksPresent,
       title: "Useful internal links are limited",
       severity: FindingSeverity.LOW,
       priority: 6,
+      reasonCode: !home
+        ? "PAGE_NOT_CRAWLED"
+        : internalLinksPresent
+          ? "USEFUL_INTERNAL_LINKS_DETECTED"
+          : "USEFUL_INTERNAL_LINKS_NOT_DETECTED",
+      evidence: [
+        pageEvidence(
+          "html",
+          homeUrl,
+          safeEvidenceText(
+            home?.linksJson,
+            "No useful internal links were detected",
+          ),
+          "useful internal links to author-site content",
+          !home
+            ? "PAGE_NOT_CRAWLED"
+            : internalLinksPresent
+              ? "USEFUL_INTERNAL_LINKS_DETECTED"
+              : "USEFUL_INTERNAL_LINKS_NOT_DETECTED",
+          { confidence: home ? 1 : 0 },
+        ),
+      ],
     },
   ];
 }
@@ -760,241 +1462,605 @@ function buildSeoRules(input: ScoringInput): ScoreRule[] {
 function buildMobileRules(input: ScoringInput): ScoreRule[] {
   const { signals, pagesScanned, technicalAudit, visualDesignAnalysis } = input;
   const home = homepage(pagesScanned);
+  const homeUrl = home?.url ?? null;
+  const performanceScore = technicalAudit?.mobilePerformance;
+  const altTextPassed =
+    pagesScanned.length > 0 ? !has(signals.seo.missingAltText) : null;
+  const homepageStructurePassed = home
+    ? successfulPage(home) && homepageH1Count(home) > 0
+    : null;
 
   return [
-    {
-      checkId: "mobile.pagespeed_performance",
-      points: 4,
-      passed: scoreAtLeast(technicalAudit?.mobilePerformance, 70),
-      title: "Mobile performance score is below target",
-      severity: FindingSeverity.HIGH,
-      priority: 3,
-    },
-    {
-      checkId: "mobile.pagespeed_accessibility",
-      points: 1,
-      passed: scoreAtLeast(technicalAudit?.mobileAccessibility, 90),
-      title: "Mobile accessibility score is below target",
-      severity: FindingSeverity.MEDIUM,
-      priority: 4,
-    },
-    buildVisualCheckRule("mobile.text_contrast", visualDesignAnalysis),
-    {
-      checkId: "mobile.pagespeed_seo",
-      points: 1,
-      passed: scoreAtLeast(technicalAudit?.mobileSeo, 90),
-      title: "Mobile search audit score is below target",
-      severity: FindingSeverity.LOW,
-      priority: 6,
-    },
+    pageSpeedRule(
+      "mobile.pagespeed_performance",
+      performanceScore,
+      90,
+      homeUrl,
+      "Mobile performance score is below target",
+      FindingSeverity.HIGH,
+      3,
+      mobilePerformancePoints(performanceScore),
+    ),
+    pageSpeedRule(
+      "mobile.pagespeed_accessibility",
+      technicalAudit?.mobileAccessibility,
+      90,
+      homeUrl,
+      "Mobile accessibility score is below target",
+      FindingSeverity.MEDIUM,
+      4,
+    ),
+    buildVisualCheckRule("mobile.text_contrast", visualDesignAnalysis, homeUrl),
+    buildObservationRule(
+      "mobile.interactive_controls",
+      visualDesignAnalysis,
+      ["mobile-tap-targets"],
+      ["mobile"],
+      homeUrl,
+      "Mobile interactive controls are too small",
+      FindingSeverity.MEDIUM,
+      4,
+    ),
     {
       checkId: "mobile.image_alt_text",
       points: 1,
-      passed: !has(signals.seo.missingAltText),
+      passed: altTextPassed,
       title: "Images are missing alt text",
       severity: FindingSeverity.MEDIUM,
       priority: 4,
+      reasonCode:
+        pagesScanned.length === 0
+          ? "PAGE_NOT_CRAWLED"
+          : altTextPassed
+            ? "APPROPRIATE_ALT_TEXT_BASELINE_MET"
+            : "MISSING_ALT_TEXT_DETECTED",
+      evidence: [
+        pageEvidence(
+          "html",
+          homeUrl,
+          signals.seo.missingAltText.evidence.join("; ") ||
+            "No missing-alt finding was detected",
+          "no content images with missing alternative text",
+          pagesScanned.length === 0
+            ? "PAGE_NOT_CRAWLED"
+            : altTextPassed
+              ? "APPROPRIATE_ALT_TEXT_BASELINE_MET"
+              : "MISSING_ALT_TEXT_DETECTED",
+          { confidence: pagesScanned.length > 0 ? 1 : 0 },
+        ),
+      ],
     },
     {
       checkId: "mobile.homepage_structure",
       points: 1,
-      passed: Boolean(
-        home && successfulPage(home) && has(signals.seo.h1Exists),
-      ),
+      passed: homepageStructurePassed,
       title: "Homepage structure was not fully confirmed",
       severity: FindingSeverity.LOW,
       priority: 6,
+      reasonCode: !home
+        ? "PAGE_NOT_CRAWLED"
+        : homepageStructurePassed
+          ? "HOMEPAGE_LOADED_WITH_MAIN_HEADING"
+          : "HOMEPAGE_OR_MAIN_HEADING_FAILED",
+      evidence: [
+        pageEvidence(
+          "http_response",
+          homeUrl,
+          home
+            ? `HTTP ${home.statusCode ?? "unknown"}; ${homepageH1Count(home)} H1 element(s)`
+            : "Homepage was not crawled",
+          "a successful homepage response with at least one main heading",
+          !home
+            ? "PAGE_NOT_CRAWLED"
+            : homepageStructurePassed
+              ? "HOMEPAGE_LOADED_WITH_MAIN_HEADING"
+              : "HOMEPAGE_OR_MAIN_HEADING_FAILED",
+          { confidence: home ? 1 : 0 },
+        ),
+      ],
     },
-    buildVisualCheckRule("mobile.viewport_fit", visualDesignAnalysis),
+    buildVisualCheckRule("mobile.viewport_fit", visualDesignAnalysis, homeUrl),
   ];
 }
 
 function buildTechnicalRules(input: ScoringInput): ScoreRule[] {
   const { signals, pagesScanned, technicalAudit } = input;
   const home = homepage(pagesScanned);
+  const homeUrl = home?.url ?? null;
+  const bestPracticeScores = [
+    technicalAudit?.mobileBestPractices,
+    technicalAudit?.desktopBestPractices,
+  ];
+  const hasBothBestPracticeScores = bestPracticeScores.every(
+    (score) => typeof score === "number",
+  );
+  const bestPracticesPassed = hasBothBestPracticeScores
+    ? bestPracticeScores.every((score) => (score as number) >= 90)
+    : null;
+  const criticalPages = pagesScanned.filter((page) =>
+    ["HOME", "BOOKS", "ABOUT", "CONTACT", "NEWSLETTER"].includes(
+      page.pageType ?? "",
+    ),
+  );
+  const confirmedCriticalFailure = criticalPages.some(
+    (page) => typeof page.statusCode === "number" && !successfulPage(page),
+  );
+  const indexable = signals.seo.indexabilitySignals.indexable;
+  const canonical = homepageCanonical(home);
+  const canonicalPassed = home
+    ? validCanonicalUrl(canonical) &&
+      canonicalMatchesHomepage(canonical, home.url)
+    : null;
+  const identityCandidates = structuredIdentityCandidates(home);
+  const authorName = detectAuthorName(signals);
+  const validIdentityCandidate = home
+    ? (identityCandidates.find((candidate) =>
+        structuredIdentityIsValid(candidate, home.url, authorName),
+      ) ?? null)
+    : null;
 
   return [
+    pageSpeedRule(
+      "technical.desktop_performance",
+      technicalAudit?.desktopPerformance,
+      70,
+      homeUrl,
+      "Desktop performance score is below target",
+      FindingSeverity.MEDIUM,
+      4,
+    ),
     {
-      checkId: "technical.desktop_performance",
+      checkId: "technical.browser_best_practices",
       points: 2,
-      passed: scoreAtLeast(technicalAudit?.desktopPerformance, 70),
-      title: "Desktop performance score is below target",
-      severity: FindingSeverity.MEDIUM,
-      priority: 4,
-    },
-    {
-      checkId: "technical.mobile_best_practices",
-      points: 2,
-      passed: scoreAtLeast(technicalAudit?.mobileBestPractices, 90),
-      title: "Mobile best practices score is below target",
+      passed: bestPracticesPassed,
+      title: "Browser best practices scores are below target",
       severity: FindingSeverity.MEDIUM,
       priority: 5,
+      reasonCode: !hasBothBestPracticeScores
+        ? "PAGESPEED_RESULT_MISSING"
+        : bestPracticesPassed
+          ? "PAGESPEED_TARGET_MET"
+          : "PAGESPEED_TARGET_NOT_MET",
+      evidence: [
+        pageEvidence(
+          "pagespeed",
+          homeUrl,
+          `Mobile ${technicalAudit?.mobileBestPractices ?? "unavailable"}; desktop ${technicalAudit?.desktopBestPractices ?? "unavailable"}`,
+          "both mobile and desktop scores at or above 90",
+          !hasBothBestPracticeScores
+            ? "PAGESPEED_RESULT_MISSING"
+            : bestPracticesPassed
+              ? "PAGESPEED_TARGET_MET"
+              : "PAGESPEED_TARGET_NOT_MET",
+          {
+            threshold: 90,
+            confidence: hasBothBestPracticeScores ? 1 : 0,
+            metadata: {
+              mobileScore: technicalAudit?.mobileBestPractices ?? null,
+              desktopScore: technicalAudit?.desktopBestPractices ?? null,
+            },
+          },
+        ),
+      ],
     },
-    {
-      checkId: "technical.desktop_best_practices",
-      points: 1,
-      passed: scoreAtLeast(technicalAudit?.desktopBestPractices, 90),
-      title: "Desktop best practices score is below target",
-      severity: FindingSeverity.LOW,
-      priority: 6,
-    },
-    {
-      checkId: "technical.desktop_accessibility",
-      points: 1,
-      passed: scoreAtLeast(technicalAudit?.desktopAccessibility, 90),
-      title: "Desktop accessibility score is below target",
-      severity: FindingSeverity.LOW,
-      priority: 6,
-    },
+    pageSpeedRule(
+      "technical.desktop_accessibility",
+      technicalAudit?.desktopAccessibility,
+      90,
+      homeUrl,
+      "Desktop accessibility score is below target",
+      FindingSeverity.LOW,
+      6,
+    ),
     {
       checkId: "technical.https",
       points: 1,
-      passed: /^https:\/\//i.test(home?.url ?? ""),
+      passed: home ? /^https:\/\//i.test(home.url) : null,
       title: "Secure HTTPS was not confirmed",
       severity: FindingSeverity.HIGH,
       priority: 2,
+      reasonCode: !home
+        ? "PAGE_NOT_CRAWLED"
+        : /^https:\/\//i.test(home.url)
+          ? "HTTPS_CONFIRMED"
+          : "HTTPS_NOT_USED",
+      evidence: [
+        pageEvidence(
+          "http_response",
+          homeUrl,
+          homeUrl ?? "Homepage was not crawled",
+          "an HTTPS homepage URL",
+          !home
+            ? "PAGE_NOT_CRAWLED"
+            : /^https:\/\//i.test(home.url)
+              ? "HTTPS_CONFIRMED"
+              : "HTTPS_NOT_USED",
+          { confidence: home ? 1 : 0 },
+        ),
+      ],
     },
     {
       checkId: "technical.page_responses",
       points: 1,
-      passed: Boolean(
-        home && successfulPage(home) && !hasFailedPages(pagesScanned),
-      ),
-      title: "Some scanned pages did not load cleanly",
+      passed: criticalPages.length === 0 ? null : !confirmedCriticalFailure,
+      title: "A critical scanned page did not load successfully",
       severity: FindingSeverity.MEDIUM,
       priority: 5,
+      reasonCode:
+        criticalPages.length === 0
+          ? "CRITICAL_PAGE_EVIDENCE_MISSING"
+          : confirmedCriticalFailure
+            ? "CRITICAL_PAGE_RESPONSE_FAILED"
+            : "CRITICAL_PAGE_RESPONSES_PASSED",
+      evidence: criticalPages.map((page) =>
+        pageEvidence(
+          "http_response",
+          page.url,
+          `HTTP ${page.statusCode ?? "unknown"}`,
+          "HTTP 2xx or 3xx",
+          successfulPage(page)
+            ? "CRITICAL_PAGE_RESPONSE_PASSED"
+            : "CRITICAL_PAGE_RESPONSE_FAILED",
+          { confidence: typeof page.statusCode === "number" ? 1 : 0 },
+        ),
+      ),
     },
     {
       checkId: "technical.indexability",
       points: 1,
-      passed: pageAppearsIndexable(signals),
+      passed: indexable,
       title: "Search engine access may be blocked",
       severity: FindingSeverity.HIGH,
       priority: 2,
+      reasonCode:
+        indexable === null
+          ? "INDEXABILITY_EVIDENCE_MISSING"
+          : indexable
+            ? "SEARCH_ENGINE_ACCESS_AVAILABLE"
+            : "SEARCH_ENGINE_ACCESS_BLOCKED",
+      evidence: [
+        pageEvidence(
+          "robots",
+          homeUrl,
+          signals.seo.indexabilitySignals.evidence.join("; ") ||
+            homepageRobots(home) ||
+            "Indexability evidence was unavailable",
+          "no blocking robots directive or crawler restriction",
+          indexable === null
+            ? "INDEXABILITY_EVIDENCE_MISSING"
+            : indexable
+              ? "SEARCH_ENGINE_ACCESS_AVAILABLE"
+              : "SEARCH_ENGINE_ACCESS_BLOCKED",
+          { confidence: indexable === null ? 0 : 1 },
+        ),
+      ],
     },
     {
-      checkId: "technical.canonical_or_schema",
+      checkId: "technical.canonical_url",
       points: 1,
-      passed:
-        has(signals.seo.canonicalUrl) ||
-        has(signals.schema.person) ||
-        has(signals.schema.organization),
-      title: "Technical structure signals are limited",
+      passed: canonicalPassed,
+      title: "Homepage canonical URL is missing or invalid",
       severity: FindingSeverity.LOW,
       priority: 6,
+      reasonCode: !home
+        ? "PAGE_NOT_CRAWLED"
+        : canonicalPassed
+          ? "CANONICAL_URL_VALID"
+          : canonical
+            ? "CANONICAL_URL_MISMATCH"
+            : "CANONICAL_URL_MISSING",
+      evidence: [
+        pageEvidence(
+          "html",
+          homeUrl,
+          canonical || "No canonical URL was detected",
+          homeUrl ?? "a valid self-referencing homepage canonical URL",
+          !home
+            ? "PAGE_NOT_CRAWLED"
+            : canonicalPassed
+              ? "CANONICAL_URL_VALID"
+              : canonical
+                ? "CANONICAL_URL_MISMATCH"
+                : "CANONICAL_URL_MISSING",
+          { confidence: home ? 1 : 0 },
+        ),
+      ],
+    },
+    {
+      checkId: "technical.structured_data",
+      points: 1,
+      passed: home ? Boolean(validIdentityCandidate) : null,
+      title: "Valid author or site structured data was not detected",
+      severity: FindingSeverity.LOW,
+      priority: 6,
+      reasonCode: !home
+        ? "PAGE_NOT_CRAWLED"
+        : validIdentityCandidate
+          ? "STRUCTURED_IDENTITY_VALID"
+          : "STRUCTURED_IDENTITY_MISSING_OR_INVALID",
+      evidence: [
+        pageEvidence(
+          "structured_data",
+          homeUrl,
+          validIdentityCandidate
+            ? `${validIdentityCandidate.type}: ${validIdentityCandidate.name}${validIdentityCandidate.url ? ` (${validIdentityCandidate.url})` : ""}`
+            : `${identityCandidates.length} validly shaped Person or Organization candidate(s)`,
+          "Person or Organization data with a valid name and consistent site identity",
+          !home
+            ? "PAGE_NOT_CRAWLED"
+            : validIdentityCandidate
+              ? "STRUCTURED_IDENTITY_VALID"
+              : "STRUCTURED_IDENTITY_MISSING_OR_INVALID",
+          {
+            confidence: home ? 1 : 0,
+            metadata: { candidates: identityCandidates },
+          },
+        ),
+      ],
     },
   ];
 }
 
 function buildTrustRules(input: ScoringInput): ScoreRule[] {
-  const { signals } = input;
+  const { signals, pagesScanned } = input;
+  const homeUrl = homepage(pagesScanned)?.url ?? null;
   const hasContact =
     has(signals.trust.contactForm) || has(signals.trust.contactEmail);
+  const contactEvidence = [
+    ...signals.trust.contactForm.evidence,
+    ...signals.trust.contactEmail.evidence,
+  ];
+  const mediaKitCoverage = pagesScanned.some((page) =>
+    ["ABOUT", "CONTACT"].includes(page.pageType ?? ""),
+  );
+  const trustProof = authorLevelTrustProof(pagesScanned);
 
   return [
-    {
-      checkId: "trust.author_bio",
-      points: 2,
-      passed: has(signals.trust.authorBio),
-      title: "Author bio was not detected",
-      severity: FindingSeverity.MEDIUM,
-      priority: 3,
-    },
-    {
-      checkId: "trust.author_photo",
-      points: 2,
-      passed: has(signals.trust.authorPhoto),
-      title: "Author photo was not detected",
-      severity: FindingSeverity.MEDIUM,
-      priority: 4,
-    },
+    signalRule(
+      input,
+      "trust.author_bio",
+      signals.trust.authorBio,
+      "Author bio was not detected",
+      FindingSeverity.MEDIUM,
+      3,
+    ),
+    signalRule(
+      input,
+      "trust.author_photo",
+      signals.trust.authorPhoto,
+      "Author photo was not detected",
+      FindingSeverity.MEDIUM,
+      4,
+    ),
     {
       checkId: "trust.contact_path",
       points: 2,
-      passed: hasContact,
+      passed: pagesScanned.length === 0 ? null : hasContact,
       title: "Contact path was not detected",
       severity: FindingSeverity.MEDIUM,
       priority: 3,
+      reasonCode:
+        pagesScanned.length === 0
+          ? "PAGE_NOT_CRAWLED"
+          : hasContact
+            ? "CONTACT_PATH_DETECTED"
+            : "CONTACT_PATH_NOT_DETECTED",
+      evidence: [
+        pageEvidence(
+          "html",
+          homeUrl,
+          contactEvidence.join("; ") ||
+            "No contact form or email link was detected",
+          "a contact form or contact email path",
+          pagesScanned.length === 0
+            ? "PAGE_NOT_CRAWLED"
+            : hasContact
+              ? "CONTACT_PATH_DETECTED"
+              : "CONTACT_PATH_NOT_DETECTED",
+          { confidence: pagesScanned.length > 0 ? 1 : 0 },
+        ),
+      ],
     },
-    {
-      checkId: "trust.social_profiles",
-      points: 1,
-      passed: has(signals.trust.socialLinks),
-      title: "Social profile links were not detected",
-      severity: FindingSeverity.LOW,
-      priority: 6,
-    },
+    signalRule(
+      input,
+      "trust.social_profiles",
+      signals.trust.socialLinks,
+      "Social profile links were not detected",
+      FindingSeverity.LOW,
+      6,
+    ),
     {
       checkId: "trust.media_kit",
       points: 1,
-      passed: has(signals.trust.mediaKit),
+      passed: has(signals.trust.mediaKit)
+        ? true
+        : mediaKitCoverage
+          ? false
+          : null,
       title: "Media kit was not detected",
       severity: FindingSeverity.LOW,
       priority: 7,
+      reasonCode: has(signals.trust.mediaKit)
+        ? "MEDIA_KIT_DETECTED"
+        : mediaKitCoverage
+          ? "MEDIA_KIT_NOT_DETECTED"
+          : "MEDIA_KIT_PAGE_COVERAGE_INSUFFICIENT",
+      evidence: [
+        pageEvidence(
+          "html",
+          homeUrl,
+          signals.trust.mediaKit.evidence.join("; ") ||
+            "No media kit link was detected in the scanned About or Contact evidence",
+          "a media kit or press kit path",
+          has(signals.trust.mediaKit)
+            ? "MEDIA_KIT_DETECTED"
+            : mediaKitCoverage
+              ? "MEDIA_KIT_NOT_DETECTED"
+              : "MEDIA_KIT_PAGE_COVERAGE_INSUFFICIENT",
+          {
+            confidence: has(signals.trust.mediaKit) || mediaKitCoverage ? 1 : 0,
+          },
+        ),
+      ],
     },
-    {
-      checkId: "trust.privacy_policy",
-      points: 1,
-      passed: has(signals.trust.privacyPolicy),
-      title: "Privacy policy was not detected",
-      severity: FindingSeverity.MEDIUM,
-      priority: 5,
-    },
+    signalRule(
+      input,
+      "trust.privacy_policy",
+      signals.trust.privacyPolicy,
+      "Privacy policy was not detected",
+      FindingSeverity.MEDIUM,
+      5,
+    ),
     {
       checkId: "trust.reader_proof",
       points: 1,
-      passed:
-        has(signals.bookPromotion.reviewsOrPraise) ||
-        has(signals.schema.review) ||
-        has(signals.schema.aggregateRating),
+      passed: pagesScanned.length === 0 ? null : Boolean(trustProof),
       title: "Trust proof was not detected",
       severity: FindingSeverity.LOW,
       priority: 6,
+      reasonCode:
+        pagesScanned.length === 0
+          ? "PAGE_NOT_CRAWLED"
+          : trustProof
+            ? "AUTHOR_LEVEL_TRUST_PROOF_DETECTED"
+            : "AUTHOR_LEVEL_TRUST_PROOF_NOT_DETECTED",
+      evidence: [
+        pageEvidence(
+          "html",
+          trustProof?.pageUrl ?? homeUrl,
+          trustProof?.observation ??
+            "No author-level credential, media, publisher, award, or professional endorsement signal was detected",
+          "author-level credibility proof distinct from book reviews",
+          pagesScanned.length === 0
+            ? "PAGE_NOT_CRAWLED"
+            : trustProof
+              ? "AUTHOR_LEVEL_TRUST_PROOF_DETECTED"
+              : "AUTHOR_LEVEL_TRUST_PROOF_NOT_DETECTED",
+          { confidence: pagesScanned.length > 0 ? 1 : 0 },
+        ),
+      ],
     },
   ];
 }
 
-function buildMaintenanceRules(input: ScoringInput): ScoreRule[] {
+function buildUsabilityRules(input: ScoringInput): ScoreRule[] {
   const { signals, pagesScanned, visualDesignAnalysis } = input;
-  const outdated = oldCopyrightYear(pagesScanned);
+  const home = homepage(pagesScanned);
+  const homeUrl = home?.url ?? null;
+  const homeLinks = extractedInternalLinks(home ? [home] : []);
+  const homeCtas = extractedCtas(home ? [home] : []);
+  const linkText = homeLinks
+    .map((link) => `${link.text} ${link.href}`)
+    .join(" ");
+  const requiredPaths = {
+    books: /\b(?:books?|novels?|stories|series)\b/i.test(linkText),
+    about: /\b(?:about|bio|biography)\b/i.test(linkText),
+    newsletter:
+      /\b(?:newsletter|subscribe|mailing list|reader list)\b/i.test(linkText) ||
+      homepageNewsletterDetected(signals, pagesScanned),
+    contact: /\b(?:contact|connect)\b/i.test(linkText),
+    purchase:
+      homeCtas.some((cta) =>
+        /\b(?:buy|order|purchase|shop|retailer)\b/i.test(
+          `${cta.text} ${cta.href ?? ""}`,
+        ),
+      ) ||
+      signals.bookPromotion.buyLinks.evidence.some((evidence) =>
+        homeUrl ? evidence.includes(homeUrl) : false,
+      ),
+  };
+  const allReaderPathsPresent = Object.values(requiredPaths).every(Boolean);
+  const descriptiveCtasPassed =
+    homeCtas.length > 0 &&
+    homeCtas.every((cta) => Boolean(cta.text) && !genericCtaText(cta.text));
 
   return [
-    buildVisualCheckRule("usability.primary_navigation", visualDesignAnalysis),
+    buildVisualCheckRule(
+      "usability.primary_navigation",
+      visualDesignAnalysis,
+      homeUrl,
+    ),
     {
-      checkId: "usability.page_responses",
+      checkId: "usability.priority_reader_paths",
       points: 1,
-      passed: !hasFailedPages(pagesScanned),
-      title: "A scanned page returned an unsuccessful status",
+      passed: home ? allReaderPathsPresent : null,
+      title: "Priority reader paths are difficult to reach",
       severity: FindingSeverity.MEDIUM,
-      priority: 5,
+      priority: 4,
+      reasonCode: !home
+        ? "PAGE_NOT_CRAWLED"
+        : allReaderPathsPresent
+          ? "PRIORITY_READER_PATHS_PRESENT"
+          : "PRIORITY_READER_PATHS_MISSING",
+      evidence: [
+        pageEvidence(
+          "html",
+          homeUrl,
+          Object.entries(requiredPaths)
+            .map(
+              ([path, present]) =>
+                `${path}: ${present ? "reachable" : "not found"}`,
+            )
+            .join("; "),
+          "Books, About, newsletter, Contact, and a featured purchase path reachable from the homepage",
+          !home
+            ? "PAGE_NOT_CRAWLED"
+            : allReaderPathsPresent
+              ? "PRIORITY_READER_PATHS_PRESENT"
+              : "PRIORITY_READER_PATHS_MISSING",
+          { confidence: home ? 1 : 0, metadata: { requiredPaths } },
+        ),
+      ],
     },
     {
-      checkId: "usability.privacy_policy",
+      checkId: "usability.descriptive_calls_to_action",
       points: 1,
-      passed: has(signals.trust.privacyPolicy),
-      title: "Privacy policy is missing from the scan",
+      passed: home ? descriptiveCtasPassed : null,
+      title: "Calls to action are missing or use vague labels",
       severity: FindingSeverity.MEDIUM,
-      priority: 5,
+      priority: 4,
+      reasonCode: !home
+        ? "PAGE_NOT_CRAWLED"
+        : descriptiveCtasPassed
+          ? "DESCRIPTIVE_CTA_LABELS_PRESENT"
+          : "CTA_LABELS_MISSING_OR_VAGUE",
+      evidence: [
+        pageEvidence(
+          "html",
+          homeUrl,
+          homeCtas.length > 0
+            ? homeCtas.map((cta) => cta.text || "[unlabeled]").join("; ")
+            : "No homepage calls to action were extracted",
+          "homepage calls to action with clear, context-specific labels",
+          !home
+            ? "PAGE_NOT_CRAWLED"
+            : descriptiveCtasPassed
+              ? "DESCRIPTIVE_CTA_LABELS_PRESENT"
+              : "CTA_LABELS_MISSING_OR_VAGUE",
+          { confidence: home ? 1 : 0, metadata: { ctas: homeCtas } },
+        ),
+      ],
     },
-    {
-      checkId: "usability.canonical_or_schema",
-      points: 1,
-      passed:
-        has(signals.seo.canonicalUrl) ||
-        has(signals.schema.person) ||
-        has(signals.schema.organization),
-      title: "Technical structure signals are limited",
-      severity: FindingSeverity.LOW,
-      priority: 6,
-    },
-    {
-      checkId: "usability.freshness",
-      points: 1,
-      passed: !outdated,
-      title: "Site content may be out of date",
-      severity: FindingSeverity.LOW,
-      priority: 7,
-    },
+    buildObservationRule(
+      "usability.forms_and_controls",
+      visualDesignAnalysis,
+      ["form-length"],
+      ["desktop", "tablet", "mobile"],
+      homeUrl,
+      "Forms or interactive controls may not be usable",
+      FindingSeverity.MEDIUM,
+      5,
+    ),
+    buildObservationRule(
+      "usability.unblocked_content",
+      visualDesignAnalysis,
+      ["obstructive-overlay"],
+      ["desktop", "tablet", "mobile"],
+      homeUrl,
+      "Important content is blocked or visually broken",
+      FindingSeverity.HIGH,
+      3,
+    ),
   ];
 }
 
@@ -1003,6 +2069,95 @@ function buildQuickWins(findings: ScoringFinding[]) {
     .filter((finding) => finding.severity !== FindingSeverity.CRITICAL)
     .sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title))
     .slice(0, 5);
+}
+
+function buildPriorityRecommendations(findings: ScoringFinding[]) {
+  const grouped = new Map<RootCauseKey, ScoringFinding[]>();
+
+  for (const finding of findings) {
+    const existing = grouped.get(finding.rootCauseKey) ?? [];
+    existing.push(finding);
+    grouped.set(finding.rootCauseKey, existing);
+  }
+
+  return [...grouped.values()]
+    .map((group) => {
+      const ordered = [...group].sort(
+        (a, b) =>
+          a.priority - b.priority || b.recoverablePoints - a.recoverablePoints,
+      );
+      const primary = ordered[0];
+      const relatedCheckIds = ordered.flatMap((finding) =>
+        finding.checkId ? [finding.checkId] : [],
+      );
+
+      return {
+        ...primary,
+        recoverablePoints: ordered.reduce(
+          (total, finding) => total + finding.recoverablePoints,
+          0,
+        ),
+        relatedCheckIds,
+      };
+    })
+    .sort(
+      (a, b) =>
+        a.priority - b.priority ||
+        b.recoverablePoints - a.recoverablePoints ||
+        a.title.localeCompare(b.title),
+    );
+}
+
+function buildCoverage(checkResults: ScoringCheckResult[]): ScoringCoverage {
+  const registeredWeight = SCORING_CHECK_REGISTRY.reduce(
+    (total, check) => total + check.points,
+    0,
+  );
+  const weightsByState = checkResults.reduce<Record<ScoringCheckState, number>>(
+    (weights, check) => {
+      weights[check.state] += check.availablePoints;
+      return weights;
+    },
+    { passed: 0, needs_review: 0, failed: 0 },
+  );
+  const statusCounts = checkResults.reduce<Record<ScoringCheckState, number>>(
+    (counts, check) => {
+      counts[check.state] += 1;
+      return counts;
+    },
+    { passed: 0, needs_review: 0, failed: 0 },
+  );
+  const verifiedWeight = weightsByState.passed + weightsByState.failed;
+  const earnedWeight = checkResults.reduce(
+    (total, check) => total + check.earnedPoints,
+    0,
+  );
+  const coveragePercentage = clampScore(
+    (verifiedWeight / registeredWeight) * 100,
+  );
+  const calculatedScore =
+    verifiedWeight > 0
+      ? clampScore((earnedWeight / verifiedWeight) * 100)
+      : null;
+  const level: ScoringCoverageLevel =
+    coveragePercentage >= 85
+      ? "normal"
+      : coveragePercentage >= 60
+        ? "provisional"
+        : "insufficient";
+
+  return {
+    registeredWeight,
+    passedWeight: weightsByState.passed,
+    failedWeight: weightsByState.failed,
+    needsReviewWeight: weightsByState.needs_review,
+    verifiedWeight,
+    earnedWeight,
+    coveragePercentage,
+    calculatedScore,
+    level,
+    statusCounts,
+  };
 }
 
 function serviceFitLabel(
@@ -1051,53 +2206,64 @@ function serviceFitLabel(
 }
 
 export function scoreAuthorWebsite(input: ScoringInput): ScoringResult {
+  const defaultPageUrl = homepage(input.pagesScanned)?.url ?? null;
   const categoryResults = [
     scoreCategory(
       getConfig(ReportCategory.BRAND_CLARITY),
       buildBrandRules(input),
+      defaultPageUrl,
     ),
     scoreCategory(
       getConfig(ReportCategory.BOOK_VISIBILITY),
       buildBookRules(input),
+      defaultPageUrl,
     ),
     scoreCategory(
       getConfig(ReportCategory.READER_ENGAGEMENT),
       buildNewsletterRules(input),
+      defaultPageUrl,
     ),
     scoreCategory(
       getConfig(ReportCategory.SEARCH_VISIBILITY),
       buildSeoRules(input),
+      defaultPageUrl,
     ),
     scoreCategory(
       getConfig(ReportCategory.MOBILE_PERFORMANCE),
       buildMobileRules(input),
+      defaultPageUrl,
     ),
     scoreCategory(
       getConfig(ReportCategory.TECHNICAL_HEALTH),
       buildTechnicalRules(input),
+      defaultPageUrl,
     ),
     scoreCategory(
       getConfig(ReportCategory.AUTHOR_TRUST),
       buildTrustRules(input),
+      defaultPageUrl,
     ),
     scoreCategory(
       getConfig(ReportCategory.SITE_USABILITY),
-      buildMaintenanceRules(input),
+      buildUsabilityRules(input),
+      defaultPageUrl,
     ),
   ];
   const categoryScores = categoryResults.map((result) => result.score);
   const findings = categoryResults
     .flatMap((result) => result.findings)
     .sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title));
-  const overallScore = clampScore(
-    categoryScores.reduce((sum, categoryScore) => sum + categoryScore.score, 0),
-  );
   const checkResults = categoryResults.flatMap((result) => result.checkResults);
+  const coverage = buildCoverage(checkResults);
+  const overallScore =
+    coverage.level === "insufficient" ? null : coverage.calculatedScore;
 
   return {
     overallScore,
+    coverage,
     categoryScores,
     findings,
+    priorityRecommendations: buildPriorityRecommendations(findings),
     quickWins: buildQuickWins(findings),
     serviceFitLabel: serviceFitLabel(categoryScores, input.pagesScanned),
     checkResults,

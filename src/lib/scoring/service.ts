@@ -8,6 +8,7 @@ import {
 } from "@/lib/signals/analyzer-diagnostics";
 import { detectAuthorWebsiteSignals } from "@/lib/signals/author-website-signals";
 import { scoreAuthorWebsite } from "@/lib/scoring/engine";
+import { SCORING_CHECK_REGISTRY_VERSION } from "@/lib/scoring/check-registry";
 import {
   buildReportCheckResultRows,
   deterministicFindingScope,
@@ -34,9 +35,7 @@ export async function scoreAndSaveReport(reportId: string) {
   }
 
   const signals = detectAuthorWebsiteSignals(report.pagesScanned);
-  const visualDesignAnalysis = getVisualDesignAnalysis(
-    report.crawlDiagnostics,
-  );
+  const visualDesignAnalysis = getVisualDesignAnalysis(report.crawlDiagnostics);
   const result = scoreAuthorWebsite({
     signals,
     pagesScanned: report.pagesScanned,
@@ -48,10 +47,14 @@ export async function scoreAndSaveReport(reportId: string) {
     pages: report.pagesScanned,
     signals,
   });
-  const crawlDiagnostics = mergeAnalyzerDiagnostics(
-    report.crawlDiagnostics,
-    analyzerDiagnostics,
-  );
+  const crawlDiagnostics = {
+    ...mergeAnalyzerDiagnostics(report.crawlDiagnostics, analyzerDiagnostics),
+    scoring: {
+      registryVersion: SCORING_CHECK_REGISTRY_VERSION,
+      coverage: result.coverage,
+      priorityRecommendations: result.priorityRecommendations,
+    },
+  };
 
   await prisma.$transaction([
     prisma.reportScore.deleteMany({

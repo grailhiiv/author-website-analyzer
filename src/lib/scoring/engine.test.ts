@@ -136,13 +136,23 @@ function strongPages(): ScoringPageInput[] {
       headingsJson: {
         h1Count: 1,
         canonicalUrl: "https://janedoe.test/",
+        jsonLd: [
+          {
+            "@context": "https://schema.org",
+            "@type": "Person",
+            name: "Jane Doe",
+            url: "https://janedoe.test/",
+          },
+        ],
       },
       linksJson: {
         internal: [
           { href: "/about", text: "About" },
           { href: "/books", text: "Books" },
           { href: "/newsletter", text: "Newsletter" },
+          { href: "/contact", text: "Contact" },
         ],
+        ctas: [{ href: "/books", text: "Buy the book" }],
       },
       imagesJson: [{ src: "/cover.jpg", alt: "The Star Library book cover" }],
       formsJson: [
@@ -153,7 +163,7 @@ function strongPages(): ScoringPageInput[] {
       ],
       wordCount: 350,
       contentText:
-        "Jane Doe writes fantasy novels. Subscribe for a free chapter and book news.",
+        "Bestselling author Jane Doe writes fantasy novels. Subscribe for a free chapter and book news.",
       screenshotUrl: "/screenshots/home.png",
     },
     {
@@ -318,9 +328,9 @@ test("scoreAuthorWebsite preserves the strong, sparse, and Needs Review scoring 
       serviceFitLabel: sparse.serviceFitLabel,
     },
     {
-      overallScore: 13,
-      categoryScores: [0, 0, 0, 0, 5, 5, 0, 3],
-      findingCount: 36,
+      overallScore: 12,
+      categoryScores: [0, 0, 0, 2, 8, 4, 0, 3],
+      findingCount: 34,
       quickWinTitles: [
         "Author name is not clear",
         "Book cover was not detected",
@@ -341,10 +351,10 @@ test("scoreAuthorWebsite preserves the strong, sparse, and Needs Review scoring 
       ).length,
     },
     {
-      overallScore: 93,
-      categoryScores: [15, 20, 15, 15, 6, 7, 10, 5],
+      overallScore: 100,
+      categoryScores: [15, 20, 15, 15, 10, 10, 10, 5],
       findingCount: 0,
-      needsReviewCheckCount: 10,
+      needsReviewCheckCount: 11,
     },
   );
 });
@@ -380,8 +390,16 @@ test("scoreAuthorWebsite treats unavailable PageSpeed metrics as Needs Review", 
     (score) => score.category === ReportCategory.TECHNICAL_HEALTH,
   );
 
-  assert.equal(mobileScore?.score, 7);
-  assert.equal(technicalScore?.score, 7);
+  assert.equal(mobileScore?.score, 10);
+  assert.equal(technicalScore?.score, 10);
+  assert.equal(
+    result.checkResults
+      .filter((check) => check.reasonCode === "PAGESPEED_DATA_UNAVAILABLE")
+      .every(
+        (check) => check.state === "needs_review" && check.earnedPoints === 0,
+      ),
+    true,
+  );
   assert.equal(
     result.findings.some((finding) =>
       /PageSpeed|performance score|best practices score|accessibility score|search audit score/i.test(
@@ -392,6 +410,60 @@ test("scoreAuthorWebsite treats unavailable PageSpeed metrics as Needs Review", 
   );
 });
 
+test("scoreAuthorWebsite grades mobile performance without changing the check status model", () => {
+  const input = scoreInput();
+  input.technicalAudit = {
+    ...input.technicalAudit,
+    mobilePerformance: 82,
+  };
+
+  const result = scoreAuthorWebsite(input);
+  const performanceCheck = result.checkResults.find(
+    (check) => check.checkId === "mobile.pagespeed_performance",
+  );
+
+  assert.equal(performanceCheck?.state, "failed");
+  assert.equal(performanceCheck?.earnedPoints, 3);
+  assert.equal(performanceCheck?.availablePoints, 4);
+  assert.equal(result.overallScore, 99);
+});
+
+test("scoreAuthorWebsite applies normal, provisional, and insufficient evidence coverage", () => {
+  const normal = scoreAuthorWebsite(scoreInput());
+  const provisional = scoreAuthorWebsite(
+    scoreInput({
+      pagesScanned: [strongPages()[1]],
+      technicalAudit: null,
+      visualDesignAnalysis: null,
+    }),
+  );
+  const insufficient = scoreAuthorWebsite(
+    scoreInput({
+      pagesScanned: [],
+      technicalAudit: null,
+      visualDesignAnalysis: null,
+    }),
+  );
+
+  assert.deepEqual(
+    {
+      level: normal.coverage.level,
+      coverage: normal.coverage.coveragePercentage,
+      overallScore: normal.overallScore,
+    },
+    { level: "normal", coverage: 100, overallScore: 100 },
+  );
+  assert.equal(provisional.coverage.level, "provisional");
+  assert.ok(
+    provisional.coverage.coveragePercentage >= 60 &&
+      provisional.coverage.coveragePercentage < 85,
+  );
+  assert.equal(provisional.overallScore, provisional.coverage.calculatedScore);
+  assert.equal(insufficient.coverage.level, "insufficient");
+  assert.ok(insufficient.coverage.coveragePercentage < 60);
+  assert.equal(insufficient.overallScore, null);
+});
+
 test("scoreAuthorWebsite uses the fixed 100-point category model", () => {
   const result = scoreAuthorWebsite(scoreInput());
 
@@ -400,9 +472,9 @@ test("scoreAuthorWebsite uses the fixed 100-point category model", () => {
     [
       "Brand Clarity",
       "Book Visibility",
-      "Reader Engagement",
+      "Email Growth",
       "Search Visibility",
-      "Mobile Performance",
+      "Mobile Experience",
       "Technical Health",
       "Author Trust",
       "Site Usability",
@@ -442,6 +514,22 @@ test("scoreAuthorWebsite records one stable result for every registered check", 
     ),
     true,
   );
+});
+
+test("scoreAuthorWebsite records structured, page-specific evidence", () => {
+  const result = scoreAuthorWebsite(scoreInput());
+  const authorName = result.checkResults.find(
+    (check) => check.checkId === "brand.author_name",
+  );
+  const evidence = authorName?.evidence[0];
+
+  assert.equal(evidence?.source, "html");
+  assert.equal(evidence?.pageUrl, "https://janedoe.test/");
+  assert.equal(typeof evidence?.observedValue, "string");
+  assert.equal(typeof evidence?.expectedValue, "string");
+  assert.equal(evidence?.confidence, 1);
+  assert.equal(typeof evidence?.reasonCode, "string");
+  assert.match(authorName?.details ?? "", /https:\/\/janedoe\.test\//i);
 });
 
 test("scoreAuthorWebsite lowers Site Usability for confirmed navigation failure", () => {
@@ -494,9 +582,8 @@ test("scoreAuthorWebsite lowers Mobile Performance for confirmed viewport overfl
 
   assert.equal(mobile?.score, 9);
   assert.equal(
-    result.checkResults.find(
-      (check) => check.checkId === "mobile.viewport_fit",
-    )?.state,
+    result.checkResults.find((check) => check.checkId === "mobile.viewport_fit")
+      ?.state,
     "failed",
   );
 });
@@ -533,9 +620,7 @@ test("scoreAuthorWebsite lowers Mobile Performance for confirmed low contrast", 
 });
 
 test("scoreAuthorWebsite treats unavailable rendered evidence as Needs Review without findings", () => {
-  const result = scoreAuthorWebsite(
-    scoreInput({ visualDesignAnalysis: null }),
-  );
+  const result = scoreAuthorWebsite(scoreInput({ visualDesignAnalysis: null }));
   const renderedCheckIds = new Set<ScoringCheckId>(
     SCORING_CHECK_REGISTRY.filter((check) => check.source === "rendered").map(
       (check) => check.id,
@@ -548,14 +633,14 @@ test("scoreAuthorWebsite treats unavailable rendered evidence as Needs Review wi
   assert.equal(renderedChecks.length, 3);
   assert.equal(
     renderedChecks.every(
-      (check) =>
-        check.state === "needs_review" &&
-        check.earnedPoints === check.availablePoints / 2,
+      (check) => check.state === "needs_review" && check.earnedPoints === 0,
     ),
     true,
   );
   assert.equal(
-    result.findings.some((finding) => finding.checkId?.includes(".")),
+    result.findings.some((finding) =>
+      finding.checkId ? renderedCheckIds.has(finding.checkId) : false,
+    ),
     false,
   );
 });
@@ -564,7 +649,7 @@ test("scoreAuthorWebsite creates findings for every reduced category score", () 
   const result = scoreAuthorWebsite(sparseScoreInput());
 
   assert.equal(result.serviceFitLabel, "New author website");
-  assert.ok(result.overallScore < 40);
+  assert.ok(result.overallScore !== null && result.overallScore < 40);
   assert.ok(
     result.findings.some(
       (finding) => finding.title === "Buy links were not detected",
@@ -582,7 +667,9 @@ test("scoreAuthorWebsite creates findings for every reduced category score", () 
   );
   assert.ok(result.findings.length > 0);
   assert.ok(
-    result.findings.every((finding) => finding.recommendation.trim().length > 0),
+    result.findings.every(
+      (finding) => finding.recommendation.trim().length > 0,
+    ),
     "Every deterministic finding should include a recommendation",
   );
   assert.deepEqual(
@@ -708,9 +795,20 @@ test("scoreAuthorWebsite creates book visibility findings when book links are mi
   assert.ok(
     result.findings.some(
       (finding) =>
-        finding.title === "Multiple retailer options were not detected",
+        finding.title ===
+        "Purchase options do not match confirmed availability",
     ),
   );
+  const purchasePathRecommendation = result.priorityRecommendations.find(
+    (recommendation) => recommendation.rootCauseKey === "PURCHASE_PATH",
+  );
+
+  assert.ok(purchasePathRecommendation);
+  assert.deepEqual(
+    new Set(purchasePathRecommendation.relatedCheckIds),
+    new Set(["books.purchase_links", "books.retailer_options"]),
+  );
+  assert.equal(purchasePathRecommendation.recoverablePoints, 6);
 });
 
 test("scoreAuthorWebsite creates poor SEO findings from missing metadata and noindex", () => {
@@ -766,24 +864,35 @@ test("scoreAuthorWebsite creates poor SEO findings from missing metadata and noi
 
 test("scoreAuthorWebsite labels website management for low technical scores on an outdated WordPress site", () => {
   const pages = strongPages();
+  const signals = cloneSignals(signalSet(true));
+
+  signals.seo.indexabilitySignals = {
+    detected: true,
+    indexable: false,
+    evidence: ["Robots meta: noindex"],
+  };
 
   pages[0] = {
     ...pages[0],
+    url: "http://janedoe.test/",
+    statusCode: 500,
+    headingsJson: { h1Count: 1, robots: "noindex" },
     contentText: `${pages[0].contentText} wp-content copyright 2020`,
   };
 
   const result = scoreAuthorWebsite(
     scoreInput({
+      signals,
       pagesScanned: pages,
       technicalAudit: {
         mobilePerformance: 42,
         desktopPerformance: 55,
-        mobileAccessibility: 95,
-        desktopAccessibility: 95,
+        mobileAccessibility: 45,
+        desktopAccessibility: 45,
         mobileSeo: 100,
         desktopSeo: 100,
-        mobileBestPractices: 45,
-        desktopBestPractices: 50,
+        mobileBestPractices: 40,
+        desktopBestPractices: 40,
       },
     }),
   );

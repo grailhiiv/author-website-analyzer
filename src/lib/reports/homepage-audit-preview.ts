@@ -14,7 +14,13 @@ const statePriority: Record<ReportCheckState, number> = {
 
 export type HomepageAuditPreviewCheck = Pick<
   ReportCheckViewModel,
-  "details" | "id" | "recommendation" | "state" | "statusLabel" | "title"
+  | "details"
+  | "id"
+  | "inspectedPageUrl"
+  | "recommendation"
+  | "state"
+  | "statusLabel"
+  | "title"
 >;
 
 export type HomepageAuditPreviewSection = Pick<
@@ -94,14 +100,25 @@ export function buildHomepageAuditPreviewSections(
       totalCheckCount: section.checks.length,
       checks: section.checks
         .filter((check) => selectedKeys.has(`${section.category}:${check.id}`))
-        .map(({ details, id, recommendation, state, statusLabel, title }) => ({
-          details,
-          id,
-          recommendation,
-          state,
-          statusLabel,
-          title,
-        })),
+        .map(
+          ({
+            details,
+            id,
+            inspectedPageUrl,
+            recommendation,
+            state,
+            statusLabel,
+            title,
+          }) => ({
+            details,
+            id,
+            inspectedPageUrl,
+            recommendation,
+            state,
+            statusLabel,
+            title,
+          }),
+        ),
     }))
     .filter((section) => section.checks.length > 0);
 }

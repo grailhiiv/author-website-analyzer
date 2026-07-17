@@ -31,6 +31,7 @@ function buildCheck({
           ? "Failed"
           : "Needs Review",
     details: `Details ${index}`,
+    inspectedPageUrl: `https://author.test/page-${index}`,
     whyItMatters: "Why it matters",
     recommendation: `Recommendation ${index}`,
     evidenceLinks: [],
@@ -79,6 +80,13 @@ test("homepage preview shows approximately one quarter of all checks with every 
   assert.deepEqual(
     previewSections.map((section) => section.totalCheckCount),
     checkCounts,
+  );
+  assert.ok(
+    previewSections.every((section) =>
+      section.checks.every((check) =>
+        check.inspectedPageUrl?.startsWith("https://"),
+      ),
+    ),
   );
 });
 

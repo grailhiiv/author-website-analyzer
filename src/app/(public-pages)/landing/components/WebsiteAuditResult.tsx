@@ -67,6 +67,29 @@ function formatDate(date: Date) {
   }).format(date);
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getStoredScoringCoverage(value: unknown) {
+  const scoring = asRecord(asRecord(value)?.scoring);
+  const coverage = asRecord(scoring?.coverage);
+  const coveragePercentage = coverage?.coveragePercentage;
+  const level = coverage?.level;
+
+  if (
+    typeof coveragePercentage !== "number" ||
+    !Number.isFinite(coveragePercentage) ||
+    (level !== "normal" && level !== "provisional" && level !== "insufficient")
+  ) {
+    return null;
+  }
+
+  return { coveragePercentage, level };
+}
+
 export default async function WebsiteAuditResult({
   domain,
 }: {
@@ -127,6 +150,7 @@ export default async function WebsiteAuditResult({
   });
   const homepageAuditPreviewSections =
     buildHomepageAuditPreviewSections(auditSections);
+  const scoringCoverage = getStoredScoringCoverage(report.crawlDiagnostics);
   const isComplete = report.status === ReportStatus.COMPLETE;
   const progress = report.analysisJob?.progress ?? 0;
   const stage = report.analysisJob?.stage ?? "QUEUED";
@@ -192,11 +216,28 @@ export default async function WebsiteAuditResult({
               </h2>
               {isComplete ? (
                 <p className="mt-4 max-w-4xl text-base leading-7 text-gray-600 dark:text-gray-300">
-                  This author website scored{" "}
-                  <strong className="font-semibold text-gray-950 dark:text-white">
-                    {report.overallScore ?? 0} out of 100
-                  </strong>
-                  . We found{" "}
+                  {report.overallScore === null ? (
+                    <>
+                      A numeric score was withheld because verified audit
+                      coverage was below 60%
+                      {scoringCoverage
+                        ? ` (${scoringCoverage.coveragePercentage}% verified)`
+                        : ""}
+                      .{" "}
+                    </>
+                  ) : (
+                    <>
+                      This author website scored{" "}
+                      <strong className="font-semibold text-gray-950 dark:text-white">
+                        {report.overallScore} out of 100
+                      </strong>
+                      {scoringCoverage?.level === "provisional"
+                        ? `, a provisional result based on ${scoringCoverage.coveragePercentage}% verified coverage`
+                        : ""}
+                      .{" "}
+                    </>
+                  )}
+                  We found{" "}
                   <strong className="font-semibold text-gray-950 dark:text-white">
                     {highPriorityIssueCount}{" "}
                     {highPriorityIssueCount === 1
@@ -308,7 +349,10 @@ export default async function WebsiteAuditResult({
                     <div
                       className="grid size-40 place-items-center rounded-full p-3"
                       style={{
-                        background: `conic-gradient(${scoreColor(report.overallScore ?? 0)} ${(report.overallScore ?? 0) * 3.6}deg, #e5e7eb 0deg)`,
+                        background:
+                          report.overallScore === null
+                            ? "#e5e7eb"
+                            : `conic-gradient(${scoreColor(report.overallScore)} ${report.overallScore * 3.6}deg, #e5e7eb 0deg)`,
                       }}
                     >
                       <div className="grid size-full place-items-center rounded-full bg-white dark:bg-gray-900">
@@ -317,13 +361,19 @@ export default async function WebsiteAuditResult({
                             {report.overallScore ?? "--"}
                           </span>
                           <span className="text-sm text-gray-500 dark:text-gray-400">
-                            out of 100
+                            {report.overallScore === null
+                              ? "score withheld"
+                              : "out of 100"}
                           </span>
                         </div>
                       </div>
                     </div>
                     <p className="mt-5 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                      Deterministic score based on observable website signals.
+                      {report.overallScore === null
+                        ? "More verified evidence is required before showing a numeric score."
+                        : scoringCoverage?.level === "provisional"
+                          ? `Provisional deterministic score based on ${scoringCoverage.coveragePercentage}% verified coverage.`
+                          : "Deterministic score based on observable website signals."}
                     </p>
                   </div>
 

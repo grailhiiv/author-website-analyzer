@@ -1,10 +1,6 @@
 # Needs Review Status Content — Author Website Analyzer
 
-Use this content when the analyzer does not have enough reliable evidence to determine whether a check passes or fails.
-
-> **Status routing rule:** **Needs Review** is an evidence status, not a confirmed website problem. Do not deduct the check as a confirmed failure until manual verification or a successful rescan establishes the result.
-
-Each check contains exactly one **Details** statement and one technical **Recommendation**.
+These are fallback Details statements and the canonical technical recommendations for each deterministic check. During a completed scan, Details are generated from the actual inspected evidence, page, observation, and threshold.
 
 ## 1. Brand Clarity — 15 points
 
@@ -14,8 +10,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Inspect the rendered homepage, document `<title>`, primary H1, header text, and Person schema to confirm that the published author name is exposed as text. If the name appears only inside an image, slider, or interaction-dependent component, add an accessible text equivalent or make that component available to the scanner before rescanning.
+**Recommendation:** Verify that the published author name appears as visible text in the homepage header, hero, primary H1, document title, or Person structured data. When the name exists only inside a logo, image, slider, or interaction-dependent component, add a readable HTML equivalent and rerun the scan after confirming the public page renders completely.
 
 ### Writing category is clear — 3 points
 
@@ -23,8 +18,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Review the visible homepage introduction and headings for a plain-language genre or writing-category phrase. If the wording is loaded only after interaction or embedded in artwork, expose it as rendered HTML text and rerun the scan.
+**Recommendation:** Inspect the rendered homepage introduction, hero, and headings to confirm that a clear genre, subject, or writing-category phrase is visible to readers. When this information appears only in artwork, rotating slides, hidden tabs, or script-loaded content, expose it as persistent HTML text and rescan the public homepage.
 
 ### Homepage headline gives brand clarity — 4 points
 
@@ -32,8 +26,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Open the homepage in a signed-out browser and verify that one prominent headline identifies the author, books, genre, or reader promise. Confirm that the headline exists in the rendered DOM and is not hidden behind a carousel, popup, or consent layer before rescanning.
+**Recommendation:** Open the homepage in a signed-out desktop and mobile browser and confirm that one prominent headline clearly identifies the author, books, genre, audience, or reader promise. When the headline is hidden by a carousel, popup, consent layer, artwork, or delayed rendering, expose a default HTML version and rerun the scan.
 
 ### About path is present — 3 points
 
@@ -41,8 +34,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Follow the About path from the homepage and primary navigation, confirm that the destination returns a direct successful HTML response, and verify that the biography is visible without login. If the page is unlinked, redirected excessively, or blocked from crawling, correct that access path and rerun the scan.
+**Recommendation:** Follow the likely About links from the homepage, navigation, footer, and sitemap and confirm that a public biography destination loads successfully. When the page is unlinked, blocked, excessively redirected, protected by login, or unavailable to the scanner, correct the access path and rerun the crawl before assigning a confirmed result.
 
 ### Homepage has useful introductory content — 1 point
 
@@ -50,8 +42,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Inspect the initial rendered homepage for a readable introduction that explains the author or books. If the only context is inside images, sliders, or content injected after user interaction, add a short HTML introduction that the scanner and assistive technology can read.
+**Recommendation:** Inspect the initial rendered homepage for readable introductory text that explains the author or books and provides a useful next step. When the only context appears inside artwork, sliders, delayed scripts, tabs, or blocked components, add a persistent HTML introduction and rerun the scan after confirming complete rendering.
 
 ## 2. Book Visibility — 20 points
 
@@ -61,8 +52,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Verify that a current cover is rendered as a visible image at the inspected viewport and is not deferred until a carousel click or popup opens. Prefer an `<img>` with a valid `src` or `srcset`, intrinsic dimensions, and descriptive alt text, then rescan the public page.
+**Recommendation:** Verify that a current book cover appears visibly in the inspected homepage or book content and is not loaded only after a carousel click, popup, hover, or unsupported script action. Prefer an accessible `<img>` with a valid source, dimensions, and descriptive alt text, then rescan the fully rendered public page.
 
 ### Book title is visible — 3 points
 
@@ -70,8 +60,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Confirm that each featured book has its full title in visible HTML text near the cover. If the title exists only inside cover artwork or appears after interaction, add a semantic text heading and rerun the scan.
+**Recommendation:** Inspect each featured-book presentation and confirm that the full title appears as visible HTML text near the correct cover and actions. When the title exists only inside cover artwork, a hidden tab, rotating slide, or delayed component, add a semantic text heading and rerun the scan after the default view renders.
 
 ### Book description is present — 4 points
 
@@ -79,8 +68,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Check the public page for a visible hook, blurb, or synopsis associated with at least one featured book. Place the description in rendered HTML rather than an image, inaccessible accordion, or script-dependent fragment, then rescan.
+**Recommendation:** Review the public book presentation for visible descriptive copy associated with at least one featured title. When the hook or synopsis appears only in artwork, an inaccessible accordion, a blocked widget, or script-dependent content, expose a readable HTML version and rerun the scan after the relevant section loads completely.
 
 ### Book purchase links are present — 4 points
 
@@ -88,17 +76,15 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
+**Recommendation:** Test every visible purchase control and confirm that it functions as a standard link or accessible button leading to the intended book or retailer destination. When the action depends on JavaScript-only handlers, blocked redirectors, third-party widgets, or inaccessible regional routing, provide a crawlable final URL and rerun the scan.
 
-**Recommendation:** Test every visible purchase control and confirm that it is a standard link or accessible button leading to the intended book or retailer page. Replace JavaScript-only click handlers or blocked redirectors with crawlable final URLs where possible, then rerun the scan.
-
-### Multiple retailer options are present — 2 points
+### Purchase options match book availability — 2 points
 
 **Status:** Needs Review
 
-**Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
+**Details:** The available evidence was incomplete or inconclusive, so purchase options match book availability requires review.
 
-
-**Recommendation:** Verify that at least two currently valid retailer destinations are shown for the same featured book when the edition is distributed to multiple stores. Use direct, crawlable links and ensure regional or affiliate routing does not block the scanner before rescanning.
+**Recommendation:** Confirm whether the featured book is widely distributed, retailer-exclusive, or direct-only, then compare that model with the purchase options shown on the site. When availability cannot be reliably determined from the inspected pages or external destinations, verify it manually, update the links or exclusivity wording as needed, and rescan.
 
 ### Reader proof is present — 2 points
 
@@ -106,8 +92,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Inspect visible review excerpts, endorsements, ratings, and awards and confirm that each includes a recognizable attribution. If proof is injected through a third-party widget or hidden carousel, add a readable HTML version or ensure the widget renders for the scanner.
+**Recommendation:** Inspect visible review excerpts, ratings, awards, and endorsements and confirm that they relate to the featured book and include recognizable attribution. When proof is supplied only through a blocked third-party widget, hidden carousel, inaccessible embed, or ambiguous copy, add a readable attributed HTML version and rerun the scan.
 
 ### Featured book section is present — 1 point
 
@@ -115,10 +100,9 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
+**Recommendation:** Confirm that one current title is intentionally presented as a complete default section containing its cover, text title, useful description, and purchase path. When these elements are separated across tabs, sliders, popups, or interaction-dependent components, expose a complete initial presentation and rerun the fully rendered page scan.
 
-**Recommendation:** Confirm that one current book is intentionally presented with its cover, text title, hook, and purchase path in the public page content. If these elements are split across sliders, tabs, or interaction-dependent components, expose a complete default view and rerun the scan.
-
-## 3. Reader Engagement — 15 points
+## 3. Email Growth — 15 points
 
 ### Newsletter signup is present — 5 points
 
@@ -126,8 +110,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Submit the newsletter form manually with a test address and verify validation, consent, confirmation, and list delivery. Ensure the form or subscription link is available in the public rendered page and not blocked by an inaccessible iframe, popup trigger, or bot challenge.
+**Recommendation:** Locate and manually test the newsletter form or subscription destination to confirm that it is publicly accessible and accepts an email address. When the signup is blocked by an iframe, bot challenge, popup trigger, delayed script, or inaccessible provider page, expose a persistent usable path and rerun the scan.
 
 ### Newsletter is visible on the homepage — 3 points
 
@@ -135,8 +118,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Open the homepage at desktop and mobile widths and confirm that a newsletter form or clearly labeled subscription link is visible without navigating elsewhere. If it appears only after a popup delay or interaction, add a persistent inline signup path and rescan.
+**Recommendation:** Open the homepage at desktop and mobile widths and confirm that a newsletter form or clearly labeled signup link is visible without waiting for a popup or performing an unsupported interaction. When only a delayed or blocked subscription prompt exists, add a persistent inline path and rerun the scan.
 
 ### Reader magnet is present — 4 points
 
@@ -144,8 +126,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Verify that the page clearly offers a reader incentive and explains what is delivered after signup. Make the offer and delivery path available as readable page content rather than relying only on a popup, image, or email-platform script that the scanner cannot render.
+**Recommendation:** Verify that the site clearly offers a reader incentive and that the offer explains what is delivered after signup. When the magnet appears only in a popup, image, inaccessible iframe, or email-platform script the scanner cannot inspect, expose the offer as readable page content and test delivery before rescanning.
 
 ### Subscriber benefit is clear — 3 points
 
@@ -153,46 +134,41 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
+**Recommendation:** Read the copy immediately surrounding the newsletter form or subscription link and confirm that it clearly explains what subscribers receive. When the benefit appears only in placeholder text, an image, delayed script, popup, or blocked embed, add persistent HTML copy and rerun the scan after the form renders fully.
 
-**Recommendation:** Read the copy immediately surrounding the signup control and confirm that it states what subscribers receive and, where appropriate, how often. If the benefit is supplied only through placeholder text, an image, or delayed script, add persistent HTML copy and rerun the scan.
+## 4. Search Visibility — 15 points
 
-## 4. Search Visibility — 18 points
-
-### Title tag is present — 2 points
-
-**Status:** Needs Review
-
-**Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
-
-
-**Recommendation:** Inspect the final rendered document head or browser tab and confirm that the homepage contains one meaningful `<title>` element. If metadata is added only client-side or omitted from the initial response, configure the framework or SEO system to render it consistently and rescan.
-
-### Title supports the author brand — 3 points
+### Title tag is present — 1 point
 
 **Status:** Needs Review
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
+**Recommendation:** Inspect both the initial page source and final rendered document head to confirm that one meaningful homepage `<title>` is present. When metadata is added only client-side, overwritten by a plugin, duplicated, or unavailable because rendering failed, correct the metadata configuration and rerun the scan.
 
-**Recommendation:** Confirm that the homepage title begins with or clearly includes the published author name and useful author or genre context. Review the final rendered `<title>` rather than only the CMS field, because plugins or templates may overwrite it.
-
-### Meta description is present — 3 points
-
-**Status:** Needs Review
-
-**Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
-
-
-**Recommendation:** Inspect the homepage source and rendered head for one distinct non-empty `<meta name="description">`. If it is missing from the server response, duplicated, or overwritten client-side, correct the metadata template and rerun the scan.
-
-### Page has one main heading — 2 points
+### Title supports the author brand — 2 points
 
 **Status:** Needs Review
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
+**Recommendation:** Check the final rendered homepage title and confirm that it contains the published author name, recognized pen name, or another clear author-brand identifier. When plugins, templates, or client-side scripts overwrite the expected value, correct the metadata output and rerun the scan against the live public URL.
 
-**Recommendation:** Inspect the rendered heading structure and confirm that the page has exactly one primary H1. If the H1 is missing, duplicated by the theme, or inserted only after interaction, correct the template or page-builder hierarchy and rescan.
+### Meta description is present — 2 points
+
+**Status:** Needs Review
+
+**Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
+
+**Recommendation:** Inspect the initial source and final rendered head for one distinct, non-empty `<meta name="description">`. When the description is missing from the server response, duplicated, overwritten client-side, or unavailable because rendering failed, correct the metadata template and rerun the scan on the public homepage.
+
+### Primary heading structure is clear — 2 points
+
+**Status:** Needs Review
+
+**Details:** The available evidence was incomplete or inconclusive, so primary heading structure is clear requires review.
+
+**Recommendation:** Inspect the final rendered heading hierarchy and determine whether one clear page-level H1 identifies the homepage’s primary topic. When headings are inserted only after interaction, duplicated by the theme, hidden behind overlays, or unavailable because rendering failed, correct the template or component and rerun the scan.
 
 ### Main heading gives author clarity — 3 points
 
@@ -200,8 +176,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Read the visible H1 without relying on images or nearby copy and confirm that it identifies the author, books, genre, or reader promise. If the scanner cannot see it because it is rendered as artwork, pseudo-content, or delayed JavaScript, replace or supplement it with semantic HTML text.
+**Recommendation:** Read the visible primary heading independently from nearby imagery and confirm that it identifies the author, books, genre, audience, or reader promise. When the heading is artwork, pseudo-content, delayed JavaScript, or hidden by an overlay, replace or supplement it with semantic HTML and rerun the scan.
 
 ### Page appears indexable — 3 points
 
@@ -209,8 +184,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Check robots.txt, page-level meta robots, X-Robots-Tag response headers, authentication, and canonical routing for the inspected URL. Remove accidental access barriers or expose the final public URL to the crawler, then verify it with a search-engine inspection tool and rerun the scan.
+**Recommendation:** Inspect the live page’s meta robots directives, canonical destination, authentication state, and rendered metadata to determine whether the page is intended to be indexable. When headers, redirects, page access, or rendering are incomplete, correct the access condition and rerun the scan before treating the page as blocked.
 
 ### Useful internal links are present — 2 points
 
@@ -218,10 +192,9 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
+**Recommendation:** Inspect the rendered homepage and navigation for standard crawlable anchors to important reader pages, then follow each destination to confirm it loads correctly. When navigation depends on JavaScript-only controls, blocked redirects, incomplete rendering, or uncrawled pages, expose direct final URLs and rerun the crawl.
 
-**Recommendation:** Follow the homepage's important links and inspect the rendered HTML for standard anchors to Books, About, Contact, newsletter, and other priority pages. Replace script-only navigation or blocked redirect links with crawlable final URLs before rescanning.
-
-## 5. Mobile Performance — 10 points
+## 5. Mobile Experience — 10 points
 
 ### Mobile performance meets target — 4 points
 
@@ -229,8 +202,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Run PageSpeed Insights directly against the same public homepage URL and record whether a mobile result is returned. If the audit is blocked, remove authentication or challenge pages for legitimate testing, adjust WAF or consent behavior, and retry before rerunning the analyzer.
+**Recommendation:** Run a current mobile PageSpeed or Lighthouse audit against the exact public homepage and confirm that a complete result is returned. When authentication, bot protection, consent interstitials, server errors, or blocked resources prevent testing, correct the access condition and rerun the analyzer before evaluating performance.
 
 ### Mobile accessibility meets target — 1 point
 
@@ -238,8 +210,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Run a current mobile Lighthouse or PageSpeed accessibility audit and review the individual findings, not only the score. Ensure the public page can load without authentication, bot challenges, or an overlay that prevents Lighthouse from reaching the content.
+**Recommendation:** Run a complete mobile accessibility audit and manually inspect the page’s navigation, forms, controls, focus behavior, and readable content. When a login gate, bot challenge, persistent overlay, rendering error, or blocked asset prevents reliable testing, remove the obstruction and rerun the analyzer before assigning a confirmed result.
 
 ### Mobile text meets baseline contrast — 1 point
 
@@ -247,26 +218,23 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required rendered-page or viewport evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
+**Recommendation:** Measure representative mobile text, links, buttons, and controls against their actual rendered backgrounds using a contrast-testing method. When overlays, missing assets, animation, blocked content, or incomplete viewport capture prevents reliable measurement, correct the rendering condition and rerun the scan before confirming compliance or failure.
 
-**Recommendation:** Measure representative mobile text, links, and controls against their actual rendered backgrounds with a contrast-testing tool. If the required viewport cannot render cleanly because of overlays, animation, or blocked assets, correct those rendering conditions and rescan.
-
-### Mobile search audit meets target — 1 point
-
-**Status:** Needs Review
-
-**Details:** The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
-
-
-**Recommendation:** Run the mobile Lighthouse SEO audit on the exact public URL and inspect crawlability, metadata, status-code, and link findings. Resolve any access or rendering condition that prevents PageSpeed from returning a complete result, then rerun the analyzer.
-
-### Images include alt text — 1 point
+### Mobile interactive controls meet usability baseline — 1 point
 
 **Status:** Needs Review
 
-**Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
+**Details:** The available evidence was incomplete or inconclusive, so mobile interactive controls meet usability baseline requires review.
 
+**Recommendation:** Operate the homepage’s mobile menu, forms, purchase controls, dialogs, and other interactive components using touch and keyboard input where applicable. When rendering errors, overlays, blocked scripts, or incomplete interaction testing prevent a reliable conclusion, correct those conditions and rerun the mobile scan.
 
-**Recommendation:** Inspect meaningful images in the rendered DOM and verify that each has an appropriate `alt` attribute while decorative images use `alt=""`. If images are supplied as CSS backgrounds or generated by a widget, add accessible equivalents or configure the component to expose alternative text.
+### Images include appropriate alt text — 1 point
+
+**Status:** Needs Review
+
+**Details:** The available evidence was incomplete or inconclusive, so images include appropriate alt text requires review.
+
+**Recommendation:** Inspect meaningful images in the rendered mobile DOM and confirm that each has useful alternative text while decorative images use `alt=""`. When images are generated by inaccessible widgets, supplied only as CSS backgrounds, lazy-loaded after interaction, or unavailable to the scanner, add accessible equivalents and rescan.
 
 ### Homepage loads with a main heading — 1 point
 
@@ -274,8 +242,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required rendered-page or viewport evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Load the homepage in a signed-out mobile browser and confirm that it returns successfully with one visible text H1 in the initial rendered content. Remove or reconfigure login gates, persistent overlays, or client-side failures that prevent the heading from being rendered, then rescan.
+**Recommendation:** Load the homepage in a signed-out mobile browser and confirm that it returns successfully with one visible, readable text H1 in the initial rendered content. When authentication, overlays, delayed scripts, or client-side failures prevent inspection, correct the rendering condition and rerun the scan.
 
 ### Mobile page fits the viewport — 1 point
 
@@ -283,8 +250,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required rendered-page or viewport evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Test the page at common phone widths and check whether the document itself scrolls horizontally or clips essential controls. If rendering evidence was incomplete, disable blocking overlays and inspect oversized fixed-width elements, transforms, tables, embeds, and sliders before rescanning.
+**Recommendation:** Test the rendered page at common mobile widths and determine whether the document itself scrolls horizontally or clips essential content. When overlays, missing assets, blocked scripts, or incomplete capture prevent reliable measurement, correct those conditions, inspect oversized elements, and rerun the viewport scan.
 
 ## 6. Technical Health — 10 points
 
@@ -294,26 +260,15 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
+**Recommendation:** Run a complete desktop PageSpeed or Lighthouse performance audit against the exact public URL. When authentication, WAF rules, consent interstitials, bot challenges, server errors, or unavailable assets prevent a valid result, correct the access or rendering condition and rerun the analyzer before assigning a confirmed status.
 
-**Recommendation:** Run PageSpeed Insights directly against the exact public URL in desktop mode and confirm that a complete performance result is returned. If the request is blocked by authentication, WAF rules, consent interstitials, or server errors, correct that access condition and retry the analyzer.
-
-### Mobile best practices meet target — 2 points
-
-**Status:** Needs Review
-
-**Details:** The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
-
-
-**Recommendation:** Run the mobile Lighthouse best-practices audit and inspect console, security, image, and browser-API findings. Ensure the page and its required resources are available to Lighthouse without a bot challenge or persistent overlay, then rerun the analyzer.
-
-### Desktop best practices meet target — 1 point
+### Browser best practices meet target — 2 points
 
 **Status:** Needs Review
 
-**Details:** The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
+**Details:** The available evidence was incomplete or inconclusive, so browser best practices meet target requires review.
 
-
-**Recommendation:** Run the desktop Lighthouse best-practices audit on the public URL and review every incomplete or failed audit. Resolve access restrictions, resource failures, or rendering errors that prevent a complete result before rescanning.
+**Recommendation:** Run complete mobile and desktop browser best-practice audits and inspect console, security, image-delivery, API, and dependency findings. When either result is blocked or incomplete because of access restrictions, persistent overlays, resource failures, or rendering errors, correct the underlying condition and rerun both audits.
 
 ### Desktop accessibility meets target — 1 point
 
@@ -321,8 +276,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required PageSpeed result was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Run a current desktop accessibility audit and manually test keyboard focus, form labels, link names, and dialog behavior. If PageSpeed cannot inspect the page, remove the authentication, challenge, or blocking layer responsible and rerun the analyzer.
+**Recommendation:** Run a current desktop accessibility audit and manually inspect keyboard focus, navigation, form labels, link names, dialogs, and interactive controls. When authentication, a bot challenge, persistent overlay, blocked resource, or rendering failure prevents complete inspection, correct the access condition and rerun the analyzer.
 
 ### Homepage uses HTTPS — 1 point
 
@@ -330,35 +284,39 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
+**Recommendation:** Open the homepage and priority public URLs and inspect the certificate, browser security state, redirect chain, hostname coverage, and mixed-content warnings. When the final destination is unavailable, blocked, or inconsistently redirected, correct the access path and rerun the scan before confirming whether HTTPS is properly implemented.
 
-**Recommendation:** Open the homepage and key public URLs and inspect the certificate chain, browser security indicator, redirects, and mixed-content console warnings. Correct expired certificates, hostname mismatches, HTTP endpoints, or inaccessible final URLs before rescanning.
-
-### Scanned pages load successfully — 1 point
-
-**Status:** Needs Review
-
-**Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
-
-
-**Recommendation:** Open every URL recorded by the scan and capture its final HTTP status, redirect chain, and rendered page. Restore inaccessible pages, correct server errors, or point the scanner and internal links to the final public URL, then rerun the crawl.
-
-### Search engine access is available — 1 point
+### Critical scanned pages load successfully — 1 point
 
 **Status:** Needs Review
 
-**Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
+**Details:** The available evidence was incomplete or inconclusive, so critical scanned pages load successfully requires review.
 
+**Recommendation:** Open every critical URL recorded by the scan and capture its final response status, redirect chain, and rendered destination. When the crawler could not complete the request because of timeouts, access restrictions, bot challenges, or server instability, correct the condition and rerun the crawl before confirming failure.
 
-**Recommendation:** Inspect robots.txt, meta robots tags, X-Robots-Tag headers, authentication, and response status for the homepage and priority pages. Remove unintended crawler restrictions or provide the scanner with the correct final public URL before rescanning.
-
-### Canonical or structured data is present — 1 point
+### Search-engine access is available — 1 point
 
 **Status:** Needs Review
 
-**Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
+**Details:** The available evidence was incomplete or inconclusive, so search-engine access is available requires review.
 
+**Recommendation:** Inspect robots.txt, X-Robots-Tag response headers, authentication, server status, and final routing for the homepage and priority pages. When the crawler cannot retrieve complete technical evidence because of access restrictions, redirects, bot protection, or response failures, correct the condition and rerun the scan.
 
-**Recommendation:** Inspect the rendered `<head>` for a valid canonical link and the page source for parsable Person or Organization JSON-LD. If markup is inserted only after unsupported interaction or is malformed, correct the output and validate it before rerunning the analyzer.
+### Canonical URL is valid — 1 point
+
+**Status:** Needs Review
+
+**Details:** The available evidence was incomplete or inconclusive, so canonical url is valid requires review.
+
+**Recommendation:** Inspect the initial source and rendered document head for a valid canonical URL, then compare it with the final response URL, protocol, hostname, and page identity. When source and rendered values conflict or the page cannot be fully retrieved, correct the output and rerun the scan.
+
+### Author or site structured data is valid — 1 point
+
+**Status:** Needs Review
+
+**Details:** The available evidence was incomplete or inconclusive, so author or site structured data is valid requires review.
+
+**Recommendation:** Inspect the rendered page source for parsable Person or Organization JSON-LD and compare its name, URL, and profiles with the visible author brand. When markup is malformed, inserted only after unsupported interaction, duplicated, conflicting, or unavailable because rendering failed, correct and validate it before rescanning.
 
 ## 7. Author Trust — 10 points
 
@@ -368,8 +326,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Open the public About page or biography section and confirm that substantive author information is present as readable HTML. If the bio is hidden behind a tab, image, login, or client-side failure, expose a default accessible version and rescan.
+**Recommendation:** Open the public About page or biography section and confirm that substantive author information appears as readable HTML. When the biography is hidden behind a tab, image, login, blocked page, or client-side failure, expose a default accessible version and rerun the scan after the page loads completely.
 
 ### Author photo is present — 2 points
 
@@ -377,8 +334,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Confirm that a recognizable author portrait is visible on the public homepage or About page and represented by an accessible image element with useful alt text. If the image is lazy-loaded only after interaction or rendered as an inaccessible background, correct the component and rerun the scan.
+**Recommendation:** Confirm that a recognizable author portrait is visible near biography or identity content and represented by an accessible image element. When the image is lazy-loaded only after interaction, used as an inaccessible background, ambiguously classified, or unavailable because rendering failed, correct the component and rerun the scan.
 
 ### Contact path is present — 2 points
 
@@ -386,8 +342,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Follow the Contact link, confirm a direct successful page response, and test the form or email path through completion. Correct broken routes, inaccessible embedded forms, bot challenges, or script failures that prevent the scanner from reaching the contact destination.
+**Recommendation:** Follow the Contact link, confirm that the destination returns a successful public page, and manually test the form or email path. When broken routes, embedded-form restrictions, bot challenges, authentication, or script failures prevent inspection, correct the access condition and rerun the scan before confirming the result.
 
 ### Social profile links are present — 1 point
 
@@ -395,8 +350,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Open each visible social link and confirm that it is a standard anchor leading to the author's active official profile. Replace icon-only controls without accessible names, JavaScript-only navigation, or blocked redirectors, then rescan.
+**Recommendation:** Open each visible social control and confirm that it is a standard link leading to an active official author profile rather than a share action or generic platform homepage. When icon-only controls lack accessible names, redirects are blocked, or destinations cannot be verified, correct the links and rescan.
 
 ### Media kit is present — 1 point
 
@@ -404,8 +358,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Open the media or press path and confirm that biographies, book information, downloadable assets, and contact details are publicly reachable. Repair broken file permissions, inaccessible cloud links, or unlinked pages before rerunning the scan.
+**Recommendation:** Open the likely media or press destination and confirm that biographies, book information, downloadable images, and contact details are publicly accessible. When the page is unlinked, blocked, protected, or dependent on inaccessible cloud files, correct the permissions and navigation path and rerun the scan.
 
 ### Privacy policy is present — 1 point
 
@@ -413,8 +366,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Open the Privacy link from the footer and relevant forms and confirm that the policy returns a successful public page with current text. Fix broken routes, authentication, empty policy templates, or inaccessible embedded documents before rescanning.
+**Recommendation:** Open the privacy-policy link from the footer and relevant forms and confirm that it returns a successful public page with substantive content. When the destination is broken, protected, empty, script-only, or unavailable to the scanner, correct the route or access settings and rerun the scan.
 
 ### Trust proof is present — 1 point
 
@@ -422,8 +374,7 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
-
-**Recommendation:** Inspect visible reviews, praise, awards, and ratings and confirm that each includes a credible source or enough supporting context. If proof is loaded only through a blocked widget or hidden interaction, add a readable attributed version to the page and rescan.
+**Recommendation:** Inspect visible awards, media mentions, credentials, endorsements, and professional claims and confirm that they relate to the author and include credible attribution. When proof is supplied through a blocked widget, hidden component, ambiguous statement, or inaccessible source, add a readable supported version and rerun the scan.
 
 ## 8. Site Usability — 5 points
 
@@ -433,41 +384,36 @@ Each check contains exactly one **Details** statement and one technical **Recomm
 
 **Details:** The required rendered-page or viewport evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
 
+**Recommendation:** Operate the primary navigation at desktop, tablet, and mobile widths using both pointer and keyboard input. When missing controls, hidden links, focus traps, overlays, viewport-specific rendering failures, or blocked scripts prevent complete testing, correct those conditions and rerun the usability scan.
 
-**Recommendation:** Operate the primary navigation at desktop, tablet, and mobile widths using both pointer and keyboard input. Correct missing menu controls, focus traps, hidden links, viewport-specific rendering failures, or overlays that prevent the scanner from capturing a usable menu.
-
-### Scanned pages load successfully — 1 point
-
-**Status:** Needs Review
-
-**Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
-
-
-**Recommendation:** Open each reader-facing path recorded for the usability scan and verify a direct successful response without unnecessary redirects. Repair unavailable routes or update internal links to the final public destinations before rerunning the scan.
-
-### Privacy policy is present — 1 point
+### Priority reader paths are easy to reach — 1 point
 
 **Status:** Needs Review
 
-**Details:** The required crawl or page-response evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
+**Details:** The available evidence was incomplete or inconclusive, so priority reader paths are easy to reach requires review.
 
+**Recommendation:** Follow the homepage’s main reader journeys and determine whether Books, About, newsletter, Contact, and featured purchase destinations can be reached within one or two clear actions. When pages were not crawled or navigation depends on blocked interactions, correct the access condition and rerun the usability test.
 
-**Recommendation:** Use the public footer and forms to confirm that visitors can reach the Privacy page through a standard link. Restore a missing link, correct the destination, or expose the policy without login or script-only navigation, then rescan.
-
-### Canonical or structured data is present — 1 point
-
-**Status:** Needs Review
-
-**Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
-
-
-**Recommendation:** Inspect the final rendered canonical URL and Person or Organization markup and compare their name, hostname, protocol, and page identity. Correct malformed, conflicting, or client-only markup and validate the live page before rerunning the analyzer.
-
-### Site content appears current — 1 point
+### Calls to action are clear and descriptive — 1 point
 
 **Status:** Needs Review
 
-**Details:** The required website content or markup evidence was unavailable or incomplete, so the analyzer could not reliably determine whether this check passes.
+**Details:** The available evidence was incomplete or inconclusive, so calls to action are clear and descriptive requires review.
 
+**Recommendation:** Inspect prominent homepage buttons and links and confirm that each label clearly communicates the resulting action or destination. When controls rely on icons, surrounding images, hidden context, script-generated labels, or inaccessible components, add descriptive visible and accessible text and rerun the scan.
 
-**Recommendation:** Review visible dates, book availability, event listings, biography details, contact information, and external links rather than relying only on the footer year. If current content is hidden from the scanner by interaction-dependent components, expose the relevant text in the default rendered page and rescan.
+### Forms and interactive controls are usable — 1 point
+
+**Status:** Needs Review
+
+**Details:** The available evidence was incomplete or inconclusive, so forms and interactive controls are usable requires review.
+
+**Recommendation:** Operate the website’s visible forms, menus, dialogs, accordions, sliders, and primary action controls to confirm that they can be understood and used. When blocked scripts, overlays, third-party embeds, rendering errors, or incomplete interaction testing prevent verification, correct those conditions and rerun the usability scan.
+
+### Content is not blocked or visually broken — 1 point
+
+**Status:** Needs Review
+
+**Details:** The available evidence was incomplete or inconclusive, so content is not blocked or visually broken requires review.
+
+**Recommendation:** Inspect the rendered homepage at representative desktop and mobile widths and confirm that key content is not hidden by overlays, broken assets, collapsed components, or layout failures. When incomplete rendering or blocked resources prevent reliable inspection, correct the page condition and rerun the visual usability scan.

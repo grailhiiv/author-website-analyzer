@@ -73,13 +73,13 @@ export type ReportNarrativeInput = {
   findings: ScoringFinding[];
   quickWins: ScoringFinding[];
   serviceFitLabel: ServiceFitLabel;
-  overallScore: number;
+  overallScore: number | null;
   technicalAudit?: TechnicalAuditScoreInput | null;
 };
 
 type FetchImplementation = (
   input: string | URL,
-  init?: RequestInit
+  init?: RequestInit,
 ) => Promise<Response>;
 
 export type GenerateReportNarrativeOptions = {
@@ -146,7 +146,10 @@ function truncate(value: string, maxLength = 500) {
 }
 
 function limitStrings(values: string[], limit = 5) {
-  return values.map((value) => truncate(value, 240)).filter(Boolean).slice(0, limit);
+  return values
+    .map((value) => truncate(value, 240))
+    .filter(Boolean)
+    .slice(0, limit);
 }
 
 function topFindings(findings: ScoringFinding[], limit: number) {
@@ -181,49 +184,48 @@ function toSignalPromptData(signals: AuthorWebsiteSignals) {
         Object.entries(signals.authorBrand).map(([key, signal]) => [
           key,
           detectedEvidence(signal),
-        ])
+        ]),
       ),
       bookPromotion: Object.fromEntries(
         Object.entries(signals.bookPromotion).map(([key, signal]) => [
           key,
           detectedEvidence(signal),
-        ])
+        ]),
       ),
       newsletter: Object.fromEntries(
         Object.entries(signals.newsletter).map(([key, signal]) => [
           key,
           detectedEvidence(signal),
-        ])
+        ]),
       ),
       seo: Object.fromEntries(
         Object.entries(signals.seo).map(([key, signal]) => [
           key,
           detectedEvidence(signal),
-        ])
+        ]),
       ),
       trust: Object.fromEntries(
         Object.entries(signals.trust).map(([key, signal]) => [
           key,
           detectedEvidence(signal),
-        ])
+        ]),
       ),
       retailers: Object.fromEntries(
         Object.entries(signals.retailers).map(([key, signal]) => [
           key,
           detectedEvidence(signal),
-        ])
+        ]),
       ),
       schema: Object.fromEntries(
         Object.entries(signals.schema).map(([key, signal]) => [
           key,
           detectedEvidence(signal),
-        ])
+        ]),
       ),
     },
-    indexable:
-      signals.seo.indexabilitySignals.detected
-        ? signals.seo.indexabilitySignals.indexable
-        : null,
+    indexable: signals.seo.indexabilitySignals.detected
+      ? signals.seo.indexabilitySignals.indexable
+      : null,
   };
 }
 
@@ -349,13 +351,13 @@ function parseAiReportNarrativeJson(json: string) {
 
 function attachDeterministicCategoryScores(
   narrative: AiReportNarrative,
-  categoryScores: CategoryScoreResult[]
+  categoryScores: CategoryScoreResult[],
 ): ReportNarrative {
   return {
     ...narrative,
     categoryCritiques: categoryScores.map((score, index) => {
       const matchingCritique = narrative.categoryCritiques.find(
-        (item) => item.category === score.label
+        (item) => item.category === score.label,
       );
       const critique = matchingCritique ?? narrative.categoryCritiques[index];
 
@@ -383,15 +385,14 @@ function strongestScores(scores: CategoryScoreResult[]) {
     .filter((score) => score.percentageScore >= 70)
     .sort(
       (a, b) =>
-        b.percentageScore - a.percentageScore ||
-        a.label.localeCompare(b.label)
+        b.percentageScore - a.percentageScore || a.label.localeCompare(b.label),
     )
     .slice(0, 4);
 }
 
 function categoryCritique(
   score: CategoryScoreResult,
-  findings: ScoringFinding[]
+  findings: ScoringFinding[],
 ) {
   const finding = findings.find((item) => item.category === score.category);
 
@@ -405,21 +406,19 @@ function categoryCritique(
 function firstRecommendation(
   findings: ScoringFinding[],
   matcher: (finding: ScoringFinding) => boolean,
-  fallback: string
+  fallback: string,
 ) {
   return findings.find(matcher)?.recommendation ?? fallback;
 }
 
 export function buildFallbackReportNarrative(
-  input: ReportNarrativeInput
+  input: ReportNarrativeInput,
 ): ReportNarrative {
-  const scoringResult: ScoringResult = {
+  const scoringResult = {
     overallScore: input.overallScore,
     categoryScores: input.categoryScores,
     findings: input.findings,
-    quickWins: input.quickWins,
     serviceFitLabel: input.serviceFitLabel,
-    checkResults: [],
   };
   const orderedFindings = topFindings(input.findings, 5);
   const strongest = strongestScores(input.categoryScores);
@@ -440,7 +439,9 @@ export function buildFallbackReportNarrative(
     topRecommendations:
       orderedFindings.length > 0
         ? orderedFindings.map(recommendationText)
-        : ["Keep the author website clear, current, and focused on the reader's next step."],
+        : [
+            "Keep the author website clear, current, and focused on the reader's next step.",
+          ],
     categoryCritiques: input.categoryScores.map((score) => ({
       category: score.label,
       score: score.percentageScore,
@@ -451,14 +452,14 @@ export function buildFallbackReportNarrative(
       (finding) =>
         finding.category === "BRAND_CLARITY" ||
         finding.category === "BOOK_VISIBILITY",
-      "Make the homepage quickly explain who the author is, what they write, which book or series to explore first, and the best next action for readers."
+      "Make the homepage quickly explain who the author is, what they write, which book or series to explore first, and the best next action for readers.",
     ),
     suggestedCTAImprovement: firstRecommendation(
       orderedFindings,
       (finding) =>
         finding.category === "READER_ENGAGEMENT" ||
         finding.category === "BOOK_VISIBILITY",
-      "Use one clear primary call to action for readers, such as joining the newsletter or viewing the featured book."
+      "Use one clear primary call to action for readers, such as joining the newsletter or viewing the featured book.",
     ),
     suggestedSeoTitle: "Author Name | Official Author Website",
     suggestedMetaDescription:
@@ -467,16 +468,23 @@ export function buildFallbackReportNarrative(
   };
 }
 
-function buildBasicSummary(result: ScoringResult) {
+function buildBasicSummary(
+  result: Pick<
+    ScoringResult,
+    "overallScore" | "categoryScores" | "findings" | "serviceFitLabel"
+  >,
+) {
   const sortedScores = [...result.categoryScores].sort(
     (a, b) =>
-      b.percentageScore - a.percentageScore || a.label.localeCompare(b.label)
+      b.percentageScore - a.percentageScore || a.label.localeCompare(b.label),
   );
   const strongest = sortedScores[0];
   const weakest = sortedScores[sortedScores.length - 1];
   const topFix = result.findings[0];
   const parts = [
-    `This author website scored ${result.overallScore}/100 using deterministic scan data.`,
+    result.overallScore === null
+      ? "This author website did not receive a numeric score because verified audit coverage was below the required threshold."
+      : `This author website scored ${result.overallScore}/100 using deterministic scan data.`,
   ];
 
   if (strongest) {
@@ -484,14 +492,18 @@ function buildBasicSummary(result: ScoringResult) {
   }
 
   if (weakest && weakest.percentageScore < 80) {
-    parts.push(`The area that needs the most attention is ${weakest.label.toLowerCase()}.`);
+    parts.push(
+      `The area that needs the most attention is ${weakest.label.toLowerCase()}.`,
+    );
   }
 
   if (topFix) {
     parts.push(`The top priority is ${topFix.title.toLowerCase()}.`);
   }
 
-  parts.push(`The suggested GrailHiiv service fit is ${result.serviceFitLabel}.`);
+  parts.push(
+    `The suggested GrailHiiv service fit is ${result.serviceFitLabel}.`,
+  );
 
   return parts.join(" ");
 }
@@ -502,41 +514,44 @@ async function fetchOpenAINarrative(
     Pick<GenerateReportNarrativeOptions, "apiKey" | "model" | "timeoutMs">
   > & {
     fetchImplementation: FetchImplementation;
-  }
+  },
 ) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
 
   try {
-    const response = await options.fetchImplementation(OPENAI_RESPONSES_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${options.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: options.model,
-        input: [
-          {
-            role: "system",
-            content: AUTHOR_REPORT_SYSTEM_INSTRUCTION,
-          },
-          {
-            role: "user",
-            content: buildReportNarrativePrompt(input),
-          },
-        ],
-        text: {
-          format: {
-            type: "json_schema",
-            name: "author_website_report_narrative",
-            strict: true,
-            schema: jsonSchema,
-          },
+    const response = await options.fetchImplementation(
+      OPENAI_RESPONSES_ENDPOINT,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${options.apiKey}`,
+          "Content-Type": "application/json",
         },
-      }),
-      signal: controller.signal,
-    });
+        body: JSON.stringify({
+          model: options.model,
+          input: [
+            {
+              role: "system",
+              content: AUTHOR_REPORT_SYSTEM_INSTRUCTION,
+            },
+            {
+              role: "user",
+              content: buildReportNarrativePrompt(input),
+            },
+          ],
+          text: {
+            format: {
+              type: "json_schema",
+              name: "author_website_report_narrative",
+              strict: true,
+              schema: jsonSchema,
+            },
+          },
+        }),
+        signal: controller.signal,
+      },
+    );
 
     if (!response.ok) {
       throw new Error(`OpenAI returned HTTP ${response.status}.`);
@@ -557,7 +572,7 @@ async function fetchOpenAINarrative(
 
 export async function generateReportNarrative(
   input: ReportNarrativeInput,
-  options: GenerateReportNarrativeOptions = {}
+  options: GenerateReportNarrativeOptions = {},
 ): Promise<ReportNarrativeResult> {
   const apiKey = options.apiKey?.trim();
 
@@ -580,7 +595,7 @@ export async function generateReportNarrative(
       source: "ai",
       narrative: attachDeterministicCategoryScores(
         aiNarrative,
-        input.categoryScores
+        input.categoryScores,
       ),
     };
   } catch {
@@ -602,7 +617,7 @@ export function serializeReportNarrative(result: ReportNarrativeResult) {
 }
 
 export function parseSerializedReportNarrative(
-  summary: string | null
+  summary: string | null,
 ): SerializedReportNarrative | null {
   if (!summary) {
     return null;
@@ -645,5 +660,8 @@ export function getExecutiveSummaryFromReportSummary(summary: string | null) {
     return null;
   }
 
-  return parseSerializedReportNarrative(summary)?.narrative.executiveSummary ?? summary;
+  return (
+    parseSerializedReportNarrative(summary)?.narrative.executiveSummary ??
+    summary
+  );
 }

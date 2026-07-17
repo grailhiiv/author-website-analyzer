@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  FindingSeverity,
-  ReportCategory,
-} from "@/generated/prisma/client";
+import { FindingSeverity, ReportCategory } from "@/generated/prisma/client";
 import {
   buildFallbackReportNarrative,
   extractOpenAIResponseText,
@@ -104,6 +101,10 @@ const categoryScores: CategoryScoreResult[] = [
     percentageScore: 73,
     earnedPoints: 11,
     availablePoints: 15,
+    verifiedPoints: 15,
+    verifiedScore: 73,
+    coveragePercentage: 100,
+    statusCounts: { passed: 3, needs_review: 0, failed: 2 },
     summary: "The author brand is partly clear from the homepage.",
   },
   {
@@ -115,6 +116,10 @@ const categoryScores: CategoryScoreResult[] = [
     percentageScore: 20,
     earnedPoints: 3,
     availablePoints: 15,
+    verifiedPoints: 15,
+    verifiedScore: 20,
+    coveragePercentage: 100,
+    statusCounts: { passed: 1, needs_review: 0, failed: 3 },
     summary: "The scan did not detect a clear newsletter path.",
   },
 ];
@@ -129,6 +134,8 @@ const findings: ScoringFinding[] = [
     recommendation:
       "Add a clear newsletter signup section with a simple reader benefit.",
     priority: 1,
+    rootCauseKey: "NEWSLETTER_ACQUISITION",
+    recoverablePoints: 5,
   },
   {
     category: ReportCategory.BOOK_VISIBILITY,
@@ -138,6 +145,8 @@ const findings: ScoringFinding[] = [
     recommendation:
       "Add a visible book section with retailer links for the featured book.",
     priority: 2,
+    rootCauseKey: "PURCHASE_PATH",
+    recoverablePoints: 4,
   },
 ];
 
@@ -186,9 +195,9 @@ test("report narrative JSON parser validates shape and rejects guarantee claims"
           ...narrative,
           finalRecommendation:
             "This creates guaranteed ranking and guaranteed sales.",
-        })
+        }),
       ),
-    /unsupported guarantee/i
+    /unsupported guarantee/i,
   );
 });
 
@@ -210,7 +219,7 @@ test("OpenAI response text extraction supports Responses API output items", () =
         },
       ],
     }),
-    text
+    text,
   );
 });
 
@@ -221,7 +230,7 @@ test("generateReportNarrative validates mocked OpenAI JSON output", async () => 
     executiveSummary:
       "The website has a clear author name, but the saved findings show newsletter and book-buying paths need attention.",
     categoryCritiques: deterministicNarrative.categoryCritiques.map(
-      ({ category, critique }) => ({ category, critique })
+      ({ category, critique }) => ({ category, critique }),
     ),
   };
   let requestBody: Record<string, unknown> | null = null;
@@ -251,7 +260,7 @@ test("generateReportNarrative validates mocked OpenAI JSON output", async () => 
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
     },
   });
@@ -266,23 +275,25 @@ test("generateReportNarrative validates mocked OpenAI JSON output", async () => 
   assert.equal(body.model, "test-model");
   assert.deepEqual(
     (body.text as { format?: { strict?: boolean } }).format?.strict,
-    true
+    true,
   );
-  const schema = (body.text as {
-    format?: {
-      schema?: {
-        properties?: {
-          categoryCritiques?: {
-            items?: { properties?: Record<string, unknown> };
+  const schema = (
+    body.text as {
+      format?: {
+        schema?: {
+          properties?: {
+            categoryCritiques?: {
+              items?: { properties?: Record<string, unknown> };
+            };
           };
         };
       };
-    };
-  }).format?.schema;
+    }
+  ).format?.schema;
 
   assert.equal(
     schema?.properties?.categoryCritiques?.items?.properties?.score,
-    undefined
+    undefined,
   );
 });
 

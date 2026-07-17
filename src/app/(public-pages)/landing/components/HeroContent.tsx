@@ -17,9 +17,16 @@ const HeroContent = ({ activeDomain }: { activeDomain?: string }) => {
 
     window.sessionStorage.removeItem("scroll-to-website-result");
     window.requestAnimationFrame(() => {
-      document
-        .getElementById("website-audit-result")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const result = document.getElementById("website-audit-result");
+
+      if (!result) {
+        return;
+      }
+
+      window.scrollTo({
+        top: window.scrollY + result.getBoundingClientRect().top,
+        behavior: "smooth",
+      });
     });
   }, [activeDomain]);
 
